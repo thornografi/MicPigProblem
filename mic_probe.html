@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mic Probe</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <svg class="header-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1C10.34 1 9 2.34 9 4V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V4C15 2.34 13.66 1 12 1Z" fill="url(#mic-gradient)"/>
+        <path d="M17 11C17 14 14.76 16.5 12 16.95V21H16V23H8V21H12V16.95C9.24 16.5 7 14 7 11H9C9 13.21 10.79 15 13 15C13.66 15 14.29 14.85 14.87 14.58C15.23 14.41 15.55 14.18 15.83 13.91C16.54 13.21 17 12.17 17 11H17Z" fill="url(#mic-gradient)"/>
+        <path d="M19 11H21C21 14.53 18.39 17.44 15 17.93V19H17V21H7V19H9V17.93C5.61 17.44 3 14.53 3 11H5C5 14.31 7.69 17 11 17H13C16.31 17 19 14.31 19 11Z" fill="url(#mic-gradient)" opacity="0.6"/>
+        <defs>
+          <linearGradient id="mic-gradient" x1="3" y1="1" x2="21" y2="23" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#00d4ff"/>
+            <stop offset="1" stop-color="#7b2cbf"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <h1>Mic Probe</h1>
+      <p>MediaRecorder | Audio Monitor | WebAudio API Test Araci</p>
+    </div>
+
+    <!-- Ayarlar -->
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Ses Isleme Ayarlari
+      </div>
+
+      <!-- Senaryo Profili -->
+      <div class="profile-selector-container">
+        <label class="profile-label">Senaryo Profili</label>
+        <select id="profileSelector" class="profile-dropdown">
+          <option value="discord" selected>Discord Modu</option>
+          <option value="zoom">Zoom Modu</option>
+          <option value="studio">Studyo Kaydi</option>
+          <option value="legacy">Eski Tarayici</option>
+          <option value="custom">Ozel (Manual)</option>
+        </select>
+        <span class="profile-desc" id="profileDesc">Electron + WebRTC + Krisp - Opus 64kbps</span>
+      </div>
+
+      <!-- Mikrofon Secici -->
+      <div class="mic-selector-container">
+        <label class="mic-label">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.06 7.44-7 7.93V20h4v2H8v-2h4v-4.07z"/></svg>
+          <span>Mikrofon</span>
+        </label>
+        <select id="micSelector" class="mic-dropdown">
+          <option value="">Varsayilan mikrofon</option>
+        </select>
+        <button id="refreshMics" class="btn-refresh" title="Mikrofon listesini yenile">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        </button>
+      </div>
+
+      <!-- Gelismis Ayarlar (Profil secilince disabled, Ozel'de aktif) -->
+      <div id="advancedSettings" class="advanced-settings">
+      <div class="settings-grid">
+        <label class="setting-item">
+          <input id="ec" type="checkbox" checked>
+          <span class="setting-label">Echo Cancellation</span>
+        </label>
+        <label class="setting-item">
+          <input id="ns" type="checkbox" checked>
+          <span class="setting-label">Noise Suppression</span>
+        </label>
+        <label class="setting-item">
+          <input id="agc" type="checkbox" checked>
+          <span class="setting-label">Auto Gain Control</span>
+        </label>
+      </div>
+
+      <!-- WebAudio Toggle -->
+      <div class="webaudio-toggle-container">
+        <div class="toggle-info">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
+          <div>
+            <span class="toggle-title">WebAudio Pipeline</span>
+            <span class="toggle-desc" id="webaudioModeDesc">Sesi AudioContext uzerinden gecirir</span>
+          </div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="webaudioToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Processing Mode (Kayit + Monitor icin ortak) -->
+      <div id="processingModeContainer" class="monitor-mode-container" style="display: block;">
+          <div class="monitor-mode-label">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+              <span>Islem Modu</span>
+          </div>
+          <div class="segment-control" id="processingModeSelector">
+              <input type="radio" name="processingMode" id="modeDirect" value="direct">
+              <label for="modeDirect" class="segment-btn">Direct</label>
+
+              <input type="radio" name="processingMode" id="modeWebAudio" value="webaudio" checked>
+              <label for="modeWebAudio" class="segment-btn">WebAudio</label>
+
+              <input type="radio" name="processingMode" id="modeScript" value="scriptprocessor">
+              <label for="modeScript" class="segment-btn">ScriptProcessor</label>
+
+              <input type="radio" name="processingMode" id="modeWorklet" value="worklet">
+              <label for="modeWorklet" class="segment-btn">AudioWorklet</label>
+          </div>
+      </div>
+
+      <!-- Loopback Toggle -->
+      <div class="loopback-toggle-container">
+        <div class="toggle-info">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c1.03.13 2 .45 2.87.93H13v-.93zM13 7h5.24c.25.31.48.65.68 1H13V7zm0 3h6.74c.08.33.15.66.19 1H13v-1zm0 9.93V19h2.87c-.87.48-1.84.8-2.87.93zM18.24 17H13v-1h5.92c-.2.35-.43.69-.68 1zm1.5-3H13v-1h6.93c-.04.34-.11.67-.19 1z"/></svg>
+          <div>
+            <span class="toggle-title">WebRTC Loopback</span>
+            <span class="toggle-desc">WhatsApp benzeri RTCPeerConnection testi</span>
+          </div>
+        </div>
+        <label class="toggle-switch loopback-switch">
+          <input type="checkbox" id="loopbackToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Opus Bitrate Secici (Loopback acikken gorunur) -->
+      <div id="opusBitrateContainer" class="opus-bitrate-container" style="display: none;">
+        <div class="bitrate-label">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <span>Opus Bitrate</span>
+        </div>
+        <div class="segment-control" id="bitrateSelector">
+          <input type="radio" name="bitrate" id="bitrateLow" value="16000">
+          <label for="bitrateLow" class="segment-btn">16 kbps</label>
+
+          <input type="radio" name="bitrate" id="bitrateMid" value="32000" checked>
+          <label for="bitrateMid" class="segment-btn">32 kbps</label>
+
+          <input type="radio" name="bitrate" id="bitrateHigh" value="64000">
+          <label for="bitrateHigh" class="segment-btn">64 kbps</label>
+        </div>
+      </div>
+
+      <!-- Timeslice Test Modu (Chunk Boundary Testi) -->
+      <div class="timeslice-container">
+        <div class="timeslice-header">
+          <div class="toggle-info">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+            <div>
+              <span class="toggle-title">Timeslice Test</span>
+              <span class="toggle-desc" id="timesliceDesc">Chunk boundary / buffer discontinuity testi</span>
+            </div>
+          </div>
+        </div>
+        <div class="segment-control timeslice-selector" id="timesliceSelector">
+          <input type="radio" name="timeslice" id="tsOff" value="0" checked>
+          <label for="tsOff" class="segment-btn">OFF</label>
+
+          <input type="radio" name="timeslice" id="ts100" value="100">
+          <label for="ts100" class="segment-btn">100ms</label>
+
+          <input type="radio" name="timeslice" id="ts250" value="250">
+          <label for="ts250" class="segment-btn">250ms</label>
+
+          <input type="radio" name="timeslice" id="ts500" value="500">
+          <label for="ts500" class="segment-btn">500ms</label>
+
+          <input type="radio" name="timeslice" id="ts1000" value="1000">
+          <label for="ts1000" class="segment-btn">1s</label>
+        </div>
+        <div class="timeslice-info" id="timesliceInfo">
+          <span class="info-text">OFF: Tek chunk - timeslice yok</span>
+        </div>
+      </div>
+      </div><!-- /advancedSettings -->
+    </div>
+
+    <!-- Kontroller -->
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        Kontroller
+        <span id="statusBadge" class="status status-idle"><span class="status-dot"></span>Hazir</span>
+      </div>
+      <div class="button-row">
+        <button id="recordToggle" class="btn btn-record">
+          <svg class="icon-circle" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+          <svg class="icon-square" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          <span class="btn-text">Kayit</span>
+        </button>
+        <button id="monitorToggle" class="btn btn-monitor">
+          <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          <span class="btn-text">Monitor</span>
+        </button>
+      </div>
+
+      <!-- Recording Timer -->
+      <div id="recordingTimer" class="recording-timer" style="display: none;">0:00</div>
+
+      <!-- VU Meter -->
+      <div class="vu-meter-container">
+        <div class="vu-meter-label">
+          <span id="signalDot" class="signal-dot"></span>
+          Ses Sinyali
+        </div>
+        <div class="vu-meter">
+          <div id="vuMeterBar" class="vu-meter-bar"></div>
+          <div id="vuMeterPeak" class="vu-meter-peak"></div>
+        </div>
+      </div>
+
+      <!-- Device Info Panel -->
+      <div id="deviceInfoPanel" class="device-info-panel">
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Sample Rate</div>
+            <div id="infoSampleRate" class="device-info-value">--</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Base Latency</div>
+            <div id="infoBaseLatency" class="device-info-value">--</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Output Latency</div>
+            <div id="infoOutputLatency" class="device-info-value">--</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Channels</div>
+            <div id="infoChannels" class="device-info-value">--</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Context State</div>
+            <div id="infoContextState" class="device-info-value">--</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Buffer Size</div>
+            <div id="infoBufferSize" class="device-info-value">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kayit Oynatici -->
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        Kayit Oynatici
+      </div>
+      <div id="recordingPlayer" class="recording-player">
+        <div class="player-controls">
+          <button id="playBtn" class="btn-play">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="player-info">
+            <div id="playerFilename" class="player-filename">-</div>
+            <div id="playerMeta" class="player-meta">-</div>
+          </div>
+          <div class="progress-bar" id="progressBar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div id="playerTime" class="player-time">0:00 / 0:00</div>
+          <a id="downloadBtn" class="btn-download" href="#" download>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Indir
+          </a>
+        </div>
+      </div>
+      <p id="noRecording" style="color: #8892b0; font-size: 13px;">Henuz kayit yok. Kayit yapip durdurun.</p>
+    </div>
+
+    <!-- Log -->
+    <div class="card" style="padding: 0;">
+      <div class="log-container">
+        <div class="log-header">
+          <span>Konsol Ciktisi</span>
+          <button class="btn-clear" onclick="clearLog()">Temizle</button>
+        </div>
+        <pre id="log"></pre>
+        <div class="log-footer">
+          <div class="filter-buttons">
+            <button class="btn-filter active" data-category="all" onclick="filterLogs('all')">Tümü</button>
+            <button class="btn-filter btn-filter-error" data-category="error" onclick="filterLogs('error')">Errors</button>
+            <button class="btn-filter btn-filter-webaudio" data-category="webaudio" onclick="filterLogs('webaudio')">WebAudio</button>
+            <button class="btn-filter btn-filter-stream" data-category="stream" onclick="filterLogs('stream')">Stream</button>
+            <button class="btn-filter btn-filter-recorder" data-category="recorder" onclick="filterLogs('recorder')">Recorder</button>
+          </div>
+          <div class="export-buttons">
+            <button class="btn-export-small" onclick="exportLogs()" title="Tüm logları JSON olarak indir">📥 Export</button>
+            <button class="btn-export-small" onclick="getLogStats()" title="Log istatistikleri">📊 Stats</button>
+            <button class="btn-export-small" onclick="runSanityChecks()" title="Log mantık kontrolü">🧪 Sanity</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
