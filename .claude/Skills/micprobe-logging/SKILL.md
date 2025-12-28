@@ -10,15 +10,14 @@ description: "MicProbe log analizi ve tutarlilik kontrolleri. Anahtar kelimeler:
 - UI log paneli: `Logger.js` (gosterim/filtre)
 - Kalici log: `LogManager.js` (IndexedDB + kategori)
 
-## Kategoriler (Pratik)
+## Kategoriler (Kullanilan)
 
-- `error`: hatalar
-- `audio`: VU Meter ve genel ses islemleri
-- `stream`: getUserMedia, MediaStream, track settings
-- `webaudio`: AudioContext / node graph detaylari
-- `recorder`: MediaRecorder yasam dongusu
-- `system`: LogManager ve sistem event'leri
-- `ui`: serbest metin (kullanici aksiyonu vb.)
+- `error`: hatalar (log:error)
+- `stream`: getUserMedia, MediaStream, track settings (log:stream)
+- `webaudio`: AudioContext / node graph detaylari (log:webaudio)
+- `recorder`: MediaRecorder yasam dongusu (log:recorder)
+- `system`: LogManager ve sistem event'leri (log:system)
+- `log`: genel mesajlar (eventBus.emit('log', ...))
 
 ## Console Komutlari (F12)
 

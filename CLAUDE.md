@@ -7,6 +7,9 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 	> ⚠️ **ZORUNLU KONTROL - KOD DEĞİŞİKLİĞİ SONRASI**
 > Tüm md dosyalarının insert update,create,delete güncellik(up to date) kontrolleri.
 
+	> 🚫 **AGENTS.md SİLİNMEMELİ**
+> `AGENTS.md` dosyası Codex tarafından okunur ve skill routing için kullanılır. Bu dosya asla silinmemeli, içeriği `.claude/Skills/` altındaki SKILL.md dosyalarıyla senkron tutulmalıdır.
+
 
 ## Skill Router
 
@@ -19,4 +22,4 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 | WebRTC loopback, `RTCPeerConnection`, SDP/Opus bitrate, remote stream “activator”, loopback delay | `micprobe-loopback` | `.claude/Skills/micprobe-loopback/SKILL.md` |
 | Log analizi, kategori tutarliligi, `runSanityChecks`, export/import | `micprobe-logging` | `.claude/Skills/micprobe-logging/SKILL.md` |
 | UI state, monitoring vs recording, buton/selector kilitleme, player/timer davranisi | `micprobe-ui-state` | `.claude/Skills/micprobe-ui-state/SKILL.md` |
-| Local server, port cakismasi, `server.js`, `localhost:8000`, python directory listing | `micprobe-dev-server` | `.claude/Skills/micprobe-dev-server/SKILL.md` |
+| Local server, port cakismasi, `server.js`, `localhost:8080`, python directory listing | `micprobe-dev-server` | `.claude/Skills/micprobe-dev-server/SKILL.md` |

@@ -78,6 +78,10 @@ const timesliceInfoEl = document.getElementById('timesliceInfo');
 // Islem modu (kayit + monitor icin ortak)
 const processingModeContainer = document.getElementById('processingModeContainer');
 
+// Buffer size secici
+const bufferSizeContainer = document.getElementById('bufferSizeContainer');
+const bufferInfoText = document.getElementById('bufferInfoText');
+
 // Kayit oynatici kontrolleri
 const recordingPlayerEl = document.getElementById('recordingPlayer');
 const recordingPlayerCardEl = recordingPlayerEl ? recordingPlayerEl.closest('.card') : null;
@@ -90,12 +94,18 @@ const timesliceContainerEl = document.querySelector('.timeslice-container');
 
 // Profil secici
 const profileSelector = document.getElementById('profileSelector');
-const profileDescEl = document.getElementById('profileDesc');
 const advancedSettingsEl = document.getElementById('advancedSettings');
+const advancedSettingsWrapper = document.getElementById('advanced-settings-wrapper');
 
 // Mikrofon secici
 const micSelector = document.getElementById('micSelector');
 const refreshMicsBtn = document.getElementById('refreshMics');
+
+// Radio buton koleksiyonlari (cache - tekrar sorgu onlemi)
+const processingModeRadios = document.querySelectorAll('input[name="processingMode"]');
+const bitrateRadios = document.querySelectorAll('input[name="bitrate"]');
+const timesliceRadios = document.querySelectorAll('input[name="timeslice"]');
+const bufferSizeRadios = document.querySelectorAll('input[name="bufferSize"]');
 
 // ============================================
 // MIKROFON LISTESI
@@ -201,18 +211,10 @@ function applyProfile(profileId) {
   const isCustom = profileId === 'custom';
   const values = profile.values; // null for custom
 
-  if (profileDescEl) profileDescEl.textContent = profile.desc;
-
-  // Ayarlari disable/enable et (gorunur kalir)
-  if (advancedSettingsEl) {
-    advancedSettingsEl.classList.toggle('profile-locked', !isCustom);
+  // Gelismis ayarlari sadece custom modda goster
+  if (advancedSettingsWrapper) {
+    advancedSettingsWrapper.style.display = isCustom ? 'block' : 'none';
   }
-
-  // Tum input'lari disable/enable et
-  const settingsInputs = advancedSettingsEl?.querySelectorAll('input, select') || [];
-  settingsInputs.forEach(input => {
-    input.disabled = !isCustom;
-  });
 
   // Ozel profil: sadece kilidi kaldir, ayarlara dokunma
   if (isCustom || !values) {
@@ -234,12 +236,19 @@ function applyProfile(profileId) {
   const bitrateRadio = document.querySelector(`input[name="bitrate"][value="${values.bitrate}"]`);
   if (bitrateRadio) bitrateRadio.checked = true;
 
+  const bufferRadio = document.querySelector(`input[name="bufferSize"][value="${values.buffer}"]`);
+  if (bufferRadio) bufferRadio.checked = true;
+
   const timesliceRadio = document.querySelector(`input[name="timeslice"][value="${values.timeslice}"]`);
   if (timesliceRadio) timesliceRadio.checked = true;
 
   // UI gorunurluklerini guncelle (gorunur ama disabled)
-  processingModeContainer.style.display = values.webaudio ? 'block' : 'none';
-  opusBitrateContainer.style.display = values.loopback ? 'block' : 'none';
+  toggleDisplay(processingModeContainer, values.webaudio);
+  toggleDisplay(opusBitrateContainer, values.loopback);
+  toggleDisplay(bufferSizeContainer, values.mode === 'scriptprocessor');
+
+  // Buffer bilgisini guncelle
+  updateBufferInfo(values.buffer);
 
   // Timeslice info guncelle
   updateTimesliceInfo(values.timeslice);
@@ -248,6 +257,33 @@ function applyProfile(profileId) {
   eventBus.emit('log:system', {
     message: 'Profil uygulandi',
     details: { profileId, ...values }
+  });
+}
+
+// ============================================
+// YARDIMCI FONKSIYONLAR
+// ============================================
+
+// DOM visibility helper - element goster/gizle
+function toggleDisplay(element, shouldShow, displayValue = 'block') {
+  if (element) element.style.display = shouldShow ? displayValue : 'none';
+}
+
+// Radio value getter - radio butonlarindan deger al
+function getRadioValue(name, defaultValue, parseAsInt = false) {
+  const selected = document.querySelector(`input[name="${name}"]:checked`);
+  if (!selected) return defaultValue;
+  return parseAsInt ? parseInt(selected.value, 10) : selected.value;
+}
+
+// Checkbox logger factory - checkbox degisikliklerini logla
+function attachCheckboxLogger(checkbox, settingName, displayName) {
+  if (!checkbox) return;
+  checkbox.addEventListener('change', (e) => {
+    eventBus.emit('log:stream', {
+      message: `${displayName}: ${e.target.checked ? 'ACIK' : 'KAPALI'}`,
+      details: { setting: settingName, value: e.target.checked }
+    });
   });
 }
 
@@ -275,8 +311,7 @@ function isWebAudioEnabled() {
 }
 
 function getProcessingMode() {
-  const selected = document.querySelector('input[name="processingMode"]:checked');
-  return selected ? selected.value : 'webaudio';
+  return getRadioValue('processingMode', 'standard');
 }
 
 function isLoopbackEnabled() {
@@ -284,13 +319,39 @@ function isLoopbackEnabled() {
 }
 
 function getOpusBitrate() {
-  const selected = document.querySelector('input[name="bitrate"]:checked');
-  return selected ? parseInt(selected.value, 10) : 32000;
+  return getRadioValue('bitrate', 32000, true);
 }
 
 function getTimeslice() {
-  const selected = document.querySelector('input[name="timeslice"]:checked');
-  return selected ? parseInt(selected.value, 10) : 0;
+  return getRadioValue('timeslice', 0, true);
+}
+
+function getBufferSize() {
+  return getRadioValue('bufferSize', 4096, true);
+}
+
+function getMediaBitrate() {
+  // MediaRecorder bitrate - profil degerinden al (UI'da gosterilmiyor)
+  const profileId = profileSelector?.value || 'discord';
+  const profile = PROFILES[profileId];
+  return profile?.values?.mediaBitrate || 0;
+}
+
+// Buffer info metnini guncelle
+function updateBufferInfo(value) {
+  if (!bufferInfoText) return;
+
+  // Latency hesaplama (48kHz varsayilan)
+  const sampleRate = 48000;
+  const latencyMs = (value / sampleRate * 1000).toFixed(1);
+
+  bufferInfoText.textContent = `${value} samples @ 48kHz = ~${latencyMs}ms latency`;
+
+  // Kucuk buffer = dusuk latency ama yuksek CPU
+  bufferInfoText.classList.remove('warning', 'danger');
+  if (value <= 1024) {
+    bufferInfoText.classList.add('warning');
+  }
 }
 
 function createAudioMediaRecorder(stream) {
@@ -335,30 +396,13 @@ function updateTimesliceInfo(value) {
 // ============================================
 // AYAR DEGISIKLIK LOGLARI
 // ============================================
-ecCheckbox.addEventListener('change', (e) => {
-  eventBus.emit('log:stream', {
-    message: `Echo Cancellation: ${e.target.checked ? 'ACIK' : 'KAPALI'}`,
-    details: { setting: 'echoCancellation', value: e.target.checked }
-  });
-});
-
-nsCheckbox.addEventListener('change', (e) => {
-  eventBus.emit('log:stream', {
-    message: `Noise Suppression: ${e.target.checked ? 'ACIK' : 'KAPALI'}`,
-    details: { setting: 'noiseSuppression', value: e.target.checked }
-  });
-});
-
-agcCheckbox.addEventListener('change', (e) => {
-  eventBus.emit('log:stream', {
-    message: `Auto Gain Control: ${e.target.checked ? 'ACIK' : 'KAPALI'}`,
-    details: { setting: 'autoGainControl', value: e.target.checked }
-  });
-});
+attachCheckboxLogger(ecCheckbox, 'echoCancellation', 'Echo Cancellation');
+attachCheckboxLogger(nsCheckbox, 'noiseSuppression', 'Noise Suppression');
+attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
 
 webaudioToggle.addEventListener('change', (e) => {
   const isEnabled = e.target.checked;
-  processingModeContainer.style.display = isEnabled ? 'block' : 'none';
+  toggleDisplay(processingModeContainer, isEnabled);
 
   eventBus.emit('log:webaudio', {
     message: `WebAudio Pipeline: ${isEnabled ? 'AKTIF' : 'PASIF'}`,
@@ -371,15 +415,18 @@ webaudioToggle.addEventListener('change', (e) => {
 });
 
 // Islem modu degisikligi loglama
-document.querySelectorAll('input[name="processingMode"]').forEach(radio => {
+processingModeRadios.forEach(radio => {
   radio.addEventListener('change', (e) => {
     const mode = e.target.value;
     const labelByMode = {
       direct: 'Direct',
-      webaudio: 'WebAudio',
+      standard: 'Standard',
       scriptprocessor: 'ScriptProcessor',
       worklet: 'AudioWorklet'
     };
+
+    // Buffer size secici sadece ScriptProcessor modunda gorunur
+    toggleDisplay(bufferSizeContainer, mode === 'scriptprocessor');
 
     eventBus.emit('log:webaudio', {
       message: `Islem Modu: ${labelByMode[mode] || mode}`,
@@ -388,9 +435,26 @@ document.querySelectorAll('input[name="processingMode"]').forEach(radio => {
   });
 });
 
+// Buffer size degisikligi loglama
+bufferSizeRadios.forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    const bufferSize = parseInt(e.target.value, 10);
+    updateBufferInfo(bufferSize);
+
+    eventBus.emit('log:webaudio', {
+      message: `Buffer Size: ${bufferSize} samples`,
+      details: {
+        setting: 'bufferSize',
+        value: bufferSize,
+        latencyMs: (bufferSize / 48000 * 1000).toFixed(1)
+      }
+    });
+  });
+});
+
 loopbackToggle.addEventListener('change', (e) => {
   // Bitrate seciciyi goster/gizle
-  opusBitrateContainer.style.display = e.target.checked ? 'block' : 'none';
+  toggleDisplay(opusBitrateContainer, e.target.checked);
 
   eventBus.emit('log:stream', {
     message: `WebRTC Loopback: ${e.target.checked ? 'AKTIF' : 'PASIF'}`,
@@ -399,7 +463,7 @@ loopbackToggle.addEventListener('change', (e) => {
 });
 
 // Bitrate degisikligi loglama
-document.querySelectorAll('input[name="bitrate"]').forEach(radio => {
+bitrateRadios.forEach(radio => {
   radio.addEventListener('change', (e) => {
     const bitrate = parseInt(e.target.value, 10);
     eventBus.emit('log:stream', {
@@ -410,7 +474,7 @@ document.querySelectorAll('input[name="bitrate"]').forEach(radio => {
 });
 
 // Timeslice degisikligi loglama
-document.querySelectorAll('input[name="timeslice"]').forEach(radio => {
+timesliceRadios.forEach(radio => {
   radio.addEventListener('change', (e) => {
     const timeslice = parseInt(e.target.value, 10);
     updateTimesliceInfo(timeslice);
@@ -426,15 +490,113 @@ document.querySelectorAll('input[name="timeslice"]').forEach(radio => {
   });
 });
 
-// Profil degisikligi
+// Profil degisikligi (hidden select - backward compatibility)
 if (profileSelector) {
   profileSelector.addEventListener('change', (e) => {
     applyProfile(e.target.value);
+    updateScenarioCardSelection(e.target.value);
   });
 
   // Sayfa yuklendiginde varsayilan profili uygula
   applyProfile(profileSelector.value);
 }
+
+// ============================================
+// SENARYO KARTLARI
+// ============================================
+const scenarioCards = document.querySelectorAll('.scenario-card');
+const scenarioBadge = document.getElementById('scenarioBadge');
+const scenarioTech = document.getElementById('scenarioTech');
+const advancedToggle = document.getElementById('advancedToggle');
+
+// Senaryo teknik bilgisini guncelle
+function updateScenarioTechInfo(profileId) {
+  if (!scenarioTech || !scenarioBadge) return;
+
+  const profile = PROFILES[profileId];
+  if (!profile) return;
+
+  scenarioBadge.textContent = profile.label;
+
+  // Badge rengini guncelle
+  scenarioBadge.style.background = '';
+  scenarioBadge.style.color = '';
+
+  const techParts = [];
+
+  if (profile.values) {
+    if (profile.values.loopback) {
+      techParts.push('WebRTC Loopback');
+      techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
+    } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
+      techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
+    } else if (profile.values.webaudio) {
+      techParts.push('WebAudio Pipeline');
+    } else {
+      techParts.push('Direct Recording');
+    }
+
+    if (profile.values.mode === 'scriptprocessor') {
+      techParts.push('ScriptProcessor');
+    } else if (profile.values.mode === 'worklet') {
+      techParts.push('AudioWorklet');
+    }
+  } else {
+    techParts.push('Manuel Ayarlar');
+  }
+
+  scenarioTech.textContent = techParts.join(' + ');
+}
+
+// Senaryo kart secimini guncelle
+function updateScenarioCardSelection(profileId) {
+  scenarioCards.forEach(card => {
+    const cardProfile = card.dataset.profile;
+    card.classList.toggle('selected', cardProfile === profileId);
+  });
+  updateScenarioTechInfo(profileId);
+}
+
+// Senaryo kartlarina tiklama
+scenarioCards.forEach(card => {
+  card.addEventListener('click', () => {
+    const profileId = card.dataset.profile;
+
+    // Hidden select'i guncelle
+    if (profileSelector) {
+      profileSelector.value = profileId;
+    }
+
+    // Profili uygula
+    applyProfile(profileId);
+    updateScenarioCardSelection(profileId);
+
+    // Gelismis mod ise ayarlari ac
+    if (profileId === 'custom' && advancedToggle && advancedSettingsEl) {
+      advancedSettingsEl.classList.remove('collapsed');
+      advancedToggle.classList.add('expanded');
+    }
+  });
+});
+
+// Gelismis ayarlar toggle
+if (advancedToggle && advancedSettingsEl) {
+  advancedToggle.addEventListener('click', () => {
+    const isCollapsed = advancedSettingsEl.classList.contains('collapsed');
+
+    advancedSettingsEl.classList.toggle('collapsed');
+    advancedToggle.classList.toggle('expanded');
+
+    if (!isCollapsed) {
+      eventBus.emit('log:ui', {
+        message: 'Gelismis ayarlar gizlendi'
+      });
+    }
+  });
+}
+
+// Sayfa yuklendiginde senaryo bilgisini guncelle
+updateScenarioTechInfo(profileSelector?.value || 'discord');
 
 // ============================================
 // MERKEZI STATE YONETIMI
@@ -447,15 +609,12 @@ let timerInterval = null;
 let timerStartTime = null;
 const timerEl = document.getElementById('recordingTimer');
 
-function startTimer(isMonitoring = false) {
+function startTimer() {
   if (!timerEl) return;
-  // Monitoring icin sayaç gereksiz (kayıt yok). UI'yi temiz tut.
-  if (isMonitoring) return;
 
   timerStartTime = Date.now();
   timerEl.textContent = '0:00';
-  timerEl.style.display = 'block';
-  timerEl.classList.toggle('monitoring', isMonitoring);
+  toggleDisplay(timerEl, true);
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - timerStartTime) / 1000);
@@ -468,10 +627,7 @@ function stopTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
-  if (timerEl) {
-    timerEl.style.display = 'none';
-    timerEl.classList.remove('monitoring');
-  }
+  toggleDisplay(timerEl, false);
 }
 
 // Loopback WebRTC kaynaklari
@@ -544,26 +700,25 @@ function updateButtonStates() {
   agcCheckbox.disabled = !isIdle;
 
   // Processing mode selector - aktif session'da degistirilemez
-  document.querySelectorAll('input[name="processingMode"]').forEach(radio => {
+  processingModeRadios.forEach(radio => {
     radio.disabled = !isIdle || (radio.value === 'worklet' && !WORKLET_SUPPORTED);
   });
 
   // Bitrate selector - aktif session'da degistirilemez
-  document.querySelectorAll('input[name="bitrate"]').forEach(radio => {
-    radio.disabled = !isIdle;
-  });
+  bitrateRadios.forEach(r => r.disabled = !isIdle);
 
   // Timeslice selector - aktif session'da degistirilemez
-  document.querySelectorAll('input[name="timeslice"]').forEach(radio => {
-    radio.disabled = !isIdle;
-  });
+  timesliceRadios.forEach(r => r.disabled = !isIdle);
+
+  // Buffer size selector - aktif session'da degistirilemez
+  bufferSizeRadios.forEach(r => r.disabled = !isIdle);
 }
 
 // Baslangicta buton durumlarini ayarla
 updateButtonStates();
 
 // UI state sync (refresh/persisted checkbox senaryolari icin)
-processingModeContainer.style.display = isWebAudioEnabled() ? 'block' : 'none';
+toggleDisplay(processingModeContainer, isWebAudioEnabled());
 
 if (!WORKLET_SUPPORTED) {
   eventBus.emit('log:system', {
@@ -588,9 +743,25 @@ function setOpusBitrate(sdp, bitrate) {
   // Hedef: a=fmtp:111 minptime=10;useinbandfec=1;maxaveragebitrate=32000
 
   const lines = sdp.split('\r\n');
+
+  // Opus payload type'ini bul (a=rtpmap:111 opus/48000/2)
+  let opusPayloadType = null;
+  for (const line of lines) {
+    const match = line.match(/^a=rtpmap:(\d+)\s+opus\//i);
+    if (match) {
+      opusPayloadType = match[1];
+      break;
+    }
+  }
+
+  // Opus bulunamadiysa SDP'yi degistirme
+  if (!opusPayloadType) {
+    return sdp;
+  }
+
   const modifiedLines = lines.map(line => {
-    // Opus fmtp satirini bul
-    if (line.startsWith('a=fmtp:') && line.includes('useinbandfec')) {
+    // Opus fmtp satirini bul (payload type ile eslesme)
+    if (line.startsWith(`a=fmtp:${opusPayloadType}`)) {
       // Mevcut maxaveragebitrate varsa kaldir
       let newLine = line.replace(/;?maxaveragebitrate=\d+/g, '');
       // Yeni bitrate ekle
@@ -943,9 +1114,9 @@ async function startLoopbackMonitorPlayback(remoteStream, requestedMode) {
   }
 
   const safeMode = (() => {
-    const allowed = new Set(['direct', 'webaudio', 'scriptprocessor', 'worklet']);
-    if (!allowed.has(requestedMode)) return 'webaudio';
-    if (requestedMode === 'worklet' && !WORKLET_SUPPORTED) return 'webaudio';
+    const allowed = new Set(['direct', 'standard', 'scriptprocessor', 'worklet']);
+    if (!allowed.has(requestedMode)) return 'standard';
+    if (requestedMode === 'worklet' && !WORKLET_SUPPORTED) return 'standard';
     return requestedMode;
   })();
 
@@ -1015,7 +1186,7 @@ async function startLoopbackMonitorPlayback(remoteStream, requestedMode) {
     loopbackMonitorSrc.connect(loopbackMonitorWorklet);
     loopbackMonitorWorklet.connect(loopbackMonitorDelay);
   } else {
-    // direct / webaudio: Source -> Delay
+    // direct / standard: Source -> Delay
     loopbackMonitorSrc.connect(loopbackMonitorDelay);
   }
 
@@ -1023,7 +1194,7 @@ async function startLoopbackMonitorPlayback(remoteStream, requestedMode) {
 
   const graphByMode = {
     direct: `WebRTC RemoteStream -> Source -> DelayNode(${delaySeconds}s) -> Destination`,
-    webaudio: `WebRTC RemoteStream -> Source -> DelayNode(${delaySeconds}s) -> Destination`,
+    standard: `WebRTC RemoteStream -> Source -> DelayNode(${delaySeconds}s) -> Destination`,
     scriptprocessor: `WebRTC RemoteStream -> Source -> ScriptProcessor -> DelayNode(${delaySeconds}s) -> Destination`,
     worklet: `WebRTC RemoteStream -> Source -> AudioWorklet(passthrough) -> DelayNode(${delaySeconds}s) -> Destination`
   };
@@ -1035,7 +1206,7 @@ async function startLoopbackMonitorPlayback(remoteStream, requestedMode) {
       contextSampleRate: loopbackMonitorCtx.sampleRate,
       remoteSampleRate: remoteSampleRate || 'N/A',
       delaySeconds,
-      graph: graphByMode[safeMode] || graphByMode.webaudio
+      graph: graphByMode[safeMode] || graphByMode.standard
     }
   });
 
@@ -1069,6 +1240,9 @@ recordToggleBtn.onclick = async () => {
   });
 
   try {
+    // Kayit baslarken oynaticiyi durdur (tutarlilik + potansiyel feedback onleme)
+    player.pause();
+
     currentMode = 'recording';
     updateButtonStates();
 
@@ -1246,7 +1420,7 @@ recordToggleBtn.onclick = async () => {
         window._loopbackChunks = chunks;
         window._loopbackRecordAudioCtx = null;
 
-        startTimer(false);
+        startTimer();
         eventBus.emit('log', '🎙️ Loopback kaydi basladi (Direct RemoteStream)');
         return;
       }
@@ -1295,7 +1469,7 @@ recordToggleBtn.onclick = async () => {
       let preGainNode = recordSource;
 
       if (recordMode === 'scriptprocessor') {
-        const bufferSize = 4096;
+        const bufferSize = getBufferSize();
         const spNode = recordAudioCtx.createScriptProcessor(bufferSize, 1, 1);
         spNode.onaudioprocess = (e) => {
           const input = e.inputBuffer.getChannelData(0);
@@ -1476,15 +1650,16 @@ recordToggleBtn.onclick = async () => {
       window._loopbackChunks = chunks;
       window._loopbackRecordAudioCtx = recordAudioCtx;
 
-      startTimer(false);
+      startTimer();
 
       eventBus.emit('log', '🎙️ Loopback kaydi basladi (WebRTC uzerinden)');
 
     } else {
       // NORMAL KAYIT
       const timeslice = getTimeslice();
-      await recorder.start(constraints, recordMode, timeslice);
-      startTimer(false);
+      const mediaBitrate = getMediaBitrate();
+      await recorder.start(constraints, recordMode, timeslice, getBufferSize(), mediaBitrate);
+      startTimer();
     }
 
   } catch (err) {
@@ -1524,8 +1699,8 @@ async function stopRecording() {
     // onstop icinde temizlik yap
     const originalOnstop = recorderInstance.onstop;
     recorderInstance.onstop = async () => {
-      // Oncelikli: Kayit verisini isle
-      if (originalOnstop) originalOnstop();
+      // Oncelikli: Kayit verisini isle (async olabilir - await et)
+      if (originalOnstop) await originalOnstop();
 
       eventBus.emit('recorder:stopped', { loopback: true });
 
@@ -1562,6 +1737,8 @@ async function stopRecording() {
     // Recorder'i durdur (onstop tetiklenecek)
     recorderInstance.stop();
     window._loopbackRecorder = null;
+    window._loopbackChunks = null;
+    window._loopbackSetupStart = null;
   } else {
     recorder.stop();
   }
@@ -1670,7 +1847,6 @@ monitorToggleBtn.onclick = async () => {
     eventBus.emit('log', `❌ HATA: ${err.message}`);
 
     // Temizlik
-    stopTimer();
     await cleanupLoopbackMonitorPlayback();
     await cleanupLoopback();
     loopbackLocalStream?.getTracks().forEach(t => t.stop());
@@ -1690,7 +1866,8 @@ async function stopMonitoring() {
     details: { loopbackEnabled: useLoopback }
   });
 
-  stopTimer();
+  // NOT: Monitoring'de timer kullanilmiyor (timer sadece kayit icin)
+  // stopTimer() burada gereksiz - kaldirildi
 
   if (useLoopback) {
     const stoppedMode = loopbackMonitorMode;

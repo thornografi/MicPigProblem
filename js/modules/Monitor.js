@@ -5,6 +5,7 @@
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
+import { createAudioContext, createDelayNode, disconnectNodes, closeAudioContext } from './AudioUtils.js';
 
 class Monitor {
   constructor() {
@@ -15,7 +16,7 @@ class Monitor {
     this.workletNode = null;
     this.delay = null; // DelayNode - 2 saniye gecikme
     this.isMonitoring = false;
-    this.mode = null; // 'webaudio', 'scriptprocessor', 'worklet' veya 'direct'
+    this.mode = null; // 'standard', 'scriptprocessor', 'worklet' veya 'direct'
   }
 
   async startWebAudio(constraints) {
@@ -31,6 +32,11 @@ class Monitor {
       });
 
       this.ac = new (window.AudioContext || window.webkitAudioContext)();
+
+      // AudioContext suspended olabilir - resume et
+      if (this.ac.state === 'suspended') {
+        await this.ac.resume();
+      }
 
       // AudioContext detaylari
       eventBus.emit('log:webaudio', {
@@ -93,7 +99,7 @@ class Monitor {
       });
 
       this.isMonitoring = true;
-      this.mode = 'webaudio';
+      this.mode = 'standard';
 
       eventBus.emit('stream:started', this.stream);
       eventBus.emit('log', `MONITOR basladi (WebAudio -> ${this.delay.delayTime.value}s Delay -> Speaker)`);
@@ -325,6 +331,11 @@ class Monitor {
 
       // AudioContext olustur (delay icin zorunlu)
       this.ac = new (window.AudioContext || window.webkitAudioContext)();
+
+      // AudioContext suspended olabilir - resume et
+      if (this.ac.state === 'suspended') {
+        await this.ac.resume();
+      }
 
       eventBus.emit('log:webaudio', {
         message: 'AudioContext olusturuldu (Direct mode)',

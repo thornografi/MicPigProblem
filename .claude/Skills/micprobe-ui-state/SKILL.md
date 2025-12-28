@@ -10,10 +10,16 @@ description: "MicProbe UI state, monitoring/recording ayrimi ve kontrol kilitlem
 - **Monitoring** basladiginda kayit tarafindaki butun kontroller kilitlenir (kullanici karistirmasin).
 - **Recording** sirasinda ise kayitla ilgili kontroller aktif kalir, diger ayarlar kilitlenir.
 
+## Gelismis Ayarlar Gorunurlugu
+
+- `advanced-settings-wrapper` sadece **custom** profilinde gorünür (`display: block`).
+- Diger profillerde tamamen gizlenir (`display: none`).
+- Kontrol: `applyProfile()` fonksiyonu icerisinde.
+
 ## Sayaç (Timer)
 
 - Sayaç sadece **kayıt** icin anlamlidir.
-- Monitoring’da timer gosterme (kayıt yok). Uygulama bunu `startTimer(isMonitoring)` ile kontrol eder.
+- Monitoring'da timer gosterilmez (kayit yok). `startTimer()` sadece kayit basladiginda cagrilir.
 
 ## Player / Progress Bar
 

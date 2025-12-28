@@ -50,29 +50,21 @@ const dB = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
 ## Monitor (Dinleme)
 
 ```javascript
-// Delay ile (feedback onleme)
-const delay = ac.createDelay(2.0);
-delay.delayTime.value = 1.5;
+// Delay ile (feedback onleme) - MicProbe'da 2s kullanilir
+const delay = ac.createDelay(3.0);  // max 3s
+delay.delayTime.value = 2.0;        // 2s gecikme
 src.connect(delay).connect(ac.destination);
-
-// Dogrudan
-const audio = new Audio();
-audio.srcObject = stream;
-audio.play();
 ```
 
 ## WebRTC Loopback
 
-```javascript
-const pc1 = new RTCPeerConnection();
-const pc2 = new RTCPeerConnection();
-pc1.onicecandidate = e => e.candidate && pc2.addIceCandidate(e.candidate);
-pc2.onicecandidate = e => e.candidate && pc1.addIceCandidate(e.candidate);
-pc2.ontrack = e => { remoteStream = e.streams[0]; };
-stream.getTracks().forEach(t => pc1.addTrack(t, stream));
-// SDP exchange...
+> Detayli bilgi: `micprobe-loopback` skill'ine bak
 
-// CHROME BUG: Remote stream'i WebAudio'ya baglamadan once <audio>.play() ile aktive et
+```javascript
+// Temel akis: Mic -> PC1 -> PC2 -> remoteStream
+pc2.ontrack = e => { remoteStream = e.streams[0]; };
+
+// CHROME BUG: Remote stream'i WebAudio'ya baglamadan once aktive et
 const activator = document.createElement('audio');
 activator.srcObject = remoteStream;
 activator.muted = true;

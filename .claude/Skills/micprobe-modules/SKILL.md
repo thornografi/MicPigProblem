@@ -1,6 +1,6 @@
 ---
 name: micprobe-modules
-description: "MicProbe proje modulleri referansi. Anahtar kelimeler: AudioEngine, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, Logger, LogManager, modul, module"
+description: "MicProbe proje modulleri referansi. Anahtar kelimeler: AudioEngine, AudioUtils, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, Logger, LogManager, modul, module"
 ---
 
 # MicProbe Modul Referansi
@@ -14,6 +14,7 @@ js/
     ├── Config.js       # Merkezi yapilandirma (SETTINGS, PROFILES)
     ├── EventBus.js     # Pub/Sub singleton
     ├── AudioEngine.js  # Merkezi AudioContext (singleton)
+    ├── AudioUtils.js   # Paylasilan WebAudio yardimcilari
     ├── VuMeter.js      # dB gostergesi
     ├── Recorder.js     # Kayit (MediaRecorder)
     ├── Monitor.js      # Canli dinleme
@@ -24,7 +25,7 @@ js/
     ├── StatusManager.js# Durum badge
     ├── StreamHelper.js # getUserMedia wrapper
     ├── WorkletHelper.js# AudioWorklet yardimcilari
-    └── utils.js        # formatTime helper
+    └── utils.js        # formatTime, getBestAudioMimeType helpers
 ```
 
 ## Modül Detaylari
@@ -46,8 +47,32 @@ SETTINGS.delay.max            // 5
 // Helper fonksiyonlar
 getProfileValue('discord', 'bitrate')  // 64000
 validateSetting('buffer', 4096)        // true
+getProfileList()                       // UI icin profil listesi
+getSettingsByCategory('pipeline')      // Kategori bazli ayarlar
 ```
 **Kategoriler:** constraints, pipeline, loopback, recording, monitor
+
+### AudioUtils
+Paylasilan WebAudio yardimci fonksiyonlari - Monitor/Recorder icin ortak.
+```javascript
+import { createAudioContext, createDelayNode, disconnectNodes, closeAudioContext, getStreamSampleRate } from './AudioUtils.js';
+
+// AudioContext olustur ve resume et
+const ctx = await createAudioContext(sampleRate, 'Monitor');
+
+// DelayNode olustur (echo/feedback onleme)
+const delay = createDelayNode(ctx, 2.0, 3.0);
+
+// Node'lari guvenli disconnect et
+disconnectNodes(sourceNode, delayNode, workletNode);
+
+// AudioContext'i kapat
+await closeAudioContext(ctx, 'Monitor');
+
+// Stream'den sample rate al
+const sr = getStreamSampleRate(stream);
+```
+**Emits:** `log:webaudio`
 
 ### EventBus (Singleton)
 ```javascript
@@ -82,9 +107,10 @@ MediaRecorder + opsiyonel WebAudio pipeline.
 ```javascript
 const recorder = new Recorder({ constraints });
 await recorder.warmup();              // Pre-init
-await recorder.start(constraints, recordMode, timeslice);
-// recordMode: 'direct' | 'webaudio' | 'scriptprocessor' | 'worklet'
+await recorder.start(constraints, recordMode, timeslice, bufferSize);
+// recordMode: 'direct' | 'standard' | 'scriptprocessor' | 'worklet'
 // timeslice: 0 (tek parca) veya pozitif ms (chunked)
+// bufferSize: ScriptProcessor buffer boyutu (default: 4096)
 recorder.stop();
 recorder.getIsRecording();
 ```
@@ -99,7 +125,7 @@ await monitor.startScriptProcessor(constraints);// Deprecated API + Delay
 await monitor.startAudioWorklet(constraints);   // Modern AudioWorklet + Delay
 await monitor.startDirect(constraints);         // Sadece Delay (processing yok)
 await monitor.stop();
-monitor.getMode();                    // 'webaudio' | 'scriptprocessor' | 'worklet' | 'direct'
+monitor.getMode();                    // 'standard' | 'scriptprocessor' | 'worklet' | 'direct'
 ```
 **Emits:** `monitor:started`, `monitor:stopped`, `stream:started`, `stream:stopped`
 
@@ -147,16 +173,32 @@ new StatusManager('badgeId');
 
 | Event | Emitter | Listener |
 |-------|---------|----------|
-| `stream:started` | Recorder, Monitor | VuMeter, DeviceInfo, LogManager |
-| `stream:stopped` | Recorder, Monitor | VuMeter, StatusManager, LogManager |
-| `recording:started` | Recorder | Player, StatusManager |
-| `recording:completed` | Recorder | Player, LogManager |
-| `monitor:started` | Monitor | StatusManager |
-| `monitor:stopped` | Monitor | StatusManager |
+| `stream:started` | Recorder, Monitor, app.js | VuMeter, DeviceInfo, LogManager |
+| `stream:stopped` | Recorder, Monitor, app.js | VuMeter, StatusManager, LogManager |
+| `recording:started` | Recorder, app.js | Player, StatusManager |
+| `recording:completed` | Recorder, app.js | Player, LogManager |
+| `recorder:started` | Recorder, app.js | LogManager |
+| `recorder:stopped` | Recorder, app.js | LogManager |
+| `recorder:error` | Recorder | app.js |
+| `monitor:started` | Monitor, app.js | StatusManager, LogManager |
+| `monitor:stopped` | Monitor, app.js | StatusManager, LogManager |
+| `monitor:error` | Monitor | app.js |
 | `vumeter:level` | VuMeter | DeviceInfo |
-| `log:webaudio` | AudioEngine, Monitor, Recorder | LogManager, Logger |
-| `log:stream` | app.js, Monitor | LogManager, Logger |
+| `vumeter:audiocontext` | VuMeter | DeviceInfo |
+| `vumeter:started` | VuMeter | - |
+| `vumeter:stopped` | VuMeter | - |
+| `player:loaded` | Player | - |
+| `player:ended` | Player | - |
+| `player:paused` | Player | - |
+| `player:reset` | Player | - |
+| `status:changed` | StatusManager | - |
+| `log` | Any | Logger |
+| `log:webaudio` | AudioEngine, Monitor, Recorder, app.js | LogManager, Logger |
+| `log:stream` | app.js, Monitor, StreamHelper | LogManager, Logger |
+| `log:recorder` | Recorder, app.js | LogManager, Logger |
+| `log:system` | app.js, LogManager | LogManager, Logger |
 | `log:error` | Any | LogManager, Logger |
+| `log:clear` | app.js | Logger |
 
 ## Yeni Modul Ekleme
 

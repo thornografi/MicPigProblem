@@ -34,8 +34,8 @@ export const SETTINGS = {
   },
   mode: {
     type: 'enum',
-    values: ['direct', 'webaudio', 'scriptprocessor', 'worklet'],
-    default: 'webaudio',
+    values: ['direct', 'standard', 'scriptprocessor', 'worklet'],
+    default: 'standard',
     label: 'Processing Mode',
     category: 'pipeline'
   },
@@ -51,16 +51,26 @@ export const SETTINGS = {
   // Loopback (WebRTC)
   loopback: {
     type: 'boolean',
-    default: false,
+    default: true,
     label: 'WebRTC Loopback',
     category: 'loopback'
   },
   bitrate: {
     type: 'enum',
-    values: [16000, 32000, 64000],
-    default: 32000,
-    label: 'Opus Bitrate',
+    values: [16000, 24000, 32000, 64000],
+    default: 64000,
+    label: 'Opus Bitrate (WebRTC)',
     category: 'loopback',
+    unit: 'bps'
+  },
+
+  // MediaRecorder bitrate (Sesli mesaj icin)
+  mediaBitrate: {
+    type: 'enum',
+    values: [0, 16000, 24000, 32000, 64000, 128000],
+    default: 0,
+    label: 'MediaRecorder Bitrate',
+    category: 'recording',
     unit: 'bps'
   },
 
@@ -86,81 +96,72 @@ export const SETTINGS = {
   }
 };
 
-// Profil tanimlari
+// Varsayilan profil degerleri
+const DEFAULT_VALUES = {
+  ec: true, ns: true, agc: true,
+  webaudio: true, mode: 'standard', buffer: 4096,
+  loopback: false, bitrate: 32000, mediaBitrate: 0,
+  timeslice: 0, delay: 2
+};
+
+// Profil fabrika fonksiyonu - tekrari onler
+function createProfile(id, label, desc, icon, category, overrides = {}) {
+  return {
+    id, label, desc, icon, category,
+    values: overrides === null ? null : { ...DEFAULT_VALUES, ...overrides }
+  };
+}
+
+// Senaryo bazli profil tanimlari
 export const PROFILES = {
-  discord: {
-    id: 'discord',
-    label: 'Discord Modu',
-    desc: 'Electron + WebRTC + Krisp - Opus 64kbps',
-    values: {
-      ec: true,
-      ns: true,
-      agc: true,
-      webaudio: true,
-      mode: 'webaudio',
-      buffer: 4096,
-      loopback: true,
-      bitrate: 64000,
-      timeslice: 0,
-      delay: 2
-    }
+  // CANLI GORUSME SENARYOLARI (WebRTC Loopback)
+  discord: createProfile('discord', 'Discord Voice', 'Canli sesli/goruntulu gorusme',
+    'gamepad', 'call', { loopback: true, bitrate: 64000 }),
+  zoom: createProfile('zoom', 'Zoom / Meet', 'Video konferans uygulamalari',
+    'video', 'call', { loopback: true }),
+
+  // SESLI MESAJ SENARYOLARI (MediaRecorder Bitrate)
+  whatsapp: createProfile('whatsapp', 'WhatsApp Sesli Mesaj', 'Dusuk bitrate voice message',
+    'message', 'voice', { mediaBitrate: 16000 }),
+  telegram: createProfile('telegram', 'Telegram Sesli Mesaj', 'Orta kalite voice note',
+    'send', 'voice', { mediaBitrate: 24000 }),
+
+  // TEMEL TEST
+  mictest: createProfile('mictest', 'Ham Kayit', 'Ham mikrofon - codec/isleme yok',
+    'mic', 'basic', { ec: false, ns: false, agc: false, webaudio: false, mode: 'direct' }),
+
+  // GELISMIS / OZEL
+  legacy: createProfile('legacy', 'Eski Web Uygulamalari', 'ScriptProcessor API testi',
+    'history', 'advanced', { mode: 'scriptprocessor', buffer: 1024, timeslice: 1000 }),
+  custom: createProfile('custom', 'Gelismis Ayarlar', 'Tum ayarlari manuel kontrol et',
+    'settings', 'advanced', null)
+};
+
+// Kategori tanimlari (UI siralama icin)
+export const PROFILE_CATEGORIES = {
+  call: {
+    id: 'call',
+    label: 'Canli Gorusme',
+    desc: 'Discord, Zoom, Meet gibi uygulamalar',
+    order: 1
   },
-  zoom: {
-    id: 'zoom',
-    label: 'Zoom Modu',
-    desc: 'SILK/Opus adaptif - WebRTC yok',
-    values: {
-      ec: true,
-      ns: true,
-      agc: true,
-      webaudio: true,
-      mode: 'webaudio',
-      buffer: 4096,
-      loopback: false,
-      bitrate: 32000,
-      timeslice: 0,
-      delay: 2
-    }
+  voice: {
+    id: 'voice',
+    label: 'Sesli Mesaj',
+    desc: 'WhatsApp, Telegram voice note',
+    order: 2
   },
-  studio: {
-    id: 'studio',
-    label: 'Studyo Kaydi',
-    desc: 'Ham mikrofon - tum isleme kapali',
-    values: {
-      ec: false,
-      ns: false,
-      agc: false,
-      webaudio: false,
-      mode: 'direct',
-      buffer: 4096,
-      loopback: false,
-      bitrate: 32000,
-      timeslice: 0,
-      delay: 2
-    }
+  basic: {
+    id: 'basic',
+    label: 'Temel Test',
+    desc: 'Mikrofon kontrolu',
+    order: 3
   },
-  legacy: {
-    id: 'legacy',
-    label: 'Eski Tarayici',
-    desc: 'ScriptProcessor (deprecated) - uyumluluk testi',
-    values: {
-      ec: true,
-      ns: true,
-      agc: true,
-      webaudio: true,
-      mode: 'scriptprocessor',
-      buffer: 1024,
-      loopback: false,
-      bitrate: 32000,
-      timeslice: 1000,
-      delay: 2
-    }
-  },
-  custom: {
-    id: 'custom',
-    label: 'Ozel',
-    desc: 'Manual ayar kontrolu',
-    values: null // null = mevcut UI degerlerini kullan
+  advanced: {
+    id: 'advanced',
+    label: 'Gelismis',
+    desc: 'Ozel ayarlar ve legacy API',
+    order: 4
   }
 };
 
@@ -210,8 +211,36 @@ export function getProfileList() {
   return Object.values(PROFILES).map(p => ({
     id: p.id,
     label: p.label,
-    desc: p.desc
+    desc: p.desc,
+    icon: p.icon,
+    category: p.category
   }));
+}
+
+/**
+ * Kategoriye gore profilleri al
+ * @param {string} categoryId - Kategori ID
+ * @returns {Array} Profil listesi
+ */
+export function getProfilesByCategory(categoryId) {
+  return Object.values(PROFILES)
+    .filter(p => p.category === categoryId)
+    .map(p => ({
+      id: p.id,
+      label: p.label,
+      desc: p.desc,
+      icon: p.icon,
+      category: p.category
+    }));
+}
+
+/**
+ * Tum kategorileri sirali olarak al
+ * @returns {Array} Kategori listesi
+ */
+export function getCategoryList() {
+  return Object.values(PROFILE_CATEGORIES)
+    .sort((a, b) => a.order - b.order);
 }
 
 /**
@@ -231,8 +260,11 @@ export function getSettingsByCategory(category) {
 export default {
   SETTINGS,
   PROFILES,
+  PROFILE_CATEGORIES,
   getProfileValue,
   validateSetting,
   getProfileList,
+  getProfilesByCategory,
+  getCategoryList,
   getSettingsByCategory
 };

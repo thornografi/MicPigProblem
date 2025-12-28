@@ -66,16 +66,17 @@ class Recorder {
     }
   }
 
-  async start(constraints, recordModeOrUseWebAudio = false, timeslice = 0) {
+  async start(constraints, recordModeOrUseWebAudio = false, timeslice = 0, bufferSize = 4096, mediaBitrate = 0) {
     if (this.isRecording) return;
 
     const recordMode = typeof recordModeOrUseWebAudio === 'string'
       ? recordModeOrUseWebAudio
-      : (recordModeOrUseWebAudio ? 'webaudio' : 'direct');
+      : (recordModeOrUseWebAudio ? 'standard' : 'direct');
 
-    const allowedModes = new Set(['direct', 'webaudio', 'scriptprocessor', 'worklet']);
+    const allowedModes = new Set(['direct', 'standard', 'scriptprocessor', 'worklet']);
     this.recordMode = allowedModes.has(recordMode) ? recordMode : 'direct';
     this.timeslice = timeslice;
+    this.mediaBitrate = mediaBitrate; // MediaRecorder bitrate (sesli mesaj simülasyonu icin)
 
     try {
       this.stream = await requestStream(constraints);
@@ -192,17 +193,17 @@ class Recorder {
           });
         }
 
-        if (this.recordMode === 'webaudio') {
+        if (this.recordMode === 'standard') {
           this.sourceNode.connect(this.destinationNode);
 
           eventBus.emit('log:webaudio', {
-            message: 'WebAudio grafigi baglandi',
+            message: 'Standard grafigi baglandi',
             details: {
               graph: 'MicStream -> SourceNode -> DestinationNode -> RecordStream'
             }
           });
         } else if (this.recordMode === 'scriptprocessor') {
-          const bufferSize = 4096;
+          // bufferSize parametreden gelir (UI'daki buffer selector)
           this.processorNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
 
           this.processorNode.onaudioprocess = (e) => {
@@ -242,16 +243,30 @@ class Recorder {
         recordStream = this.destinationNode.stream;
       }
 
+      // MediaRecorder options
       const preferredMimeType = getBestAudioMimeType();
+      const recorderOptions = {};
+
       if (preferredMimeType) {
-        try {
-          this.mediaRecorder = new MediaRecorder(recordStream, { mimeType: preferredMimeType });
-        } catch {
-          this.mediaRecorder = new MediaRecorder(recordStream);
-        }
-      } else {
+        recorderOptions.mimeType = preferredMimeType;
+      }
+
+      // Sesli mesaj simülasyonu icin bitrate ayarla
+      // 0 = tarayici varsayilani, >0 = belirli bitrate
+      if (this.mediaBitrate > 0) {
+        recorderOptions.audioBitsPerSecond = this.mediaBitrate;
+      }
+
+      try {
+        this.mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
+      } catch {
+        // Options desteklenmiyorsa fallback
         this.mediaRecorder = new MediaRecorder(recordStream);
       }
+
+      const bitrateInfo = this.mediaBitrate > 0
+        ? `${(this.mediaBitrate / 1000).toFixed(0)} kbps`
+        : 'varsayilan';
 
       eventBus.emit('log:recorder', {
         message: 'MediaRecorder olusturuldu',
@@ -260,6 +275,7 @@ class Recorder {
           state: this.mediaRecorder.state,
           recordMode: this.recordMode,
           useWebAudio: this.recordMode !== 'direct',
+          mediaBitrate: bitrateInfo,
           streamId: recordStream.id
         }
       });
@@ -268,7 +284,7 @@ class Recorder {
         if (e.data.size) this.chunks.push(e.data);
       };
 
-      this.mediaRecorder.onstop = () => {
+      this.mediaRecorder.onstop = async () => {
         const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
         const blob = new Blob(this.chunks, { type: mimeType });
         const suffix = this.recordMode === 'direct' ? '' : `_${this.recordMode}`;
@@ -285,7 +301,7 @@ class Recorder {
 
         // WebAudio temizlik
         if (this.recordMode !== 'direct') {
-          this.cleanupWebAudio();
+          await this.cleanupWebAudio();
         }
 
         // Temizlik
@@ -302,7 +318,7 @@ class Recorder {
 
       const modeLabelByMode = {
         direct: 'MediaRecorder (Direct)',
-        webaudio: 'WebAudio + MediaRecorder',
+        standard: 'Standard + MediaRecorder',
         scriptprocessor: 'ScriptProcessor + MediaRecorder',
         worklet: 'AudioWorklet + MediaRecorder'
       };
@@ -330,14 +346,14 @@ class Recorder {
         originalError: err.name
       });
 
-      this.cleanupWebAudio();
+      await this.cleanupWebAudio();
       eventBus.emit('stream:stopped');
       eventBus.emit('recorder:error', err);
       throw err;
     }
   }
 
-  cleanupWebAudio(forceClose = false) {
+  async cleanupWebAudio(forceClose = false) {
     if (this.sourceNode) {
       this.sourceNode.disconnect();
       this.sourceNode = null;
@@ -368,7 +384,11 @@ class Recorder {
       this.destinationNode = null;
     }
     if (this.audioContext) {
-      this.audioContext.close();
+      try {
+        await this.audioContext.close();
+      } catch {
+        // Context zaten kapali olabilir
+      }
       eventBus.emit('log:webaudio', {
         message: 'AudioContext kapatildi (Kayit)',
         details: {}
