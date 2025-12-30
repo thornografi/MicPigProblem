@@ -5,6 +5,15 @@
 import eventBus from './EventBus.js';
 import { formatTime } from './utils.js';
 
+// Clean Code: Tekrarlayan SVG iconlari constant olarak
+const PLAY_ICON = '${PLAY_ICON}';
+const PAUSE_ICON = '${PAUSE_ICON}';
+
+// Clean Code: Magic strings yerine constants
+const TIME_PLACEHOLDER = '0:00 / 0:00';
+const UNKNOWN_DURATION = '--:--';
+const BYTES_PER_KB = 1024;
+
 class Player {
   constructor(config) {
     this.containerEl = document.getElementById(config.containerId);
@@ -70,7 +79,7 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(blob.size / 1024).toFixed(1)} KB - ${mimeType} - Süre: --:--`;
+      this.metaEl.textContent = `${(blob.size / BYTES_PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${UNKNOWN_DURATION}`;
     }
 
     if (this.downloadBtnEl) {
@@ -121,11 +130,11 @@ class Player {
     }
 
     if (this.timeEl) {
-      this.timeEl.textContent = '0:00 / 0:00';
+      this.timeEl.textContent = TIME_PLACEHOLDER;
     }
 
     if (this.playBtnEl) {
-      this.playBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      this.playBtnEl.innerHTML = PLAY_ICON;
     }
 
     if (this.noRecordingEl) {
@@ -184,7 +193,7 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(sizeBytes / 1024).toFixed(1)} KB - ${mimeType} - Süre: ${formatTime(durationSeconds)}`;
+      this.metaEl.textContent = `${(sizeBytes / BYTES_PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${formatTime(durationSeconds)}`;
     }
   }
 
@@ -195,7 +204,7 @@ class Player {
     this.isPlaying = false;
 
     if (this.playBtnEl) {
-      this.playBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      this.playBtnEl.innerHTML = PLAY_ICON;
     }
 
     eventBus.emit('player:paused');
@@ -204,11 +213,11 @@ class Player {
   togglePlay() {
     if (this.isPlaying) {
       this.audio.pause();
-      this.playBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      this.playBtnEl.innerHTML = PLAY_ICON;
       this.isPlaying = false;
     } else {
       this.audio.play();
-      this.playBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+      this.playBtnEl.innerHTML = PAUSE_ICON;
       this.isPlaying = true;
     }
   }
@@ -240,7 +249,7 @@ class Player {
         }
       }
       if (this.timeEl) {
-        this.timeEl.textContent = `${formatTime(currentTime)} / --:--`;
+        this.timeEl.textContent = `${formatTime(currentTime)} / ${UNKNOWN_DURATION}`;
       }
       return;
     }
@@ -258,7 +267,7 @@ class Player {
 
   onEnded() {
     if (this.playBtnEl) {
-      this.playBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+      this.playBtnEl.innerHTML = PLAY_ICON;
     }
     this.isPlaying = false;
 
@@ -282,7 +291,7 @@ class Player {
       const duration = this.audio.duration;
       // Infinity veya NaN kontrolu
       if (!isFinite(duration) || isNaN(duration)) {
-        const fallback = this.knownDurationSeconds ? formatTime(this.knownDurationSeconds) : '--:--';
+        const fallback = this.knownDurationSeconds ? formatTime(this.knownDurationSeconds) : UNKNOWN_DURATION;
         this.timeEl.textContent = `0:00 / ${fallback}`;
       } else {
         this.timeEl.textContent = `0:00 / ${formatTime(duration)}`;

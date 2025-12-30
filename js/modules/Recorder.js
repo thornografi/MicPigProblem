@@ -28,7 +28,7 @@ class Recorder {
     this.processorNode = null; // ScriptProcessor (deprecated)
     this.workletNode = null; // AudioWorkletNode
 
-    this.recordMode = 'direct'; // direct | webaudio | scriptprocessor | worklet
+    this.recordMode = 'direct'; // direct | standard | scriptprocessor | worklet
     this.startTime = null; // Kayit baslangic zamani (bitrate hesaplama icin)
 
     // Pre-warm state

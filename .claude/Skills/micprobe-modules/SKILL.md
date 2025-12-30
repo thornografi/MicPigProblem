@@ -93,8 +93,11 @@ dB bazli ses seviyesi gostergesi. AudioEngine'den AnalyserNode kullanir.
 ```javascript
 new VuMeter({ barId, peakId, dotId });
 ```
-**Listens:** `stream:started`, `stream:stopped`
-**Emits:** `vumeter:level`, `vumeter:audiocontext`
+**Listens:** `stream:started`, `stream:stopped`, `loopback:remoteStream`
+**Emits:** `vumeter:level`, `vumeter:audiocontext`, `vumeter:started`, `vumeter:stopped`
+
+`vumeter:audiocontext` payload: `{ sampleRate, baseLatency, outputLatency, state, fftSize }`
+(Not: maxChannelCount kaldirildi - channels bilgisi artik track.getSettings()'den geliyor)
 
 ### Recorder
 MediaRecorder + opsiyonel WebAudio pipeline.
@@ -141,12 +144,14 @@ new Player({ containerId, playBtnId, progressBarId, progressFillId, timeId, file
 **Emits:** `player:loaded`, `player:ended`, `player:reset`
 
 ### DeviceInfo
-AudioContext ve stream bilgi paneli.
+AudioContext ve stream bilgi paneli. Channels bilgisi stream:started'da track'tan alinir.
 ```javascript
 const deviceInfo = new DeviceInfo();
 await deviceInfo.initFromAudioEngine();  // AudioEngine'den bilgi al
 ```
 **Listens:** `vumeter:level`, `vumeter:audiocontext`, `stream:started`
+
+**Onemli:** Channels artik `ac.destination.maxChannelCount` degil, `track.getSettings().channelCount` ile gosteriliyor (gercek mikrofon kanali).
 
 ### Logger
 UI log paneli (filtrelenebilir).

@@ -1,6 +1,6 @@
 ---
 name: web-audio-api
-description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: microphone, getUserMedia, MediaRecorder, AudioContext, AnalyserNode, WebRTC, loopback"
+description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: microphone, getUserMedia, MediaRecorder, AudioContext, AnalyserNode, decodeAudioData, MediaSource"
 ---
 
 # Web Audio API Rehberi
@@ -58,19 +58,9 @@ src.connect(delay).connect(ac.destination);
 
 ## WebRTC Loopback
 
-> Detayli bilgi: `micprobe-loopback` skill'ine bak
-
-```javascript
-// Temel akis: Mic -> PC1 -> PC2 -> remoteStream
-pc2.ontrack = e => { remoteStream = e.streams[0]; };
-
-// CHROME BUG: Remote stream'i WebAudio'ya baglamadan once aktive et
-const activator = document.createElement('audio');
-activator.srcObject = remoteStream;
-activator.muted = true;
-await activator.play();
-// Simdi createMediaStreamSource kullanilabilir
-```
+> **Detayli bilgi:** `micprobe-loopback` skill'ine bak
+>
+> Bu skill WebRTC/loopback konularini kapsamaz - sadece temel Web Audio API.
 
 ## Temizlik
 
