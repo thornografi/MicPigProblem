@@ -16,7 +16,7 @@ class DeviceInfo {
     this.outputLatencyEl = document.getElementById('infoOutputLatency');
     this.channelsEl = document.getElementById('infoChannels');
     this.contextStateEl = document.getElementById('infoContextState');
-    this.bufferSizeEl = document.getElementById('infoBufferSize');
+    this.fftSizeEl = document.getElementById('infoFftSize');
 
     // dB display elementleri
     this.dbRmsEl = document.getElementById('dbValueRms');
@@ -46,14 +46,13 @@ class DeviceInfo {
         baseLatency: ac.baseLatency,
         outputLatency: ac.outputLatency,
         state: ac.state,
-        maxChannelCount: ac.destination?.maxChannelCount || 2,
-        bufferSize: analyser?.fftSize || 256
+        fftSize: analyser?.fftSize || 256
       });
     }
   }
 
   updateFromAudioContext(data) {
-    const { sampleRate, baseLatency, outputLatency, state, maxChannelCount, bufferSize } = data;
+    const { sampleRate, baseLatency, outputLatency, state, fftSize } = data;
 
     // Sample rate
     if (this.sampleRateEl) {
@@ -73,9 +72,9 @@ class DeviceInfo {
       }
     }
 
-    // Output latency
+    // Output latency (0 veya undefined ise N/A - bazi tarayicilar desteklemiyor)
     if (this.outputLatencyEl) {
-      if (outputLatency !== undefined) {
+      if (outputLatency !== undefined && outputLatency > 0) {
         const ms = (outputLatency * 1000).toFixed(1);
         this.outputLatencyEl.textContent = `${ms} ms`;
         this.outputLatencyEl.className = 'device-info-value';
@@ -99,14 +98,14 @@ class DeviceInfo {
       }
     }
 
-    // Channels
-    if (this.channelsEl) {
-      this.channelsEl.textContent = maxChannelCount || '2';
+    // Channels - baslangicta "--", gercek deger stream:started'da gelecek
+    if (this.channelsEl && this.channelsEl.textContent === '--') {
+      // Henuz stream baslamadi, varsayilan olarak "--" kalsin
     }
 
-    // Buffer size
-    if (this.bufferSizeEl) {
-      this.bufferSizeEl.textContent = bufferSize.toString();
+    // FFT Size (VU meter analiz boyutu)
+    if (this.fftSizeEl) {
+      this.fftSizeEl.textContent = fftSize.toString();
     }
   }
 
@@ -183,19 +182,14 @@ class DeviceInfo {
 
     const settings = track.getSettings();
 
-    // Kanal sayisi (AudioContext'ten gelmezse)
-    if (this.channelsEl && !this.channelsEl.textContent.includes('--')) {
-      return; // Zaten AudioContext'ten guncellendi
-    }
-
+    // Mikrofon kanal sayisi (track settings'ten al)
     if (this.channelsEl) {
       this.channelsEl.textContent = settings.channelCount || '1';
     }
 
-    // Sample rate (AudioContext'ten gelmezse)
-    if (this.sampleRateEl) {
-      const sr = settings.sampleRate || 'N/A';
-      this.sampleRateEl.textContent = sr !== 'N/A' ? `${sr} Hz` : sr;
+    // Sample rate (track varsa onu kullan, yoksa AudioContext kalsin)
+    if (this.sampleRateEl && settings.sampleRate) {
+      this.sampleRateEl.textContent = `${settings.sampleRate} Hz`;
     }
   }
 }

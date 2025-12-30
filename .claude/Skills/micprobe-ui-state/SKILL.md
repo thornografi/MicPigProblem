@@ -10,11 +10,12 @@ description: "MicProbe UI state, monitoring/recording ayrimi ve kontrol kilitlem
 - **Monitoring** basladiginda kayit tarafindaki butun kontroller kilitlenir (kullanici karistirmasin).
 - **Recording** sirasinda ise kayitla ilgili kontroller aktif kalir, diger ayarlar kilitlenir.
 
-## Gelismis Ayarlar Gorunurlugu
+## Ozel Ayarlar Paneli
 
-- `advanced-settings-wrapper` sadece **custom** profilinde gorünür (`display: block`).
-- Diger profillerde tamamen gizlenir (`display: none`).
-- Kontrol: `applyProfile()` fonksiyonu icerisinde.
+- `customSettingsPanel` ana panelde genisletilebilir sekilde gosterilir.
+- Her profilde gorunur, profil bazli locked/editable ayarlar dinamik olarak listelenir.
+- Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
+- Kontrol: `updateCustomSettingsPanel()` fonksiyonu icerisinde.
 
 ## Sayaç (Timer)
 
@@ -30,10 +31,25 @@ Cozum yaklasimi:
 - Yeni kayit yuklenince progress fill `scaleX(0)` yap.
 - Duration invalidken progress’i ya sifirla ya da `knownDurationSeconds` fallback ile hesapla.
 
+## Profil Degisimi ve Monitoring
+
+Profil degistiginde aktif monitoring/recording yeni ayarlarla yeniden baslatilir.
+
+**Onemli:** `applyProfile()` icinde restart async bekler:
+```javascript
+// app.js - applyProfile() icinde
+if (previousMode === 'monitoring') {
+  await monitorToggleBtn.onclick();  // Restart tamamlanana kadar bekle
+}
+```
+
+Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
+
 ## Nereye Bakilir?
 
 - UI state: `js/app.js` -> `updateButtonStates()`
 - Timer: `js/app.js` -> `startTimer()/stopTimer()`
+- Profil degisimi: `js/app.js` -> `applyProfile()`
 - Player: `js/modules/Player.js`
 - Stil/disabled gorunumu: `css/style.css`
 

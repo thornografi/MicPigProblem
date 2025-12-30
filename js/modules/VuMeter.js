@@ -9,27 +9,43 @@ import audioEngine from './AudioEngine.js';
 
 class VuMeter {
   constructor(config) {
+    // Local (mic) VU meter elementleri
     this.barEl = document.getElementById(config.barId);
     this.peakEl = document.getElementById(config.peakId);
     this.dotEl = document.getElementById(config.dotId);
 
+    // Remote (codec sonrasi) VU meter elementleri (opsiyonel)
+    this.remoteBarEl = document.getElementById(config.remoteBarId || 'remoteVuBar');
+    this.remotePeakEl = document.getElementById(config.remotePeakId || 'remoteVuPeak');
+    this.remoteContainerEl = document.getElementById('remoteVuContainer');
+
     this.analyser = null;
+    this.remoteAnalyser = null; // Remote stream icin ayri analyser
+    this.remoteAudioCtx = null; // Remote stream icin ayri AudioContext
+    this.remoteSourceNode = null;
     this.animationId = null;
     this.peakLevel = 0;
+    this.remotePeakLevel = 0;
     this.peakHoldTime = 0;
+    this.remotePeakHoldTime = 0;
     this.dotState = 'idle'; // classList optimizasyonu icin state tracking
 
     // Performans: VU meter container genisligini cache'le (reflow onleme)
     this.meterWidth = this.peakEl?.parentElement?.offsetWidth || 200;
+    this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || 200;
 
     // Event dinle
     eventBus.on('stream:started', (stream) => this.start(stream));
     eventBus.on('stream:stopped', () => this.stop());
+    eventBus.on('loopback:remoteStream', (stream) => this.startRemote(stream));
 
     // Resize event'inde meter width'i guncelle
-    window.addEventListener('resize', () => {
+    // Memory leak fix: Named handler, stop()'ta removeEventListener icin
+    this.resizeHandler = () => {
       this.meterWidth = this.peakEl?.parentElement?.offsetWidth || 200;
-    });
+      this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || 200;
+    };
+    window.addEventListener('resize', this.resizeHandler);
   }
 
   async start(stream) {
@@ -46,11 +62,77 @@ class VuMeter {
       baseLatency: ac.baseLatency,
       outputLatency: ac.outputLatency,
       state: ac.state,
-      maxChannelCount: ac.destination.maxChannelCount,
-      bufferSize: this.analyser.fftSize
+      fftSize: this.analyser.fftSize
     });
 
     eventBus.emit('vumeter:started');
+  }
+
+  /**
+   * Remote stream (codec sonrasi) icin VU meter baslat
+   * Loopback modunda WebRTC'den gelen sesi gosterir
+   */
+  async startRemote(stream) {
+    if (!stream) return;
+
+    // Remote container'i goster
+    if (this.remoteContainerEl) {
+      this.remoteContainerEl.style.display = 'block';
+    }
+
+    try {
+      // Remote stream icin ayri AudioContext (cakisma onleme)
+      this.remoteAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.remoteAudioCtx.state === 'suspended') {
+        await this.remoteAudioCtx.resume();
+      }
+
+      this.remoteSourceNode = this.remoteAudioCtx.createMediaStreamSource(stream);
+      this.remoteAnalyser = this.remoteAudioCtx.createAnalyser();
+      this.remoteAnalyser.fftSize = 256;
+      this.remoteSourceNode.connect(this.remoteAnalyser);
+
+      eventBus.emit('log:stream', {
+        message: 'VU Meter: Remote stream baglandi',
+        details: { streamId: stream.id }
+      });
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'VU Meter: Remote stream baglanti hatasi',
+        details: { error: err.message }
+      });
+    }
+  }
+
+  stopRemote() {
+    if (this.remoteAnalyser) {
+      this.remoteAnalyser = null;
+    }
+    if (this.remoteSourceNode) {
+      this.remoteSourceNode.disconnect();
+      this.remoteSourceNode = null;
+    }
+    if (this.remoteAudioCtx) {
+      this.remoteAudioCtx.close().catch(() => {});
+      this.remoteAudioCtx = null;
+    }
+
+    // Remote VU elementlerini sifirla
+    if (this.remoteBarEl) this.remoteBarEl.style.transform = 'scaleX(0)';
+    if (this.remotePeakEl) this.remotePeakEl.style.transform = 'translateX(0)';
+    if (this.remoteContainerEl) this.remoteContainerEl.style.display = 'none';
+
+    this.remotePeakLevel = 0;
+  }
+
+  // DRY: RMS hesaplama (update ve updateRemote icin ortak)
+  calculateRMS(dataArray) {
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const val = (dataArray[i] - 128) / 128;
+      sum += val * val;
+    }
+    return Math.sqrt(sum / dataArray.length);
   }
 
   update() {
@@ -60,15 +142,13 @@ class VuMeter {
     const dataArray = audioEngine.getDataArray();
     this.analyser.getByteTimeDomainData(dataArray);
 
-    // RMS hesapla
-    let sum = 0;
+    // RMS ve maxSample hesapla
+    const rms = this.calculateRMS(dataArray);
     let maxSample = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const val = (dataArray[i] - 128) / 128;
-      sum += val * val;
-      maxSample = Math.max(maxSample, Math.abs(val));
+      const val = Math.abs((dataArray[i] - 128) / 128);
+      if (val > maxSample) maxSample = val;
     }
-    const rms = Math.sqrt(sum / dataArray.length);
 
     // dB hesapla (logaritmik skala)
     // -60dB = 0%, 0dB = 100%
@@ -115,13 +195,60 @@ class VuMeter {
       isClipping
     });
 
+    // Remote stream (codec sonrasi) VU meter guncelle
+    this.updateRemote();
+
     this.animationId = requestAnimationFrame(() => this.update());
+  }
+
+  /**
+   * Remote stream VU meter guncelle (loopback modunda)
+   */
+  updateRemote() {
+    if (!this.remoteAnalyser) return;
+
+    // Remote stream icin ayri dataArray (GC'den kacinmak icin cache'le)
+    if (!this.remoteDataArray) {
+      this.remoteDataArray = new Uint8Array(this.remoteAnalyser.frequencyBinCount);
+    }
+    this.remoteAnalyser.getByteTimeDomainData(this.remoteDataArray);
+
+    // DRY: Ortak RMS hesaplama fonksiyonu kullan
+    const rms = this.calculateRMS(this.remoteDataArray);
+
+    // dB ve level hesapla
+    const dB = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
+    const remoteLevel = Math.max(0, Math.min(100, (dB + 60) / 60 * 100));
+
+    // Remote bar guncelle
+    if (this.remoteBarEl) {
+      this.remoteBarEl.style.transform = `scaleX(${remoteLevel / 100})`;
+    }
+
+    // Remote peak hold
+    if (remoteLevel > this.remotePeakLevel) {
+      this.remotePeakLevel = remoteLevel;
+      this.remotePeakHoldTime = Date.now();
+    } else if (Date.now() - this.remotePeakHoldTime > 1000) {
+      this.remotePeakLevel = Math.max(remoteLevel, this.remotePeakLevel - 2);
+    }
+
+    // Remote peak indicator
+    if (this.remotePeakEl) {
+      const peakX = (this.remotePeakLevel / 100) * this.remoteMeterWidth;
+      this.remotePeakEl.style.transform = `translateX(${peakX}px)`;
+    }
   }
 
   stop() {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
       this.animationId = null;
+    }
+
+    // Memory leak fix: Resize listener temizle
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
     }
 
     // Transform'lari sifirla (GPU accelerated)
@@ -137,6 +264,9 @@ class VuMeter {
     // AudioEngine'den disconnect (context acik kalir - tekrar hizli baslatma icin)
     audioEngine.disconnect();
     this.analyser = null;
+
+    // Remote stream'i de temizle
+    this.stopRemote();
 
     eventBus.emit('vumeter:stopped');
   }

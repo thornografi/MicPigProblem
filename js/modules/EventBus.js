@@ -36,7 +36,13 @@ class EventBus {
   emit(event, data) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
-      callbacks.forEach(cb => cb(data));
+      callbacks.forEach(cb => {
+        try {
+          cb(data);
+        } catch (err) {
+          console.error(`[EventBus] Listener error [${event}]:`, err);
+        }
+      });
     }
   }
 }

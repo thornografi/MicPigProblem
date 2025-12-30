@@ -21,6 +21,9 @@ const LOG_CATEGORIES = {
   UI: 'ui'
 };
 
+// Maksimum log sayisi (kategori basina) - bellek korumasi
+const MAX_LOGS_PER_CATEGORY = 500;
+
 class LogManager {
   constructor() {
     this.logs = {
@@ -82,6 +85,12 @@ class LogManager {
     eventBus.on('log:webaudio', (data) => this.log('webaudio', data.message, data.details));
     eventBus.on('log:recorder', (data) => this.log('recorder', data.message, data.details));
     eventBus.on('log:system', (data) => this.log('system', data.message, data.details));
+    eventBus.on('log:ui', (data) => this.log('ui', data.message, data.details));
+    eventBus.on('log:warning', (data) => {
+      // Warning'lari error kategorisinde logla (ama console.warn kullan)
+      console.warn('[WARNING]', data.message, data.details || '');
+      this.log('error', `[WARN] ${data.message}`, data.details);
+    });
 
     // Stream event'leri
     eventBus.on('stream:started', (stream) => {
@@ -172,6 +181,11 @@ class LogManager {
     // Bellekte sakla
     if (this.logs[category]) {
       this.logs[category].push(entry);
+
+      // Bellek korumasi - eski loglari sil (FIFO)
+      if (this.logs[category].length > MAX_LOGS_PER_CATEGORY) {
+        this.logs[category].shift();
+      }
     }
 
     // IndexedDB'ye kaydet

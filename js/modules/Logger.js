@@ -5,6 +5,9 @@
  */
 import eventBus from './EventBus.js';
 
+// Maksimum log sayisi - bellek korumasi
+const MAX_HISTORY = 1000;
+
 class Logger {
   constructor(elementId) {
     this.el = document.getElementById(elementId);
@@ -27,6 +30,11 @@ class Logger {
     const formattedMessage = `[${time}] ${prefix}${message}`;
 
     this.history.push({ time, message: formattedMessage, category, raw: message });
+
+    // Bellek korumasi - eski loglari sil (FIFO)
+    if (this.history.length > MAX_HISTORY) {
+      this.history.shift();
+    }
 
     // Aktif filtre varsa ve kategori uyusmuyorsa gosterme
     if (this.activeFilter && this.activeFilter !== category) {

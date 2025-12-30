@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node server.js:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c \"tasklist /FI \"\"PID eq 88800\"\"\")",
+      "Bash(wmic process where processid=88800 get name,commandline:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c \"taskkill /PID 88800 /F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 88800 -Force\")",
+      "Bash(start:*)",
+      "Bash(dir /s /b \"C:\\Users\\burra\\.claude\\skills\\*SKILL.md\")",
+      "Bash(if not exist \"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\" mkdir \"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\")",
+      "Bash(cmd /c \"if not exist \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\" mkdir \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\"\")"
+    ]
+  }
+}

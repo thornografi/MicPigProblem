@@ -19,7 +19,28 @@ import StatusManager from './modules/StatusManager.js';
 import DeviceInfo from './modules/DeviceInfo.js';
 import { formatTime, getBestAudioMimeType } from './modules/utils.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet, isAudioWorkletSupported } from './modules/WorkletHelper.js';
-import { PROFILES } from './modules/Config.js';
+import { PROFILES, SETTINGS } from './modules/Config.js';
+
+// ============================================
+// ERKEN TANIMLANAN SABITLER (applyProfile oncesi gerekli)
+// ============================================
+const WORKLET_SUPPORTED = isAudioWorkletSupported();
+
+// ============================================
+// UTILITY FONKSIYONLAR
+// ============================================
+// DRY: Stream track'lerini durdur (6 yerde kullaniliyor)
+function stopAllTracks(stream) {
+  stream?.getTracks().forEach(t => t.stop());
+}
+
+// ============================================
+// MERKEZI STATE - Erken tanimlama (hoisting icin)
+// ============================================
+// Modlar: null (idle), 'recording', 'monitoring'
+let currentMode = null;
+// Mevcut profil ID'si (ozel mod icin)
+let currentProfileId = 'discord';
 
 // Modulleri baslat
 const logger = new Logger('log');
@@ -61,8 +82,8 @@ const deviceInfo = new DeviceInfo();
 // ============================================
 const recordToggleBtn = document.getElementById('recordToggle');
 const monitorToggleBtn = document.getElementById('monitorToggle');
-const webaudioToggle = document.getElementById('webaudioToggle');
 const loopbackToggle = document.getElementById('loopbackToggle');
+// NOT: webaudioToggle kaldirildi - artik mode ayari WebAudio durumunu belirliyor
 
 // Ayar checkboxlari
 const ecCheckbox = document.getElementById('ec');
@@ -92,10 +113,21 @@ const progressBarEl = document.getElementById('progressBar');
 // Timeslice container (kayit modu icin)
 const timesliceContainerEl = document.querySelector('.timeslice-container');
 
+// Hazirlanıyor overlay (kayit/monitoring gecikme gostergesi)
+const preparingOverlayEl = document.getElementById('preparingOverlay');
+
 // Profil secici
 const profileSelector = document.getElementById('profileSelector');
-const advancedSettingsEl = document.getElementById('advancedSettings');
-const advancedSettingsWrapper = document.getElementById('advanced-settings-wrapper');
+
+// Ozel Ayarlar Panel (Ana sayfa)
+const customSettingsToggle = document.getElementById('customSettingsToggle');
+const customSettingsContent = document.getElementById('customSettingsContent');
+const customSettingsGrid = document.getElementById('customSettingsGrid');
+
+// Ayar section'lari (profil bazli gorunurluk icin)
+const pipelineSection = document.getElementById('pipelineSection');
+const webrtcSection = document.getElementById('webrtcSection');
+const developerSection = document.getElementById('developerSection');
 
 // Mikrofon secici
 const micSelector = document.getElementById('micSelector');
@@ -104,41 +136,101 @@ const refreshMicsBtn = document.getElementById('refreshMics');
 // Radio buton koleksiyonlari (cache - tekrar sorgu onlemi)
 const processingModeRadios = document.querySelectorAll('input[name="processingMode"]');
 const bitrateRadios = document.querySelectorAll('input[name="bitrate"]');
+// mediaBitrateRadios - KALDIRILDI: OCP mimarisi ile getSettingElements() dinamik kullaniliyor
 const timesliceRadios = document.querySelectorAll('input[name="timeslice"]');
 const bufferSizeRadios = document.querySelectorAll('input[name="bufferSize"]');
 
 // ============================================
 // MIKROFON LISTESI
 // ============================================
-let selectedDeviceId = ''; // Bos = varsayilan
+const MIC_STORAGE_KEY = 'micprobe_selectedMic';
 
-async function enumerateMicrophones() {
+// localStorage'dan onceki secimi yukle
+let selectedDeviceId = localStorage.getItem(MIC_STORAGE_KEY) || '';
+let hasMicPermission = false; // Izin durumu
+
+async function enumerateMicrophones(silent = false) {
   try {
     // Izin almak icin once getUserMedia cagir (enumerateDevices icin gerekli)
     const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    tempStream.getTracks().forEach(t => t.stop()); // Hemen kapat
+    stopAllTracks(tempStream); // Hemen kapat
+    hasMicPermission = true;
 
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const mics = devices.filter(d => d.kind === 'audioinput');
+    const allMics = devices.filter(d => d.kind === 'audioinput');
+
+    // Windows virtual entries'i filtrele (default, communications)
+    const virtualIds = ['default', 'communications'];
+    const realMics = allMics.filter(m => !virtualIds.includes(m.deviceId));
+
+    // Varsayilan cihazi bul (default entry'nin label'indan)
+    const defaultEntry = allMics.find(m => m.deviceId === 'default');
+    let defaultRealDeviceId = null;
+
+    if (defaultEntry && defaultEntry.label) {
+      // "Varsayilan - Analogue 1+2 (Focusrite)" → "Analogue 1+2 (Focusrite)"
+      const defaultLabel = defaultEntry.label.replace(/^(Varsay[ıi]lan|Default)\s*-\s*/i, '').trim();
+
+      // Bu label ile eslesen gercek cihazi bul
+      const matchingReal = realMics.find(m => m.label === defaultLabel);
+      if (matchingReal) {
+        defaultRealDeviceId = matchingReal.deviceId;
+      }
+    }
+
+    // Eslesme bulunamazsa ilk cihazi varsayilan say
+    if (!defaultRealDeviceId && realMics.length > 0) {
+      defaultRealDeviceId = realMics[0].deviceId;
+    }
 
     // Dropdown'u temizle
-    micSelector.innerHTML = '<option value="">Varsayilan mikrofon</option>';
+    micSelector.innerHTML = '';
 
-    mics.forEach((mic, index) => {
+    // Secili cihaz hala mevcut mu kontrol et
+    const selectedStillExists = realMics.some(m => m.deviceId === selectedDeviceId);
+    if (selectedDeviceId && !selectedStillExists) {
+      eventBus.emit('log:warning', {
+        message: 'Onceden secili mikrofon artik mevcut degil',
+        details: { lostDeviceId: selectedDeviceId.slice(0, 8) }
+      });
+      selectedDeviceId = '';
+      localStorage.removeItem(MIC_STORAGE_KEY);
+    }
+
+    realMics.forEach((mic, index) => {
       const option = document.createElement('option');
       option.value = mic.deviceId;
-      option.textContent = mic.label || `Mikrofon ${index + 1}`;
+
+      // Cihaz adi
+      let label = mic.label || `Mikrofon ${index + 1}`;
+
+      // Varsayilan cihaza "(varsayilan)" ekle
+      if (mic.deviceId === defaultRealDeviceId) {
+        label += ' (varsayilan)';
+      }
+
+      option.textContent = label;
+
+      // Secili cihazi isle
       if (mic.deviceId === selectedDeviceId) {
         option.selected = true;
+      } else if (!selectedDeviceId && mic.deviceId === defaultRealDeviceId) {
+        // Hic secim yoksa varsayilani sec
+        option.selected = true;
+        selectedDeviceId = mic.deviceId;
       }
+
       micSelector.appendChild(option);
     });
 
-    eventBus.emit('log:stream', {
-      message: `${mics.length} mikrofon bulundu`,
-      details: { devices: mics.map(m => m.label || m.deviceId.slice(0, 8)) }
-    });
+    if (!silent) {
+      eventBus.emit('log:stream', {
+        message: `${realMics.length} mikrofon bulundu`,
+        details: { devices: realMics.map(m => m.label || m.deviceId.slice(0, 8)) }
+      });
+    }
   } catch (err) {
+    hasMicPermission = false;
     eventBus.emit('log:error', {
       category: 'stream',
       message: 'Mikrofon listesi alinamadi',
@@ -155,26 +247,69 @@ function getSelectedDeviceId() {
 async function tryEnumerateWithoutPermission() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const mics = devices.filter(d => d.kind === 'audioinput');
+    const allMics = devices.filter(d => d.kind === 'audioinput');
 
     // Izin yoksa label'lar bos olur
-    const hasLabels = mics.some(m => m.label);
-
-    micSelector.innerHTML = '<option value="">Varsayilan mikrofon</option>';
+    const hasLabels = allMics.some(m => m.label);
+    hasMicPermission = hasLabels;
 
     if (hasLabels) {
-      mics.forEach((mic, index) => {
+      // Izin var - tam listeyi goster
+      // Windows virtual entries'i filtrele (default, communications)
+      const virtualIds = ['default', 'communications'];
+      const realMics = allMics.filter(m => !virtualIds.includes(m.deviceId));
+
+      // Varsayilan cihazi bul (default entry'nin label'indan)
+      const defaultEntry = allMics.find(m => m.deviceId === 'default');
+      let defaultRealDeviceId = null;
+
+      if (defaultEntry && defaultEntry.label) {
+        const defaultLabel = defaultEntry.label.replace(/^(Varsay[ıi]lan|Default)\s*-\s*/i, '').trim();
+        const matchingReal = realMics.find(m => m.label === defaultLabel);
+        if (matchingReal) {
+          defaultRealDeviceId = matchingReal.deviceId;
+        }
+      }
+
+      if (!defaultRealDeviceId && realMics.length > 0) {
+        defaultRealDeviceId = realMics[0].deviceId;
+      }
+
+      micSelector.innerHTML = '';
+
+      // Secili cihaz hala mevcut mu kontrol et
+      const selectedStillExists = realMics.some(m => m.deviceId === selectedDeviceId);
+      if (selectedDeviceId && !selectedStillExists) {
+        selectedDeviceId = '';
+        localStorage.removeItem(MIC_STORAGE_KEY);
+      }
+
+      realMics.forEach((mic, index) => {
         const option = document.createElement('option');
         option.value = mic.deviceId;
-        option.textContent = mic.label || `Mikrofon ${index + 1}`;
+
+        let label = mic.label || `Mikrofon ${index + 1}`;
+        if (mic.deviceId === defaultRealDeviceId) {
+          label += ' (varsayilan)';
+        }
+        option.textContent = label;
+
+        if (mic.deviceId === selectedDeviceId) {
+          option.selected = true;
+        } else if (!selectedDeviceId && mic.deviceId === defaultRealDeviceId) {
+          option.selected = true;
+          selectedDeviceId = mic.deviceId;
+        }
+
         micSelector.appendChild(option);
       });
-    } else if (mics.length > 1) {
-      // Izin yok ama birden fazla mikrofon var
-      micSelector.innerHTML = '<option value="">Listelemek icin 🔄 tikla</option>';
+    } else {
+      // Izin yok - tiklandiginda izin istenecek
+      micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
     }
   } catch (err) {
     // Sessizce hata - izin yok demek
+    micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
   }
 }
 
@@ -188,11 +323,27 @@ if (refreshMicsBtn) {
   });
 }
 
-// Mikrofon secimi degistiginde
+// Mikrofon seciciye tiklandiginda izin yoksa iste
 if (micSelector) {
+  micSelector.addEventListener('mousedown', async (e) => {
+    if (!hasMicPermission) {
+      e.preventDefault(); // Dropdown'un acilmasini engelle
+      await enumerateMicrophones();
+    }
+  });
+
+  // Mikrofon secimi degistiginde
   micSelector.addEventListener('change', (e) => {
     selectedDeviceId = e.target.value;
     const selectedOption = micSelector.options[micSelector.selectedIndex];
+
+    // localStorage'a kaydet (sayfa yenilenince korunsun)
+    if (selectedDeviceId) {
+      localStorage.setItem(MIC_STORAGE_KEY, selectedDeviceId);
+    } else {
+      localStorage.removeItem(MIC_STORAGE_KEY);
+    }
+
     eventBus.emit('log:stream', {
       message: `Mikrofon secildi: ${selectedOption.textContent}`,
       details: { deviceId: selectedDeviceId || 'default' }
@@ -200,52 +351,187 @@ if (micSelector) {
   });
 }
 
+// Cihaz degisikligi dinle (mikrofon takildiginda/cikarildiginda)
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', async () => {
+    // Sadece izin varsa listeyi guncelle
+    if (hasMicPermission) {
+      eventBus.emit('log:stream', {
+        message: 'Cihaz degisikligi algilandi, liste guncelleniyor...',
+        details: {}
+      });
+      // Sessiz modda guncelle (tekrar "X mikrofon bulundu" yazmasin)
+      await enumerateMicrophones(true);
+    }
+  });
+}
+
 // ============================================
 // SENARYO PROFILLERI - Config.js'den import edildi
 // ============================================
 
-function applyProfile(profileId) {
+// Ayar key'ine gore UI elementlerini dondur (checkbox, radio grubu, toggle)
+// OCP: Config.js'deki ui metadata kullanilarak dinamik element bulma
+function getSettingElements(settingKey) {
+  const setting = SETTINGS[settingKey];
+  if (!setting?.ui) return [];
+
+  const { type, id, name } = setting.ui;
+
+  // Checkbox veya Toggle icin tek element
+  if (type === 'checkbox' || type === 'toggle') {
+    const el = document.getElementById(id);
+    return el ? [el] : [];
+  }
+
+  // Radio grubu icin tum radiolari dondur
+  if (type === 'radio') {
+    return [...document.querySelectorAll(`input[name="${name}"]`)];
+  }
+
+  return [];
+}
+
+// Ayar elementlerini enable/disable et
+function setSettingDisabled(settingKey, disabled) {
+  const elements = getSettingElements(settingKey);
+  elements.forEach(el => {
+    el.disabled = disabled;
+    // Disabled durumunda visual feedback icin parent label'a class ekle
+    const label = el.closest('label');
+    if (label) {
+      label.classList.toggle('setting-locked', disabled);
+    }
+  });
+}
+
+// Profil constraint'lerini uygula (locked/editable)
+function applyProfileConstraints(profile) {
+  if (!profile) return;
+
+  const lockedSettings = profile.lockedSettings || [];
+
+  // Once tum ayarlari enable et (temiz baslangic)
+  // OCP: Dinamik olarak SETTINGS'den key listesi alinir
+  const allSettingKeys = Object.keys(SETTINGS);
+  allSettingKeys.forEach(key => setSettingDisabled(key, false));
+
+  // Locked ayarlari disable et
+  lockedSettings.forEach(key => setSettingDisabled(key, true));
+}
+
+// validateConfigCombination() - KALDIRILDI: Kullanilmiyordu, UI mantigi updateDynamicLocks() ve updateSettingVisibility() icinde
+
+/**
+ * Dinamik kilitleme - Ham Kayit (mictest) profilinde aykiri ayarlari otomatik disable eder
+ * Bu fonksiyon profil constraint'lerinden SONRA calisir ve dinamik kurallari uygular
+ * NOT: webaudio toggle kaldirildi - artik sadece mode ve loopback'e gore kilitleme yapiliyor
+ */
+function updateDynamicLocks() {
+  const profile = PROFILES[currentProfileId];
+  if (!profile) return;
+
+  // Sadece 'all' editable profillerde dinamik kilitleme aktif (Ham Kayit)
+  const isDynamicProfile = profile.allowedSettings === 'all' && profile.lockedSettings?.length === 0;
+  if (!isDynamicProfile) return;
+
+  const loopback = loopbackToggle?.checked ?? false;
+  const mode = getRadioValue('processingMode', 'standard');
+
+  // Kural 1: mode direct/standard → buffer kilitle (sadece scriptprocessor/worklet icin anlamli)
+  const needsBuffer = ['scriptprocessor', 'worklet'].includes(mode);
+  setSettingDisabled('buffer', !needsBuffer);
+
+  // Kural 2: loopback ON → mediaBitrate kilitle (WebRTC varsa MediaRecorder bitrate anlamsiz)
+  setSettingDisabled('mediaBitrate', loopback);
+
+  // Kural 3: loopback OFF → bitrate kilitle (WebRTC yoksa Opus bitrate anlamsiz)
+  setSettingDisabled('bitrate', !loopback);
+
+  // Ozel Ayarlar panelini de guncelle (disabled state'leri yansit)
+  updateCustomSettingsPanelDynamicState();
+}
+
+/**
+ * Ozel Ayarlar panelindeki dinamik kilitleme durumunu guncelle
+ */
+function updateCustomSettingsPanelDynamicState() {
+  if (!customSettingsGrid) return;
+
+  const mode = getRadioValue('processingMode', 'standard');
+  const dynamicLockMap = {
+    buffer: !['scriptprocessor', 'worklet'].includes(mode),
+    mediaBitrate: loopbackToggle?.checked,
+    bitrate: !loopbackToggle?.checked
+  };
+
+  Object.entries(dynamicLockMap).forEach(([key, isLocked]) => {
+    const element = customSettingsGrid.querySelector(`[data-setting="${key}"]`);
+    if (element) {
+      element.disabled = isLocked;
+      const parent = element.closest('.custom-setting-item');
+      if (parent) {
+        parent.classList.toggle('dynamic-locked', isLocked);
+      }
+    }
+  });
+}
+
+async function applyProfile(profileId) {
   const profile = PROFILES[profileId];
   if (!profile) return;
 
-  const isCustom = profileId === 'custom';
-  const values = profile.values; // null for custom
+  // Mevcut profil ID'sini guncelle (ozel mod icin)
+  currentProfileId = profileId;
 
-  // Gelismis ayarlari sadece custom modda goster
-  if (advancedSettingsWrapper) {
-    advancedSettingsWrapper.style.display = isCustom ? 'block' : 'none';
+  const values = profile.values;
+  const lockedSettings = profile.lockedSettings || [];
+  const editableSettings = profile.editableSettings || [];
+
+  // Aktif stream varsa restart gerekiyor mu kontrol et
+  const wasActive = currentMode !== null;
+  const previousMode = currentMode;
+
+  // Profil bazli bireysel ayar gorunurlugunu guncelle
+  updateSettingVisibility(profile);
+
+  // Aktif stream varsa once durdur
+  if (wasActive) {
+    eventBus.emit('log:ui', { message: `Profil degisiyor, ${previousMode === 'monitoring' ? 'monitor' : 'kayit'} yeniden baslatilacak...` });
+
+    if (previousMode === 'monitoring') {
+      await stopMonitoring();
+    } else if (previousMode === 'recording') {
+      await stopRecording();
+    }
   }
 
-  // Ozel profil: sadece kilidi kaldir, ayarlara dokunma
-  if (isCustom || !values) {
-    eventBus.emit('log', `Profil: ${profile.label} (manual kontrol)`);
-    return;
-  }
+  // OCP: Diger profiller - ayarlari Config.js metadata'sina gore dinamik uygula
+  Object.entries(values).forEach(([key, value]) => {
+    const setting = SETTINGS[key];
+    if (!setting?.ui) return;
 
-  // Diger profiller: ayarlari uygula
-  ecCheckbox.checked = values.ec;
-  nsCheckbox.checked = values.ns;
-  agcCheckbox.checked = values.agc;
-  webaudioToggle.checked = values.webaudio;
-  loopbackToggle.checked = values.loopback;
+    const elements = getSettingElements(key);
+    if (elements.length === 0) return;
 
-  // Radio'lari sec
-  const modeRadio = document.querySelector(`input[name="processingMode"][value="${values.mode}"]`);
-  if (modeRadio) modeRadio.checked = true;
+    if (setting.type === 'boolean') {
+      // Checkbox veya Toggle
+      elements.forEach(el => el.checked = value);
+    } else if (setting.type === 'enum') {
+      // Radio grubu - degere gore sec
+      const radio = elements.find(el => el.value == value);
+      if (radio) radio.checked = true;
+    }
+  });
 
-  const bitrateRadio = document.querySelector(`input[name="bitrate"][value="${values.bitrate}"]`);
-  if (bitrateRadio) bitrateRadio.checked = true;
+  // Locked/Editable constraint'leri uygula
+  applyProfileConstraints(profile);
 
-  const bufferRadio = document.querySelector(`input[name="bufferSize"][value="${values.buffer}"]`);
-  if (bufferRadio) bufferRadio.checked = true;
+  // Dinamik kilitleme (Ham Kayit profili icin aykiri ayar kurallari)
+  updateDynamicLocks();
 
-  const timesliceRadio = document.querySelector(`input[name="timeslice"][value="${values.timeslice}"]`);
-  if (timesliceRadio) timesliceRadio.checked = true;
-
-  // UI gorunurluklerini guncelle (gorunur ama disabled)
-  toggleDisplay(processingModeContainer, values.webaudio);
-  toggleDisplay(opusBitrateContainer, values.loopback);
-  toggleDisplay(bufferSizeContainer, values.mode === 'scriptprocessor');
+  // Profil bazli bireysel ayar gorunurlugunu guncelle
+  updateSettingVisibility(profile);
 
   // Buffer bilgisini guncelle
   updateBufferInfo(values.buffer);
@@ -253,11 +539,38 @@ function applyProfile(profileId) {
   // Timeslice info guncelle
   updateTimesliceInfo(values.timeslice);
 
+  // Locked ayarlari logla
+  if (lockedSettings.length > 0) {
+    eventBus.emit('log:system', {
+      message: `Profil: ${profile.label} - Kilitli ayarlar: ${lockedSettings.join(', ')}`,
+      details: { profileId, locked: lockedSettings, editable: editableSettings }
+    });
+  }
+
   eventBus.emit('log', `Profil: ${profile.label}`);
   eventBus.emit('log:system', {
     message: 'Profil uygulandi',
     details: { profileId, ...values }
   });
+
+  // Buton ve ayar durumlarini senkronize et
+  updateButtonStates();
+
+  // Aktif stream vardi ise yeni ayarlarla yeniden baslat
+  if (wasActive) {
+    // Kisa bir gecikme - UI'in guncellenmesi icin
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    eventBus.emit('log:ui', { message: `Yeni profil ile ${previousMode === 'monitoring' ? 'monitor' : 'kayit'} yeniden baslatiliyor...` });
+
+    if (previousMode === 'monitoring') {
+      // Dogrudan onclick cagir ve bekle (click() Promise donmuyor)
+      await monitorToggleBtn.onclick();
+    } else if (previousMode === 'recording') {
+      // Dogrudan onclick cagir ve bekle
+      await recordToggleBtn.onclick();
+    }
+  }
 }
 
 // ============================================
@@ -267,6 +580,75 @@ function applyProfile(profileId) {
 // DOM visibility helper - element goster/gizle
 function toggleDisplay(element, shouldShow, displayValue = 'block') {
   if (element) element.style.display = shouldShow ? displayValue : 'none';
+}
+
+// Profil bazli bireysel ayar gorunurlugu ve kilitleme
+// locked: gorunur ama disabled (kilit ikonu)
+// editable: gorunur ve enabled
+// hidden: ne locked ne editable (display: none)
+function updateSettingVisibility(profile) {
+  if (!profile) return;
+
+  const lockedSettings = profile.lockedSettings || [];
+  const editableSettings = profile.editableSettings || [];
+  const isAll = profile.allowedSettings === 'all';
+
+  // Drawer icindeki tum ayar container'lari
+  // OCP: Dinamik olarak SETTINGS'den key listesi alinir
+  const drawerSettings = Object.keys(SETTINGS);
+
+  drawerSettings.forEach(settingKey => {
+    const container = document.querySelector(`[data-setting="${settingKey}"]`);
+    if (!container) return;
+
+    if (isAll) {
+      // Legacy/Custom: Tum ayarlar gorunur ve enabled
+      container.style.display = '';
+      container.classList.remove('setting-locked');
+      setSettingDisabled(settingKey, false);
+    } else if (lockedSettings.includes(settingKey)) {
+      // Kilitli: Gorunur ama disabled (kilit ikonu)
+      container.style.display = '';
+      container.classList.add('setting-locked');
+      setSettingDisabled(settingKey, true);
+    } else if (editableSettings.includes(settingKey)) {
+      // Editable: Gorunur ve enabled
+      container.style.display = '';
+      container.classList.remove('setting-locked');
+      setSettingDisabled(settingKey, false);
+    } else {
+      // Ne locked ne editable: GIZLI
+      container.style.display = 'none';
+      container.classList.remove('setting-locked');
+    }
+  });
+
+  // Section visibility - icerigine gore otomatik gizle/goster
+  updateSectionVisibility();
+}
+
+// Section'lari iceriklerine gore goster/gizle
+function updateSectionVisibility() {
+  // Pipeline section: webaudio, mode, buffer gorunur mu?
+  const pipelineVisible = ['webaudio', 'mode', 'buffer'].some(key => {
+    const container = document.querySelector(`[data-setting="${key}"]`);
+    return container && container.style.display !== 'none';
+  });
+  toggleDisplay(pipelineSection, pipelineVisible);
+
+  // WebRTC section: loopback, bitrate, mediaBitrate gorunur mu?
+  const webrtcVisible = ['loopback', 'bitrate', 'mediaBitrate'].some(key => {
+    const container = document.querySelector(`[data-setting="${key}"]`);
+    return container && container.style.display !== 'none';
+  });
+  toggleDisplay(webrtcSection, webrtcVisible);
+
+  // Developer section: timeslice gorunur mu?
+  const developerVisible = ['timeslice'].some(key => {
+    const container = document.querySelector(`[data-setting="${key}"]`);
+    return container && container.style.display !== 'none';
+  });
+  toggleDisplay(developerSection, developerVisible);
 }
 
 // Radio value getter - radio butonlarindan deger al
@@ -294,7 +676,9 @@ function getConstraints() {
   const constraints = {
     echoCancellation: ecCheckbox.checked,
     noiseSuppression: nsCheckbox.checked,
-    autoGainControl: agcCheckbox.checked
+    autoGainControl: agcCheckbox.checked,
+    sampleRate: getRadioValue('sampleRate', 48000, true),
+    channelCount: getRadioValue('channelCount', 1, true)
   };
 
   // Secilen mikrofonu ekle
@@ -307,7 +691,10 @@ function getConstraints() {
 }
 
 function isWebAudioEnabled() {
-  return webaudioToggle.checked;
+  // Mode'a gore WebAudio durumunu belirle
+  // direct: WebAudio yok, diger modlar: WebAudio var
+  const mode = getRadioValue('processingMode', 'standard');
+  return mode !== 'direct';
 }
 
 function getProcessingMode() {
@@ -323,6 +710,10 @@ function getOpusBitrate() {
 }
 
 function getTimeslice() {
+  // Profile degeri varsa onu kullan, yoksa UI'dan oku
+  const profile = PROFILES[profileSelector?.value];
+  const profileTimeslice = profile?.values?.timeslice;
+  if (profileTimeslice !== undefined) return profileTimeslice;
   return getRadioValue('timeslice', 0, true);
 }
 
@@ -331,10 +722,7 @@ function getBufferSize() {
 }
 
 function getMediaBitrate() {
-  // MediaRecorder bitrate - profil degerinden al (UI'da gosterilmiyor)
-  const profileId = profileSelector?.value || 'discord';
-  const profile = PROFILES[profileId];
-  return profile?.values?.mediaBitrate || 0;
+  return getRadioValue('mediaBitrate', 0, true);
 }
 
 // Buffer info metnini guncelle
@@ -400,19 +788,8 @@ attachCheckboxLogger(ecCheckbox, 'echoCancellation', 'Echo Cancellation');
 attachCheckboxLogger(nsCheckbox, 'noiseSuppression', 'Noise Suppression');
 attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
 
-webaudioToggle.addEventListener('change', (e) => {
-  const isEnabled = e.target.checked;
-  toggleDisplay(processingModeContainer, isEnabled);
-
-  eventBus.emit('log:webaudio', {
-    message: `WebAudio Pipeline: ${isEnabled ? 'AKTIF' : 'PASIF'}`,
-    details: {
-      setting: 'webAudioEnabled',
-      value: isEnabled,
-      note: isEnabled ? 'Kayit/monitor icin WebAudio graph secilebilir' : 'VU Meter icin AudioContext kullanimi devam edebilir'
-    }
-  });
-});
+// NOT: webaudioToggle kaldirildi - artik mode secimi WebAudio durumunu belirliyor
+// Mode degisikliginde loglama asagida yapiliyor
 
 // Islem modu degisikligi loglama
 processingModeRadios.forEach(radio => {
@@ -427,6 +804,9 @@ processingModeRadios.forEach(radio => {
 
     // Buffer size secici sadece ScriptProcessor modunda gorunur
     toggleDisplay(bufferSizeContainer, mode === 'scriptprocessor');
+
+    // Dinamik kilitleme guncelle (buffer icin)
+    updateDynamicLocks();
 
     eventBus.emit('log:webaudio', {
       message: `Islem Modu: ${labelByMode[mode] || mode}`,
@@ -455,6 +835,9 @@ bufferSizeRadios.forEach(radio => {
 loopbackToggle.addEventListener('change', (e) => {
   // Bitrate seciciyi goster/gizle
   toggleDisplay(opusBitrateContainer, e.target.checked);
+
+  // Dinamik kilitleme guncelle (bitrate/mediaBitrate icin)
+  updateDynamicLocks();
 
   eventBus.emit('log:stream', {
     message: `WebRTC Loopback: ${e.target.checked ? 'AKTIF' : 'PASIF'}`,
@@ -492,22 +875,59 @@ timesliceRadios.forEach(radio => {
 
 // Profil degisikligi (hidden select - backward compatibility)
 if (profileSelector) {
-  profileSelector.addEventListener('change', (e) => {
-    applyProfile(e.target.value);
+  profileSelector.addEventListener('change', async (e) => {
+    await applyProfile(e.target.value);
     updateScenarioCardSelection(e.target.value);
   });
 
   // Sayfa yuklendiginde varsayilan profili uygula
-  applyProfile(profileSelector.value);
+  applyProfile(profileSelector.value).catch(err => {
+    eventBus.emit('log:error', {
+      message: 'Profil uygulama hatasi',
+      details: { error: err.message }
+    });
+  });
 }
 
 // ============================================
-// SENARYO KARTLARI
+// SENARYO KARTLARI & SIDEBAR NAV
 // ============================================
 const scenarioCards = document.querySelectorAll('.scenario-card');
 const scenarioBadge = document.getElementById('scenarioBadge');
 const scenarioTech = document.getElementById('scenarioTech');
-const advancedToggle = document.getElementById('advancedToggle');
+
+// Yeni sidebar elementleri
+const navItems = document.querySelectorAll('.nav-item[data-profile]');
+const pageTitle = document.getElementById('pageTitle');
+const pageSubtitle = document.getElementById('pageSubtitle');
+const settingsDrawer = document.getElementById('settingsDrawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
+const closeDrawerBtn = document.getElementById('closeDrawer');
+// sidebarStatus - KALDIRILDI: Kullanilmiyordu
+
+// DRY: Teknik bilgi parcalarini olustur (updateScenarioTechInfo ve updatePageSubtitle icin ortak)
+function buildTechParts(profile) {
+  if (!profile?.values) return ['Manuel Ayarlar'];
+
+  const techParts = [];
+
+  if (profile.values.loopback) {
+    techParts.push('WebRTC Loopback');
+    techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
+  } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
+    techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
+  } else {
+    techParts.push('Direct Recording');
+  }
+
+  if (profile.values.mode === 'scriptprocessor') {
+    techParts.push('ScriptProcessor');
+  } else if (profile.values.mode === 'worklet') {
+    techParts.push('AudioWorklet');
+  }
+
+  return techParts;
+}
 
 // Senaryo teknik bilgisini guncelle
 function updateScenarioTechInfo(profileId) {
@@ -522,30 +942,7 @@ function updateScenarioTechInfo(profileId) {
   scenarioBadge.style.background = '';
   scenarioBadge.style.color = '';
 
-  const techParts = [];
-
-  if (profile.values) {
-    if (profile.values.loopback) {
-      techParts.push('WebRTC Loopback');
-      techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
-    } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
-      techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
-    } else if (profile.values.webaudio) {
-      techParts.push('WebAudio Pipeline');
-    } else {
-      techParts.push('Direct Recording');
-    }
-
-    if (profile.values.mode === 'scriptprocessor') {
-      techParts.push('ScriptProcessor');
-    } else if (profile.values.mode === 'worklet') {
-      techParts.push('AudioWorklet');
-    }
-  } else {
-    techParts.push('Manuel Ayarlar');
-  }
-
-  scenarioTech.textContent = techParts.join(' + ');
+  scenarioTech.textContent = buildTechParts(profile).join(' + ');
 }
 
 // Senaryo kart secimini guncelle
@@ -557,52 +954,210 @@ function updateScenarioCardSelection(profileId) {
   updateScenarioTechInfo(profileId);
 }
 
-// Senaryo kartlarina tiklama
-scenarioCards.forEach(card => {
-  card.addEventListener('click', () => {
-    const profileId = card.dataset.profile;
-
-    // Hidden select'i guncelle
-    if (profileSelector) {
-      profileSelector.value = profileId;
-    }
-
-    // Profili uygula
-    applyProfile(profileId);
-    updateScenarioCardSelection(profileId);
-
-    // Gelismis mod ise ayarlari ac
-    if (profileId === 'custom' && advancedToggle && advancedSettingsEl) {
-      advancedSettingsEl.classList.remove('collapsed');
-      advancedToggle.classList.add('expanded');
-    }
+// Sidebar nav item secimini guncelle
+function updateNavItemSelection(profileId) {
+  navItems.forEach(item => {
+    const itemProfile = item.dataset.profile;
+    item.classList.toggle('active', itemProfile === profileId);
   });
+
+  // Page header'i guncelle
+  const profile = PROFILES[profileId];
+  if (profile && pageTitle) {
+    pageTitle.textContent = profile.label + ' Test';
+  }
+
+  // Tech info'yu subtitle olarak goster
+  updatePageSubtitle(profileId);
+}
+
+// Page subtitle guncelle - DRY: buildTechParts() kullanir
+function updatePageSubtitle(profileId) {
+  if (!pageSubtitle) return;
+  const profile = PROFILES[profileId];
+  pageSubtitle.textContent = buildTechParts(profile).join(' + ');
+}
+
+// openSettingsDrawer() - KALDIRILDI: Drawer artik acilmiyor, customSettingsPanel kullaniliyor
+
+function closeSettingsDrawer() {
+  if (settingsDrawer) settingsDrawer.classList.remove('open');
+  if (drawerOverlay) drawerOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Drawer event listeners
+if (closeDrawerBtn) {
+  closeDrawerBtn.addEventListener('click', closeSettingsDrawer);
+}
+if (drawerOverlay) {
+  drawerOverlay.addEventListener('click', closeSettingsDrawer);
+}
+
+// ESC ile drawer kapat
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && settingsDrawer?.classList.contains('open')) {
+    closeSettingsDrawer();
+  }
 });
 
-// Gelismis ayarlar toggle
-if (advancedToggle && advancedSettingsEl) {
-  advancedToggle.addEventListener('click', () => {
-    const isCollapsed = advancedSettingsEl.classList.contains('collapsed');
+// DRY: Profil secim handler'i (scenarioCards ve navItems icin ortak)
+async function handleProfileSelect(profileId) {
+  if (profileSelector) {
+    profileSelector.value = profileId;
+  }
+  await applyProfile(profileId);
+  updateScenarioCardSelection(profileId);
+  updateNavItemSelection(profileId);
+  updateCustomSettingsPanel(profileId);
+  eventBus.emit('log:ui', {
+    message: `Senaryo degistirildi: ${PROFILES[profileId]?.label || profileId}`
+  });
+}
 
-    advancedSettingsEl.classList.toggle('collapsed');
-    advancedToggle.classList.toggle('expanded');
+// Senaryo kartlarina tiklama
+scenarioCards.forEach(card => {
+  card.addEventListener('click', () => handleProfileSelect(card.dataset.profile));
+});
 
-    if (!isCollapsed) {
-      eventBus.emit('log:ui', {
-        message: 'Gelismis ayarlar gizlendi'
-      });
+// Sidebar nav-item tiklama
+navItems.forEach(item => {
+  item.addEventListener('click', () => handleProfileSelect(item.dataset.profile));
+});
+
+// Ozel Ayarlar Panel Toggle ve Dinamik Icerik
+if (customSettingsToggle && customSettingsContent) {
+  customSettingsToggle.addEventListener('click', () => {
+    const isCollapsed = customSettingsContent.classList.contains('collapsed');
+
+    customSettingsContent.classList.toggle('collapsed');
+    customSettingsToggle.classList.toggle('expanded');
+
+    eventBus.emit('log:ui', {
+      message: isCollapsed ? 'Ozel ayarlar acildi' : 'Ozel ayarlar kapatildi'
+    });
+  });
+}
+
+// Profil bazli ozel ayarlar icerigi olustur
+function updateCustomSettingsPanel(profileId) {
+  if (!customSettingsGrid) return;
+
+  const profile = PROFILES[profileId];
+  if (!profile) return;
+
+  const lockedSettings = profile.lockedSettings || [];
+  const editableSettings = profile.editableSettings || [];
+  const isCustomProfile = profileId === 'custom' || profile.allowedSettings === 'all';
+
+  // Tum ayarlari listele
+  const allSettingKeys = Object.keys(SETTINGS);
+
+  let html = '';
+
+  // Deger formatlama (bitrate icin "64k" gibi)
+  const formatEnumValue = (val, key) => {
+    if (key === 'bitrate' || key === 'mediaBitrate') {
+      return val === 0 ? 'Off' : (val / 1000) + 'k';
     }
+    if (key === 'buffer') {
+      return val.toString();
+    }
+    if (key === 'timeslice') {
+      return val === 0 ? 'Tek parça' : val + 'ms';
+    }
+    return val;
+  };
+
+  allSettingKeys.forEach(key => {
+    const setting = SETTINGS[key];
+    if (!setting) return;
+
+    const isLocked = lockedSettings.includes(key);
+    const isEditable = isCustomProfile || editableSettings.includes(key);
+
+    // Sadece locked veya editable olanlari goster
+    if (!isLocked && !isEditable) return;
+
+    const statusClass = isLocked ? 'locked' : 'editable';
+    const currentValue = profile.values?.[key] ?? setting.default;
+    const isBoolean = setting.type === 'boolean';
+    const isEnum = setting.type === 'enum';
+
+    html += `<div class="custom-setting-item ${statusClass}">`;
+
+    if (isBoolean) {
+      html += `<input type="checkbox" ${currentValue ? 'checked' : ''} ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
+      html += `<span class="setting-name">${setting.label || key}</span>`;
+    } else if (isEnum) {
+      html += `<span class="setting-name">${setting.label || key}</span>`;
+      html += `<select ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
+      setting.values.forEach(val => {
+        const selected = val === currentValue ? 'selected' : '';
+        html += `<option value="${val}" ${selected}>${formatEnumValue(val, key)}</option>`;
+      });
+      html += `</select>`;
+    } else {
+      html += `<span class="setting-name">${setting.label || key}</span>`;
+    }
+
+    html += `</div>`;
+  });
+
+  if (html === '') {
+    html = '<p class="custom-settings-hint">Bu profil icin ozel ayar bulunmuyor.</p>';
+  }
+
+  customSettingsGrid.innerHTML = html;
+}
+
+// Ozel Ayarlar panelindeki degisiklikleri dinle
+if (customSettingsGrid) {
+  customSettingsGrid.addEventListener('change', (e) => {
+    const target = e.target;
+    const key = target.dataset.setting;
+    if (!key) return;
+
+    let value;
+    if (target.type === 'checkbox') {
+      value = target.checked;
+    } else if (target.tagName === 'SELECT') {
+      // Enum degerler - sayi ise number'a cevir
+      value = isNaN(target.value) ? target.value : Number(target.value);
+    } else {
+      return;
+    }
+
+    // OCP: Drawer'daki ilgili kontrolu dinamik olarak guncelle
+    const setting = SETTINGS[key];
+    if (setting?.ui) {
+      const elements = getSettingElements(key);
+      if (setting.type === 'boolean') {
+        // Checkbox veya Toggle
+        elements.forEach(el => el.checked = value);
+      } else if (setting.type === 'enum') {
+        // Radio grubu - degere gore sec
+        const radio = elements.find(el => el.value == value);
+        if (radio) radio.checked = true;
+      }
+    }
+
+    eventBus.emit('log:ui', {
+      message: `Ayar degistirildi: ${key} = ${value}`
+    });
   });
 }
 
 // Sayfa yuklendiginde senaryo bilgisini guncelle
-updateScenarioTechInfo(profileSelector?.value || 'discord');
+const initialProfile = profileSelector?.value || 'discord';
+updateScenarioTechInfo(initialProfile);
+updateNavItemSelection(initialProfile);
+updateCustomSettingsPanel(initialProfile);
 
 // ============================================
 // MERKEZI STATE YONETIMI
 // ============================================
-// Modlar: null (idle), 'recording', 'monitoring'
-let currentMode = null;
+// NOT: currentMode dosya basinda tanimlandi (hoisting icin)
 
 // Timer state
 let timerInterval = null;
@@ -644,8 +1199,9 @@ let loopbackMonitorProc = null;
 let loopbackMonitorWorklet = null;
 let loopbackMonitorDelay = null;
 let loopbackMonitorMode = null;
-
-const WORKLET_SUPPORTED = isAudioWorkletSupported();
+let loopbackStatsInterval = null; // WebRTC getStats polling
+let lastBytesSent = 0; // getStats bitrate hesaplama icin
+let lastStatsTimestamp = 0;
 
 function updateButtonStates() {
   const isIdle = currentMode === null;
@@ -692,26 +1248,77 @@ function updateButtonStates() {
     }
   }
 
-  // Ayar toggle'lari - aktif mod varken degistirilemez
-  webaudioToggle.disabled = !isIdle;
-  loopbackToggle.disabled = !isIdle;
-  ecCheckbox.disabled = !isIdle;
-  nsCheckbox.disabled = !isIdle;
-  agcCheckbox.disabled = !isIdle;
+  // Profil kilitleri kontrolu
+  const profile = PROFILES[currentProfileId];
+  const lockedSettings = profile?.lockedSettings || [];
 
-  // Processing mode selector - aktif session'da degistirilemez
+  // Ayar toggle'lari icin disabled durumu hesapla
+  const shouldBeDisabled = (settingKey) => {
+    // Aktif islem varsa her zaman disabled
+    if (!isIdle) return true;
+    // Profil kilidi varsa disabled
+    return lockedSettings.includes(settingKey);
+  };
+
+  // Ayar toggle'lari - profil kilitleri + aktif mod kontrolu
+  // NOT: webaudioToggle kaldirildi - mode secimi WebAudio durumunu belirliyor
+  loopbackToggle.disabled = shouldBeDisabled('loopback');
+  ecCheckbox.disabled = shouldBeDisabled('ec');
+  nsCheckbox.disabled = shouldBeDisabled('ns');
+  agcCheckbox.disabled = shouldBeDisabled('agc');
+
+  // Mikrofon secici - aktif islem varken degistirilemez (profil kilidi yok)
+  if (micSelector) {
+    micSelector.disabled = !isIdle;
+  }
+  if (refreshMicsBtn) {
+    refreshMicsBtn.disabled = !isIdle;
+  }
+
+  // Processing mode selector - profil kilidi + aktif session kontrolu
   processingModeRadios.forEach(radio => {
-    radio.disabled = !isIdle || (radio.value === 'worklet' && !WORKLET_SUPPORTED);
+    const workletUnsupported = radio.value === 'worklet' && !WORKLET_SUPPORTED;
+    radio.disabled = shouldBeDisabled('mode') || workletUnsupported;
   });
 
-  // Bitrate selector - aktif session'da degistirilemez
-  bitrateRadios.forEach(r => r.disabled = !isIdle);
+  // Bitrate selector - profil kilidi + aktif session kontrolu
+  bitrateRadios.forEach(r => r.disabled = shouldBeDisabled('bitrate'));
 
-  // Timeslice selector - aktif session'da degistirilemez
-  timesliceRadios.forEach(r => r.disabled = !isIdle);
+  // Timeslice selector - profil kilidi + aktif session kontrolu
+  timesliceRadios.forEach(r => r.disabled = shouldBeDisabled('timeslice'));
 
-  // Buffer size selector - aktif session'da degistirilemez
-  bufferSizeRadios.forEach(r => r.disabled = !isIdle);
+  // Buffer size selector - profil kilidi + aktif session kontrolu
+  bufferSizeRadios.forEach(r => r.disabled = shouldBeDisabled('buffer'));
+
+  // Buton text'lerini guncelle
+  const recordBtnText = recordToggleBtn.querySelector('.btn-text');
+  const monitorBtnText = monitorToggleBtn.querySelector('.btn-text');
+
+  if (recordBtnText) {
+    recordBtnText.textContent = isRecording ? 'Durdur' : 'Kayıt';
+  }
+  if (monitorBtnText) {
+    monitorBtnText.textContent = isMonitoring ? 'Durdur' : 'Monitor';
+  }
+}
+
+/**
+ * "Hazırlanıyor..." overlay'ini göster
+ * Kayıt/monitoring başlatılırken async işlemler sırasında kullanılır
+ */
+function showPreparingState() {
+  if (preparingOverlayEl) {
+    preparingOverlayEl.classList.add('visible');
+  }
+}
+
+/**
+ * "Hazırlanıyor..." overlay'ini gizle
+ */
+function hidePreparingState() {
+  if (preparingOverlayEl) {
+    preparingOverlayEl.classList.remove('visible');
+  }
 }
 
 // Baslangicta buton durumlarini ayarla
@@ -899,7 +1506,14 @@ async function setupLoopback(localStream, useWebAudio) {
 
   // ICE baglanti durumunu bekle (connectionState yerine iceConnectionState)
   await new Promise((resolve, reject) => {
+    // Listener cleanup fonksiyonu - memory leak onleme
+    const cleanupListeners = () => {
+      loopbackPc1.oniceconnectionstatechange = null;
+      loopbackPc2.oniceconnectionstatechange = null;
+    };
+
     const timeout = setTimeout(() => {
+      cleanupListeners(); // Temizle
       eventBus.emit('log:error', {
         message: 'Loopback: ICE baglanti zaman asimi',
         details: {
@@ -935,9 +1549,11 @@ async function setupLoopback(localStream, useWebAudio) {
       if ((ice1 === 'connected' || ice1 === 'completed') &&
           (ice2 === 'connected' || ice2 === 'completed')) {
         clearTimeout(timeout);
+        cleanupListeners(); // Temizle
         resolve();
       } else if (ice1 === 'failed' || ice2 === 'failed') {
         clearTimeout(timeout);
+        cleanupListeners(); // Temizle
         reject(new Error('ICE connection failed'));
       } else {
         // 100ms sonra tekrar kontrol
@@ -1011,19 +1627,104 @@ async function setupLoopback(localStream, useWebAudio) {
     }
   });
 
+  // WebRTC getStats ile gercek bitrate olcumu baslat
+  startLoopbackStatsPolling(opusBitrate);
+
   return loopbackRemoteStream;
+}
+
+/**
+ * WebRTC getStats ile gercek bitrate olcumu
+ * 2 saniyede bir bytesSent delta'si ile bitrate hesaplar
+ */
+function startLoopbackStatsPolling(requestedBitrate) {
+  // Onceki polling'i temizle
+  if (loopbackStatsInterval) {
+    clearInterval(loopbackStatsInterval);
+  }
+
+  lastBytesSent = 0;
+  lastStatsTimestamp = Date.now();
+  let statsErrorCount = 0; // Error counter - cok fazla hata olursa polling durdur
+
+  loopbackStatsInterval = setInterval(async () => {
+    if (!loopbackPc1) {
+      clearInterval(loopbackStatsInterval);
+      loopbackStatsInterval = null;
+      return;
+    }
+
+    try {
+      const stats = await loopbackPc1.getStats();
+      let currentBytesSent = 0;
+
+      stats.forEach(report => {
+        if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+          currentBytesSent = report.bytesSent || 0;
+        }
+      });
+
+      const now = Date.now();
+      const timeDelta = (now - lastStatsTimestamp) / 1000; // saniye
+
+      if (lastBytesSent > 0 && timeDelta > 0) {
+        const bytesDelta = currentBytesSent - lastBytesSent;
+        const actualBitrate = Math.round((bytesDelta * 8) / timeDelta);
+        const actualKbps = (actualBitrate / 1000).toFixed(1);
+        const requestedKbps = (requestedBitrate / 1000).toFixed(0);
+
+        eventBus.emit('loopback:stats', {
+          requestedBitrate,
+          actualBitrate,
+          requestedKbps,
+          actualKbps
+        });
+
+        // Log sadece buyuk sapma varsa (%50+) - kucuk sapmalar normal (adaptive bitrate)
+        const deviation = Math.abs(actualBitrate - requestedBitrate) / requestedBitrate;
+        if (deviation > 0.5) {
+          eventBus.emit('log:warning', {
+            message: `WebRTC bitrate sapmasi: Istenen ${requestedKbps}kbps, Gercek ~${actualKbps}kbps`,
+            details: { requestedBitrate, actualBitrate, deviation: (deviation * 100).toFixed(0) + '%' }
+          });
+        }
+      }
+
+      lastBytesSent = currentBytesSent;
+      lastStatsTimestamp = now;
+      statsErrorCount = 0; // Basarili - error counter reset
+
+    } catch (err) {
+      // getStats hatasi - error counter ile kontrol
+      statsErrorCount++;
+      if (statsErrorCount > 10) {
+        clearInterval(loopbackStatsInterval);
+        loopbackStatsInterval = null;
+        eventBus.emit('log:error', {
+          message: 'Loopback stats: Cok fazla hata, polling durduruluyor',
+          details: { errorCount: statsErrorCount, lastError: err.message }
+        });
+      }
+    }
+  }, 2000); // 2 saniyede bir
 }
 
 /**
  * Loopback kaynaklarini temizler
  */
 async function cleanupLoopback() {
+  // Stats polling durdur
+  if (loopbackStatsInterval) {
+    clearInterval(loopbackStatsInterval);
+    loopbackStatsInterval = null;
+  }
+
   loopbackPc1?.close();
   loopbackPc2?.close();
   loopbackPc1 = null;
   loopbackPc2 = null;
 
-  loopbackRemoteStream?.getTracks().forEach(t => t.stop());
+  stopAllTracks(loopbackRemoteStream);
   loopbackRemoteStream = null;
 
   if (loopbackAudioCtx) {
@@ -1164,7 +1865,7 @@ async function startLoopbackMonitorPlayback(remoteStream, requestedMode) {
   const delaySeconds = loopbackMonitorDelay.delayTime.value;
 
   if (safeMode === 'scriptprocessor') {
-    const bufferSize = 1024;
+    const bufferSize = getBufferSize();
     const channelCount = Math.min(2, loopbackMonitorSrc.channelCount || 1);
     loopbackMonitorProc = loopbackMonitorCtx.createScriptProcessor(bufferSize, channelCount, channelCount);
     loopbackMonitorProc.onaudioprocess = (e) => {
@@ -1245,6 +1946,7 @@ recordToggleBtn.onclick = async () => {
 
     currentMode = 'recording';
     updateButtonStates();
+    showPreparingState(); // Hazirlanıyor... overlay goster
 
     if (useLoopback) {
       // LOOPBACK MODUNDA KAYIT
@@ -1264,8 +1966,7 @@ recordToggleBtn.onclick = async () => {
         details: { trackLabel: track.label, trackSettings: track.getSettings() }
       });
 
-      // VuMeter icin local stream gonder
-      eventBus.emit('stream:started', loopbackLocalStream);
+      // NOT: stream:started event'i stabilizasyon sonrasina tasindi (senkron UI guncelleme)
 
       // WebRTC loopback kur
       const remoteStream = await setupLoopback(loopbackLocalStream, useWebAudio);
@@ -1333,6 +2034,14 @@ recordToggleBtn.onclick = async () => {
       });
 
       await new Promise(resolve => setTimeout(resolve, totalWait));
+
+      // --- SENKRON UI GUNCELLEME ---
+      // Hazirlanıyor overlay'i gizle
+      hidePreparingState();
+
+      // VU Meter'lari ayni anda baslat
+      eventBus.emit('stream:started', loopbackLocalStream);  // Local VU Meter
+      eventBus.emit('loopback:remoteStream', remoteStream);  // Remote VU Meter (codec sonrasi)
 
       // Stream aktif mi kontrol et
       const remoteTrackCheck = remoteStream.getAudioTracks()[0];
@@ -1659,6 +2368,7 @@ recordToggleBtn.onclick = async () => {
       const timeslice = getTimeslice();
       const mediaBitrate = getMediaBitrate();
       await recorder.start(constraints, recordMode, timeslice, getBufferSize(), mediaBitrate);
+      hidePreparingState(); // Hazirlanıyor overlay'i gizle
       startTimer();
     }
 
@@ -1670,9 +2380,10 @@ recordToggleBtn.onclick = async () => {
     eventBus.emit('log', `❌ HATA: ${err.message}`);
 
     // Temizlik
+    hidePreparingState(); // Hata durumunda overlay'i gizle
     stopTimer();
     await cleanupLoopback();
-    loopbackLocalStream?.getTracks().forEach(t => t.stop());
+    stopAllTracks(loopbackLocalStream);
     loopbackLocalStream = null;
 
     currentMode = null;
@@ -1724,7 +2435,7 @@ async function stopRecording() {
       }
 
       // Local stream durdur
-      loopbackLocalStream?.getTracks().forEach(t => t.stop());
+      stopAllTracks(loopbackLocalStream);
       loopbackLocalStream = null;
 
       // WebRTC temizle
@@ -1761,22 +2472,30 @@ monitorToggleBtn.onclick = async () => {
   const useLoopback = isLoopbackEnabled();
   const constraints = getConstraints();
   const monitorMode = useWebAudio ? getProcessingMode() : 'direct';
+  const mediaBitrate = getMediaBitrate();
 
-  const pipeline = useLoopback
-    ? (monitorMode === 'scriptprocessor'
+  // Pipeline aciklamasi
+  let pipeline;
+  if (useLoopback) {
+    pipeline = monitorMode === 'scriptprocessor'
       ? 'WebRTC Loopback + ScriptProcessor + 2sn Delay -> Speaker'
       : monitorMode === 'worklet'
         ? 'WebRTC Loopback + AudioWorklet + 2sn Delay -> Speaker'
         : monitorMode === 'direct'
           ? 'WebRTC Loopback + Direct + 2sn Delay -> Speaker'
-          : 'WebRTC Loopback + WebAudio + 2sn Delay -> Speaker')
-    : (monitorMode === 'scriptprocessor'
+          : 'WebRTC Loopback + WebAudio + 2sn Delay -> Speaker';
+  } else if (mediaBitrate > 0) {
+    // Codec-simulated mode - WhatsApp/Telegram gibi profillerde
+    pipeline = `Codec-Simulated (${mediaBitrate}bps) + 2sn Delay -> Speaker`;
+  } else {
+    pipeline = monitorMode === 'scriptprocessor'
       ? 'ScriptProcessor + 2sn Delay -> Speaker'
       : monitorMode === 'worklet'
         ? 'AudioWorklet + 2sn Delay -> Speaker'
         : monitorMode === 'direct'
           ? 'Direct + 2sn Delay -> Speaker'
-          : 'WebAudio + 2sn Delay -> Speaker');
+          : 'WebAudio + 2sn Delay -> Speaker';
+  }
 
   eventBus.emit('log:stream', {
     message: 'Monitor Baslat butonuna basildi',
@@ -1784,6 +2503,7 @@ monitorToggleBtn.onclick = async () => {
       constraints,
       webAudioEnabled: useWebAudio,
       loopbackEnabled: useLoopback,
+      mediaBitrate,
       monitorMode,
       pipeline
     }
@@ -1795,6 +2515,7 @@ monitorToggleBtn.onclick = async () => {
 
     currentMode = 'monitoring';
     updateButtonStates();
+    showPreparingState(); // Hazirlanıyor... overlay goster
 
     if (useLoopback) {
       // LOOPBACK MODUNDA MONITOR
@@ -1813,8 +2534,7 @@ monitorToggleBtn.onclick = async () => {
         details: { trackLabel: track.label, trackSettings: track.getSettings() }
       });
 
-      // VuMeter icin local stream gonder
-      eventBus.emit('stream:started', loopbackLocalStream);
+      // NOT: stream:started event'i WebRTC kurulumu sonrasina tasindi (senkron UI guncelleme)
 
       // WebRTC loopback kur
       const remoteStream = await setupLoopback(loopbackLocalStream, useWebAudio);
@@ -1822,13 +2542,29 @@ monitorToggleBtn.onclick = async () => {
       // Remote stream'i hoparlore bagla (monitorMode + 2sn delay)
       await startLoopbackMonitorPlayback(remoteStream, monitorMode);
 
+      // --- SENKRON UI GUNCELLEME ---
+      hidePreparingState(); // Hazirlanıyor overlay'i gizle
+      eventBus.emit('stream:started', loopbackLocalStream);  // Local VU Meter
+      eventBus.emit('loopback:remoteStream', remoteStream);  // Remote VU Meter (codec sonrasi)
+
     } else {
-      // NORMAL MONITOR
-      if (useWebAudio) {
+      // NORMAL MONITOR (loopback kapali)
+      const mediaBitrate = getMediaBitrate();
+
+      if (mediaBitrate > 0) {
+        // CODEC-SIMULATED MODE
+        // WhatsApp/Telegram gibi profillerde gercek codec sikistirmasi simule et
+        // Recording ile birebir ayni parametreler
+        const timeslice = getTimeslice();
+        const bufferSize = getBufferSize();
+        eventBus.emit('log', `🎙️ Codec-simulated monitor baslatiliyor (${monitorMode} ${mediaBitrate} bps, ${timeslice}ms)...`);
+        await monitor.startCodecSimulated(constraints, mediaBitrate, monitorMode, timeslice, bufferSize);
+      } else if (useWebAudio) {
+        // WEBAUDIO MODE
         if (monitorMode === 'direct') {
           await monitor.startDirect(constraints);
         } else if (monitorMode === 'scriptprocessor') {
-          await monitor.startScriptProcessor(constraints);
+          await monitor.startScriptProcessor(constraints, getBufferSize());
         } else if (monitorMode === 'worklet') {
           await monitor.startAudioWorklet(constraints);
         } else {
@@ -1837,6 +2573,7 @@ monitorToggleBtn.onclick = async () => {
       } else {
         await monitor.startDirect(constraints);
       }
+      hidePreparingState(); // Hazirlanıyor overlay'i gizle
     }
 
   } catch (err) {
@@ -1847,9 +2584,10 @@ monitorToggleBtn.onclick = async () => {
     eventBus.emit('log', `❌ HATA: ${err.message}`);
 
     // Temizlik
+    hidePreparingState(); // Hata durumunda overlay'i gizle
     await cleanupLoopbackMonitorPlayback();
     await cleanupLoopback();
-    loopbackLocalStream?.getTracks().forEach(t => t.stop());
+    stopAllTracks(loopbackLocalStream);
     loopbackLocalStream = null;
 
     currentMode = null;
@@ -1876,7 +2614,7 @@ async function stopMonitoring() {
     await cleanupLoopbackMonitorPlayback();
 
     // Local stream durdur
-    loopbackLocalStream?.getTracks().forEach(t => t.stop());
+    stopAllTracks(loopbackLocalStream);
     loopbackLocalStream = null;
 
     // WebRTC temizle

@@ -45,6 +45,27 @@ export async function requestStream(constraints = {}) {
     eventBus.emit('log', `  - sampleRate: ${settings.sampleRate || 'N/A'}Hz`);
     eventBus.emit('log', `  - channelCount: ${settings.channelCount || 'N/A'}`);
 
+    // Constraint mismatch kontrolu - istenen vs gercek
+    const mismatches = [];
+    if (merged.echoCancellation !== undefined && settings.echoCancellation !== merged.echoCancellation) {
+      mismatches.push({ name: 'echoCancellation', requested: merged.echoCancellation, actual: settings.echoCancellation });
+    }
+    if (merged.noiseSuppression !== undefined && settings.noiseSuppression !== merged.noiseSuppression) {
+      mismatches.push({ name: 'noiseSuppression', requested: merged.noiseSuppression, actual: settings.noiseSuppression });
+    }
+    if (merged.autoGainControl !== undefined && settings.autoGainControl !== merged.autoGainControl) {
+      mismatches.push({ name: 'autoGainControl', requested: merged.autoGainControl, actual: settings.autoGainControl });
+    }
+
+    if (mismatches.length > 0) {
+      const mismatchNames = mismatches.map(m => m.name).join(', ');
+      eventBus.emit('log:warning', {
+        message: `Constraint uyumsuzlugu: ${mismatchNames}`,
+        details: { mismatches, requested: merged, actual: settings }
+      });
+      eventBus.emit('constraint:mismatch', { mismatches, requested: merged, actual: settings });
+    }
+
     // Detayli log
     eventBus.emit('log:stream', {
       message: 'MediaStream olusturuldu',
@@ -69,12 +90,4 @@ export async function requestStream(constraints = {}) {
   }
 }
 
-/**
- * Stream'i durdur ve temizle
- * @param {MediaStream} stream - Durdurulacak stream
- */
-export function stopStream(stream) {
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-  }
-}
+// stopStream() - KALDIRILDI: Kullanilmiyordu, inline pattern kullaniliyor

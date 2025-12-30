@@ -1,6 +1,6 @@
 ---
 name: micprobe-modules
-description: "MicProbe proje modulleri referansi. Anahtar kelimeler: AudioEngine, AudioUtils, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, Logger, LogManager, modul, module"
+description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, modul, module"
 ---
 
 # MicProbe Modul Referansi
@@ -14,7 +14,7 @@ js/
     ├── Config.js       # Merkezi yapilandirma (SETTINGS, PROFILES)
     ├── EventBus.js     # Pub/Sub singleton
     ├── AudioEngine.js  # Merkezi AudioContext (singleton)
-    ├── AudioUtils.js   # Paylasilan WebAudio yardimcilari
+    ├── AudioUtils.js   # (KALDIRILDI - bos modul, inline pattern kullaniliyor)
     ├── VuMeter.js      # dB gostergesi
     ├── Recorder.js     # Kayit (MediaRecorder)
     ├── Monitor.js      # Canli dinleme
@@ -31,48 +31,42 @@ js/
 ## Modül Detaylari
 
 ### Config
-Merkezi yapilandirma - ayar tanimlari ve profil degerleri.
+Merkezi yapilandirma - ayar tanimlari, profil degerleri ve UI binding.
 ```javascript
 import { PROFILES, SETTINGS, getProfileValue, validateSetting } from './Config.js';
 
-// Profil degerleri
-PROFILES.discord.values.ec    // true
-PROFILES.discord.values.bitrate // 64000
+// Profil degerleri (Guncellendi: discord=Gamer/Hi-Fi, zoom=Konferans)
+PROFILES.discord.values.bitrate      // 96000 (Gamer/Hi-Fi)
+PROFILES.discord.values.channelCount // 2 (Stereo)
+PROFILES.zoom.values.bitrate         // 48000 (Konferans)
+PROFILES.zoom.values.channelCount    // 1 (Mono - locked)
 
-// Ayar metadata
-SETTINGS.buffer.values        // [1024, 2048, 4096]
-SETTINGS.delay.min            // 0.5
-SETTINGS.delay.max            // 5
+// Voice profil degerleri (codec-simulated monitor icin)
+PROFILES.whatsapp.values.mediaBitrate // 16000
+PROFILES.whatsapp.values.timeslice    // 250 (chunk uretimi icin)
+PROFILES.telegram.values.mediaBitrate // 24000
+PROFILES.telegram.values.timeslice    // 250
+
+// Ayar metadata + UI binding
+SETTINGS.buffer.values          // [1024, 2048, 4096]
+SETTINGS.buffer.ui              // { type: 'radio', name: 'bufferSize' }
+SETTINGS.ec.ui                  // { type: 'checkbox', id: 'ec' }
+SETTINGS.loopback.ui            // { type: 'toggle', id: 'loopbackToggle' }
+SETTINGS.sampleRate.values      // [16000, 22050, 44100, 48000]
+SETTINGS.sampleRate.ui          // { type: 'radio', name: 'sampleRate' }
+SETTINGS.channelCount.values    // [1, 2]
+SETTINGS.channelCount.labels    // { 1: 'Mono', 2: 'Stereo' }
+SETTINGS.bitrate.values         // [32000, 48000, 64000, 96000, 128000]
 
 // Helper fonksiyonlar
-getProfileValue('discord', 'bitrate')  // 64000
+getProfileValue('discord', 'bitrate')  // 96000
 validateSetting('buffer', 4096)        // true
 getProfileList()                       // UI icin profil listesi
-getSettingsByCategory('pipeline')      // Kategori bazli ayarlar
+getSettingsByCategory('constraints')   // ec, ns, agc, sampleRate, channelCount
 ```
-**Kategoriler:** constraints, pipeline, loopback, recording, monitor
+**Kategoriler:** constraints, pipeline, loopback, recording
 
-### AudioUtils
-Paylasilan WebAudio yardimci fonksiyonlari - Monitor/Recorder icin ortak.
-```javascript
-import { createAudioContext, createDelayNode, disconnectNodes, closeAudioContext, getStreamSampleRate } from './AudioUtils.js';
-
-// AudioContext olustur ve resume et
-const ctx = await createAudioContext(sampleRate, 'Monitor');
-
-// DelayNode olustur (echo/feedback onleme)
-const delay = createDelayNode(ctx, 2.0, 3.0);
-
-// Node'lari guvenli disconnect et
-disconnectNodes(sourceNode, delayNode, workletNode);
-
-// AudioContext'i kapat
-await closeAudioContext(ctx, 'Monitor');
-
-// Stream'den sample rate al
-const sr = getStreamSampleRate(stream);
-```
-**Emits:** `log:webaudio`
+**UI Tipleri:** checkbox, toggle, radio (enum icin)
 
 ### EventBus (Singleton)
 ```javascript
@@ -107,26 +101,35 @@ MediaRecorder + opsiyonel WebAudio pipeline.
 ```javascript
 const recorder = new Recorder({ constraints });
 await recorder.warmup();              // Pre-init
-await recorder.start(constraints, recordMode, timeslice, bufferSize);
+await recorder.start(constraints, recordMode, timeslice, bufferSize, mediaBitrate);
 // recordMode: 'direct' | 'standard' | 'scriptprocessor' | 'worklet'
 // timeslice: 0 (tek parca) veya pozitif ms (chunked)
 // bufferSize: ScriptProcessor buffer boyutu (default: 4096)
+// mediaBitrate: MediaRecorder bitrate - sesli mesaj simulasyonu icin (default: 0)
 recorder.stop();
 recorder.getIsRecording();
 ```
 **Emits:** `recording:started`, `recording:completed`, `stream:started`, `stream:stopped`
 
 ### Monitor
-Canli mikrofon dinleme (4 mod).
+Canli mikrofon dinleme (5 mod).
 ```javascript
 const monitor = new Monitor();
 await monitor.startWebAudio(constraints);       // WebAudio + Delay
 await monitor.startScriptProcessor(constraints);// Deprecated API + Delay
 await monitor.startAudioWorklet(constraints);   // Modern AudioWorklet + Delay
 await monitor.startDirect(constraints);         // Sadece Delay (processing yok)
+await monitor.startCodecSimulated(constraints, mediaBitrate, mode, timeslice, bufferSize);  // Codec simülasyonu
 await monitor.stop();
-monitor.getMode();                    // 'standard' | 'scriptprocessor' | 'worklet' | 'direct'
+monitor.getMode();  // 'standard' | 'scriptprocessor' | 'worklet' | 'direct' | 'codec-simulated'
 ```
+
+**Codec-Simulated Mode:**
+- Recording ile birebir ayni pipeline
+- MediaRecorder → MediaSource → Audio → Delay → Speaker
+- Parametreler: mediaBitrate, mode, timeslice, bufferSize
+- WhatsApp/Telegram gibi profillerde otomatik aktif (mediaBitrate > 0)
+
 **Emits:** `monitor:started`, `monitor:stopped`, `stream:started`, `stream:stopped`
 
 ### Player
@@ -208,6 +211,32 @@ new StatusManager('badgeId');
 4. Yayinlayacagi event'leri `eventBus.emit()` ile gonder
 5. `app.js`'de import et ve baslat
 6. Bu SKILL.md'yi guncelle
+
+## Yeni Ayar Ekleme (OCP Mimari)
+
+Sadece **2 dosya** degisikligi gerekir:
+
+### 1. Config.js - SETTINGS'e ekle
+```javascript
+yeniAyar: {
+  type: 'boolean',           // veya 'enum'
+  default: false,
+  label: 'Yeni Ayar',
+  category: 'constraints',
+  ui: { type: 'checkbox', id: 'yeniAyar' }  // UI binding
+}
+```
+
+### 2. mic_probe.html - HTML kontrol ekle
+```html
+<input id="yeniAyar" type="checkbox" data-setting="yeniAyar">
+```
+
+### Otomatik Calisan Mekanizmalar
+- `getSettingElements()` - Config.js `ui` metadata'dan dinamik
+- `applyProfile()` - Profil degerleri dinamik uygulanir
+- `updateSettingVisibility()` - Locked/editable durumu dinamik
+- Custom Settings Panel - Otomatik listelenir
 
 ## Console Debug Komutlari
 

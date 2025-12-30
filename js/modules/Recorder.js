@@ -29,6 +29,7 @@ class Recorder {
     this.workletNode = null; // AudioWorkletNode
 
     this.recordMode = 'direct'; // direct | webaudio | scriptprocessor | worklet
+    this.startTime = null; // Kayit baslangic zamani (bitrate hesaplama icin)
 
     // Pre-warm state
     this.isWarmedUp = false;
@@ -290,13 +291,28 @@ class Recorder {
         const suffix = this.recordMode === 'direct' ? '' : `_${this.recordMode}`;
         const filename = `kayit${suffix}_${Date.now()}.webm`;
 
-        eventBus.emit('log', `Kayit tamamlandi: ${(blob.size / 1024).toFixed(1)} KB`);
+        // Gercek bitrate hesapla
+        const durationMs = Date.now() - this.startTime;
+        const durationSec = durationMs / 1000;
+        const actualBitrate = durationSec > 0 ? Math.round((blob.size * 8) / durationSec) : 0;
+        const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
+
+        // Istenen vs gercek karsilastirmasi
+        const requestedBitrate = this.mediaBitrate || 0;
+        const bitrateComparison = requestedBitrate > 0
+          ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
+          : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
+
+        eventBus.emit('log', `Kayit tamamlandi: ${(blob.size / 1024).toFixed(1)} KB (${bitrateComparison})`);
         eventBus.emit('recording:completed', {
           blob,
           mimeType,
           filename,
           recordMode: this.recordMode,
-          useWebAudio: this.recordMode !== 'direct'
+          useWebAudio: this.recordMode !== 'direct',
+          durationMs,
+          requestedBitrate,
+          actualBitrate
         });
 
         // WebAudio temizlik
@@ -309,6 +325,7 @@ class Recorder {
       };
 
       // Timeslice ile veya tek chunk olarak baslat
+      this.startTime = Date.now();
       if (this.timeslice > 0) {
         this.mediaRecorder.start(this.timeslice);
       } else {

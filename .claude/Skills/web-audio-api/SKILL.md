@@ -80,6 +80,42 @@ await ac.close();
 URL.revokeObjectURL(blobUrl);
 ```
 
+## MediaSource API (Gercek Zamanli Codec Oynatma)
+
+MediaRecorder chunk'larini gercek zamanli oynatmak icin:
+
+```javascript
+// MediaSource olustur
+const mediaSource = new MediaSource();
+const audio = document.createElement('audio');
+audio.src = URL.createObjectURL(mediaSource);
+
+// SourceBuffer ayarla
+mediaSource.addEventListener('sourceopen', () => {
+  const sourceBuffer = mediaSource.addSourceBuffer('audio/webm;codecs=opus');
+  sourceBuffer.mode = 'sequence';  // Sirali ekleme
+
+  // Chunk'lari isle
+  sourceBuffer.addEventListener('updateend', processNextChunk);
+});
+
+// MediaRecorder'dan chunk'lari al
+recorder.ondataavailable = async (e) => {
+  if (e.data.size > 0) {
+    const buffer = await e.data.arrayBuffer();
+    if (!sourceBuffer.updating) {
+      sourceBuffer.appendBuffer(buffer);
+    }
+  }
+};
+```
+
+**Onemli:**
+- `decodeAudioData` partial blob'u decode edemez - MediaSource API gerekli
+- `sourceBuffer.mode = 'sequence'` sirali ekleme icin
+- `sourceBuffer.updating` kontrolu QuotaExceededError onler
+- Temizlik: `URL.revokeObjectURL()` ve `mediaSource.endOfStream()`
+
 ## Kritik Kurallar
 
 1. `getUserMedia` -> HTTPS/localhost gerekli
