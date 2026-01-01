@@ -29,30 +29,35 @@ rec.start();
 ## VU Meter
 
 ```javascript
+import { AUDIO, VU_METER } from './constants.js';
+
 const ac = new AudioContext();
 const src = ac.createMediaStreamSource(stream);
 const analyser = ac.createAnalyser();
-analyser.fftSize = 256; // Kucuk yeterli
+analyser.fftSize = AUDIO.FFT_SIZE; // 256
 src.connect(analyser);
 
 // RMS -> dB
-const data = new Uint8Array(256);
+const data = new Uint8Array(AUDIO.FFT_SIZE);
 analyser.getByteTimeDomainData(data);
 let sum = 0;
 for (let i = 0; i < data.length; i++) {
-  const v = (data[i] - 128) / 128;
+  const v = (data[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE; // 128
   sum += v * v;
 }
 const rms = Math.sqrt(sum / data.length);
-const dB = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
+const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
+// VU_METER.RMS_THRESHOLD = 0.0001, VU_METER.MIN_DB = -60
 ```
 
 ## Monitor (Dinleme)
 
 ```javascript
-// Delay ile (feedback onleme) - MicProbe'da 2s kullanilir
-const delay = ac.createDelay(3.0);  // max 3s
-delay.delayTime.value = 2.0;        // 2s gecikme
+import { DELAY } from './constants.js';
+
+// Delay ile (feedback onleme)
+const delay = ac.createDelay(DELAY.MAX_SECONDS);  // 3.0
+delay.delayTime.value = DELAY.DEFAULT_SECONDS;   // 1.7
 src.connect(delay).connect(ac.destination);
 ```
 

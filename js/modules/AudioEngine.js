@@ -8,6 +8,7 @@
  * - Stream gelince connectStream() ile bagla
  */
 import eventBus from './EventBus.js';
+import { AUDIO } from './constants.js';
 
 class AudioEngine {
   constructor() {
@@ -18,7 +19,7 @@ class AudioEngine {
     this.analyserNode = null;
 
     // VuMeter icin data array (GC onleme)
-    this.fftSize = 256;
+    this.fftSize = AUDIO.FFT_SIZE;
     this.dataArray = new Uint8Array(this.fftSize);
 
     // Durum
@@ -49,7 +50,7 @@ class AudioEngine {
       // AnalyserNode onceden olustur
       this.analyserNode = this.audioContext.createAnalyser();
       this.analyserNode.fftSize = this.fftSize;
-      this.analyserNode.smoothingTimeConstant = 0.7; // Slow motion efekti icin yuksek smoothing
+      this.analyserNode.smoothingTimeConstant = AUDIO.SMOOTHING_TIME_CONSTANT;
 
       this.isWarmedUp = true;
 

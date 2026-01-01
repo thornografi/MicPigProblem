@@ -6,17 +6,7 @@
  */
 import eventBus from './EventBus.js';
 import audioEngine from './AudioEngine.js';
-
-// Clean Code: Magic numbers yerine anlamli constants
-const AUDIO_CENTER = 128;           // 8-bit audio center point
-const REMOTE_FFT_SIZE = 256;        // Remote analyser FFT boyutu
-const RMS_THRESHOLD = 0.0001;       // dB hesaplama icin minimum RMS
-const MIN_DB = -60;                 // Minimum dB seviyesi (sessizlik)
-const CLIPPING_THRESHOLD_DB = -0.5; // Bu dB ustu = clipping riski
-const PEAK_HOLD_TIME_MS = 1000;     // Peak gostergesini tutma suresi
-const PEAK_DECAY_RATE = 2;          // Peak dusme hizi (dB/frame)
-const DOT_ACTIVE_THRESHOLD = 5;     // Sinyal noktasi aktif esigi (%)
-const DEFAULT_METER_WIDTH = 200;    // Varsayilan meter genisligi (px)
+import { AUDIO, VU_METER } from './constants.js';
 
 class VuMeter {
   constructor(config) {
@@ -42,8 +32,8 @@ class VuMeter {
     this.dotState = 'idle'; // classList optimizasyonu icin state tracking
 
     // Performans: VU meter container genisligini cache'le (reflow onleme)
-    this.meterWidth = this.peakEl?.parentElement?.offsetWidth || DEFAULT_METER_WIDTH;
-    this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || DEFAULT_METER_WIDTH;
+    this.meterWidth = this.peakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
+    this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
 
     // Event dinle
     eventBus.on('stream:started', (stream) => this.start(stream));
@@ -53,8 +43,8 @@ class VuMeter {
     // Resize event'inde meter width'i guncelle
     // Memory leak fix: Named handler, stop()'ta removeEventListener icin
     this.resizeHandler = () => {
-      this.meterWidth = this.peakEl?.parentElement?.offsetWidth || DEFAULT_METER_WIDTH;
-      this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || DEFAULT_METER_WIDTH;
+      this.meterWidth = this.peakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
+      this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
     };
     window.addEventListener('resize', this.resizeHandler);
   }
@@ -100,7 +90,7 @@ class VuMeter {
 
       this.remoteSourceNode = this.remoteAudioCtx.createMediaStreamSource(stream);
       this.remoteAnalyser = this.remoteAudioCtx.createAnalyser();
-      this.remoteAnalyser.fftSize = REMOTE_FFT_SIZE;
+      this.remoteAnalyser.fftSize = AUDIO.FFT_SIZE;
       this.remoteSourceNode.connect(this.remoteAnalyser);
 
       eventBus.emit('log:stream', {
@@ -140,7 +130,7 @@ class VuMeter {
   calculateRMS(dataArray) {
     let sum = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const val = (dataArray[i] - AUDIO_CENTER) / AUDIO_CENTER;
+      const val = (dataArray[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE;
       sum += val * val;
     }
     return Math.sqrt(sum / dataArray.length);
@@ -157,18 +147,18 @@ class VuMeter {
     const rms = this.calculateRMS(dataArray);
     let maxSample = 0;
     for (let i = 0; i < dataArray.length; i++) {
-      const val = Math.abs((dataArray[i] - AUDIO_CENTER) / AUDIO_CENTER);
+      const val = Math.abs((dataArray[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE);
       if (val > maxSample) maxSample = val;
     }
 
     // dB hesapla (logaritmik skala)
-    // MIN_DB = 0%, 0dB = 100%
-    const dB = rms > RMS_THRESHOLD ? 20 * Math.log10(rms) : MIN_DB;
-    const level = Math.max(0, Math.min(100, (dB - MIN_DB) / -MIN_DB * 100));
+    // VU_METER.MIN_DB = 0%, 0dB = 100%
+    const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
+    const level = Math.max(0, Math.min(100, (dB - VU_METER.MIN_DB) / -VU_METER.MIN_DB * 100));
 
     // Peak dB (clipping tespiti icin)
-    const peakdB = maxSample > RMS_THRESHOLD ? 20 * Math.log10(maxSample) : MIN_DB;
-    const isClipping = peakdB >= CLIPPING_THRESHOLD_DB;
+    const peakdB = maxSample > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(maxSample) : VU_METER.MIN_DB;
+    const isClipping = peakdB >= VU_METER.CLIPPING_THRESHOLD_DB;
 
     // Bar guncelle - transform kullan (GPU accelerated, reflow yok)
     if (this.barEl) {
@@ -179,8 +169,8 @@ class VuMeter {
     if (level > this.peakLevel) {
       this.peakLevel = level;
       this.peakHoldTime = Date.now();
-    } else if (Date.now() - this.peakHoldTime > PEAK_HOLD_TIME_MS) {
-      this.peakLevel = Math.max(level, this.peakLevel - PEAK_DECAY_RATE);
+    } else if (Date.now() - this.peakHoldTime > VU_METER.PEAK_HOLD_TIME_MS) {
+      this.peakLevel = Math.max(level, this.peakLevel - VU_METER.PEAK_DECAY_RATE);
     }
 
     // Peak indicator - translateX kullan (GPU accelerated)
@@ -190,7 +180,7 @@ class VuMeter {
     }
 
     // Sinyal noktasi - sadece state degisince guncelle (gereksiz classList islemlerini onle)
-    const newDotState = isClipping ? 'clipping' : (level > DOT_ACTIVE_THRESHOLD ? 'active' : 'idle');
+    const newDotState = isClipping ? 'clipping' : (level > VU_METER.DOT_ACTIVE_THRESHOLD ? 'active' : 'idle');
     if (this.dotEl && this.dotState !== newDotState) {
       // Tek seferde className set et (classList.add/remove'dan daha hizli)
       this.dotEl.className = 'signal-dot' + (newDotState !== 'idle' ? ' ' + newDotState : '');
@@ -228,8 +218,8 @@ class VuMeter {
     const rms = this.calculateRMS(this.remoteDataArray);
 
     // dB ve level hesapla
-    const dB = rms > RMS_THRESHOLD ? 20 * Math.log10(rms) : MIN_DB;
-    const remoteLevel = Math.max(0, Math.min(100, (dB - MIN_DB) / -MIN_DB * 100));
+    const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
+    const remoteLevel = Math.max(0, Math.min(100, (dB - VU_METER.MIN_DB) / -VU_METER.MIN_DB * 100));
 
     // Remote bar guncelle
     if (this.remoteBarEl) {
@@ -240,8 +230,8 @@ class VuMeter {
     if (remoteLevel > this.remotePeakLevel) {
       this.remotePeakLevel = remoteLevel;
       this.remotePeakHoldTime = Date.now();
-    } else if (Date.now() - this.remotePeakHoldTime > PEAK_HOLD_TIME_MS) {
-      this.remotePeakLevel = Math.max(remoteLevel, this.remotePeakLevel - PEAK_DECAY_RATE);
+    } else if (Date.now() - this.remotePeakHoldTime > VU_METER.PEAK_HOLD_TIME_MS) {
+      this.remotePeakLevel = Math.max(remoteLevel, this.remotePeakLevel - VU_METER.PEAK_DECAY_RATE);
     }
 
     // Remote peak indicator

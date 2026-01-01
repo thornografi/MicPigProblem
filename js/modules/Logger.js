@@ -118,6 +118,40 @@ class Logger {
       ? this.history.filter(h => h.category === this.activeFilter)
       : this.history;
   }
+
+  /**
+   * Tum loglari panoya kopyala
+   * @returns {Promise<boolean>} Kopyalama basarili mi
+   */
+  async copyAll() {
+    const logs = this.getFilteredHistory();
+    if (logs.length === 0) {
+      return false;
+    }
+
+    const text = logs.map(h => h.message).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // Fallback: textarea ile kopyala
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return true;
+      } catch (e) {
+        document.body.removeChild(textarea);
+        return false;
+      }
+    }
+  }
 }
 
 export default Logger;

@@ -6,7 +6,7 @@
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
-import { getBestAudioMimeType } from './utils.js';
+import { getBestAudioMimeType, createAudioContext, getAudioContextOptions } from './utils.js';
 
 class Recorder {
   constructor(config) {
@@ -45,7 +45,8 @@ class Recorder {
     }
 
     try {
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // DRY: factory kullan
+      this.audioContext = await createAudioContext();
 
       // Destination node'u da onceden olustur
       this.destinationNode = this.audioContext.createMediaStreamDestination();
@@ -83,8 +84,7 @@ class Recorder {
       this.stream = await requestStream(constraints);
       this.chunks = [];
 
-      // Kayit baslatildi event'i - stream alindiktan sonra gonder
-      eventBus.emit('recording:started');
+      // NOT: recording:started event'i MediaRecorder.start() sonrasina tasindi (semantik tutarlilik)
 
       // Stream event'i gonder (VuMeter dinler)
       eventBus.emit('stream:started', this.stream);
@@ -102,27 +102,18 @@ class Recorder {
 
         // Pre-warm yapilmamissa AudioContext olustur
         if (!this.audioContext) {
-          // ONEMLI: Mikrofon stream'inin sample rate'ini al ve AudioContext'e gecir
-          // Aksi halde sample rate uyumsuzlugu ses hizlanmasina neden olur
-          const track = this.stream.getAudioTracks()[0];
-          const trackSettings = track.getSettings();
-          const micSampleRate = trackSettings.sampleRate;
+          // DRY: factory + helper kullan - mikrofon sample rate ile olustur
+          const acOptions = getAudioContextOptions(this.stream);
+          this.audioContext = await createAudioContext(acOptions);
 
-          // AudioContext'i mikrofon sample rate'i ile olustur
-          const acOptions = micSampleRate ? { sampleRate: micSampleRate } : {};
-          this.audioContext = new (window.AudioContext || window.webkitAudioContext)(acOptions);
-
-          if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
-          }
-
+          const micSampleRate = acOptions.sampleRate;
           eventBus.emit('log:webaudio', {
             message: 'AudioContext olusturuldu (Kayit - cold start)',
             details: {
               state: this.audioContext.state,
               sampleRate: this.audioContext.sampleRate,
               micSampleRate: micSampleRate || 'N/A',
-              sampleRateMatch: micSampleRate === this.audioContext.sampleRate,
+              sampleRateMatch: !micSampleRate || micSampleRate === this.audioContext.sampleRate,
               baseLatency: this.audioContext.baseLatency
             }
           });
@@ -146,13 +137,9 @@ class Recorder {
             await this.audioContext.close();
             this.destinationNode = null;
 
-            // Yeni context olustur (mikrofon sample rate ile)
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: micSampleRate });
+            // DRY: factory kullan - yeni context olustur (mikrofon sample rate ile)
+            this.audioContext = await createAudioContext({ sampleRate: micSampleRate });
             this.isWarmedUp = false; // Artik pre-warmed degil
-
-            if (this.audioContext.state === 'suspended') {
-              await this.audioContext.resume();
-            }
           } else {
             // Sample rate uyumlu - resume et
             if (this.audioContext.state === 'suspended') {
@@ -343,6 +330,8 @@ class Recorder {
       const timesliceText = this.timeslice > 0 ? `, Timeslice: ${this.timeslice}ms` : '';
       eventBus.emit('log', `KAYIT basladi (${modeText}${timesliceText})`);
       eventBus.emit('recorder:started');
+      // recording:started - MediaRecorder.start() sonrasi (Player.reset icin)
+      eventBus.emit('recording:started');
 
     } catch (err) {
       // Spesifik hata mesajlari

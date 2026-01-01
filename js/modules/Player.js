@@ -4,15 +4,15 @@
  */
 import eventBus from './EventBus.js';
 import { formatTime } from './utils.js';
+import { BYTES } from './constants.js';
 
 // Clean Code: Tekrarlayan SVG iconlari constant olarak
-const PLAY_ICON = '${PLAY_ICON}';
-const PAUSE_ICON = '${PAUSE_ICON}';
+const PLAY_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
 
 // Clean Code: Magic strings yerine constants
 const TIME_PLACEHOLDER = '0:00 / 0:00';
 const UNKNOWN_DURATION = '--:--';
-const BYTES_PER_KB = 1024;
 
 class Player {
   constructor(config) {
@@ -79,7 +79,7 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(blob.size / BYTES_PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${UNKNOWN_DURATION}`;
+      this.metaEl.textContent = `${(blob.size / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${UNKNOWN_DURATION}`;
     }
 
     if (this.downloadBtnEl) {
@@ -193,7 +193,7 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(sizeBytes / BYTES_PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${formatTime(durationSeconds)}`;
+      this.metaEl.textContent = `${(sizeBytes / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${formatTime(durationSeconds)}`;
     }
   }
 

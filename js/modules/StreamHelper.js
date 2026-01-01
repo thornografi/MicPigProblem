@@ -56,6 +56,14 @@ export async function requestStream(constraints = {}) {
     if (merged.autoGainControl !== undefined && settings.autoGainControl !== merged.autoGainControl) {
       mismatches.push({ name: 'autoGainControl', requested: merged.autoGainControl, actual: settings.autoGainControl });
     }
+    // sampleRate mismatch kontrolu
+    if (merged.sampleRate !== undefined && settings.sampleRate && settings.sampleRate !== merged.sampleRate) {
+      mismatches.push({ name: 'sampleRate', requested: merged.sampleRate, actual: settings.sampleRate });
+    }
+    // channelCount mismatch kontrolu
+    if (merged.channelCount !== undefined && settings.channelCount && settings.channelCount !== merged.channelCount) {
+      mismatches.push({ name: 'channelCount', requested: merged.channelCount, actual: settings.channelCount });
+    }
 
     if (mismatches.length > 0) {
       const mismatchNames = mismatches.map(m => m.name).join(', ');

@@ -10,6 +10,7 @@
  * 4. Console'a kisa versiyon yazar
  */
 import eventBus from './EventBus.js';
+import { DELAY, LOG } from './constants.js';
 
 const LOG_CATEGORIES = {
   ERROR: 'error',
@@ -20,9 +21,6 @@ const LOG_CATEGORIES = {
   SYSTEM: 'system',
   UI: 'ui'
 };
-
-// Maksimum log sayisi (kategori basina) - bellek korumasi
-const MAX_LOGS_PER_CATEGORY = 500;
 
 class LogManager {
   constructor() {
@@ -149,8 +147,8 @@ class LogManager {
       this.log('audio', 'VU Meter durduruldu');
     });
 
-    // Global error handler
-    window.addEventListener('error', (e) => {
+    // Global error handler - Named handlers (cleanup icin)
+    this.errorHandler = (e) => {
       this.log('error', 'Uncaught Error', {
         message: e.message,
         filename: e.filename,
@@ -158,14 +156,32 @@ class LogManager {
         colno: e.colno,
         stack: e.error?.stack
       });
-    });
+    };
 
-    window.addEventListener('unhandledrejection', (e) => {
+    this.rejectionHandler = (e) => {
       this.log('error', 'Unhandled Promise Rejection', {
         reason: e.reason?.message || e.reason,
         stack: e.reason?.stack
       });
-    });
+    };
+
+    window.addEventListener('error', this.errorHandler);
+    window.addEventListener('unhandledrejection', this.rejectionHandler);
+  }
+
+  /**
+   * Event listener'lari temizle (memory leak onleme)
+   * Not: LogManager singleton oldugu icin normalde cagrilmaz,
+   * ama test/hot-reload senaryolari icin mevcut.
+   */
+  cleanup() {
+    if (this.errorHandler) {
+      window.removeEventListener('error', this.errorHandler);
+    }
+    if (this.rejectionHandler) {
+      window.removeEventListener('unhandledrejection', this.rejectionHandler);
+    }
+    this.log('system', 'LogManager cleanup tamamlandi');
   }
 
   log(category, message, details = null) {
@@ -183,7 +199,7 @@ class LogManager {
       this.logs[category].push(entry);
 
       // Bellek korumasi - eski loglari sil (FIFO)
-      if (this.logs[category].length > MAX_LOGS_PER_CATEGORY) {
+      if (this.logs[category].length > LOG.MAX_PER_CATEGORY) {
         this.logs[category].shift();
       }
     }
@@ -315,9 +331,10 @@ class LogManager {
             mode: details?.mode,
             loopback: !!details?.loopback
           });
-        } else if (Math.abs(delaySeconds - 2.0) > 0.01) {
-          addIssue('warn', 'MONITOR_DELAY_NOT_2S', 'Monitor delay 2sn degil (beklenen: 2.0s)', {
+        } else if (Math.abs(delaySeconds - DELAY.DEFAULT_SECONDS) > 0.01) {
+          addIssue('warn', 'MONITOR_DELAY_UNEXPECTED', `Monitor delay beklenen degerde degil (beklenen: ${DELAY.DEFAULT_SECONDS}s)`, {
             delaySeconds,
+            expected: DELAY.DEFAULT_SECONDS,
             mode: details?.mode,
             loopback: !!details?.loopback
           });

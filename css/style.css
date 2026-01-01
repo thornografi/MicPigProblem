@@ -16,7 +16,7 @@
   --bg-elevated: #333333;
 
   /* Sidebar */
-  --sidebar-width: 220px;
+  --sidebar-width: 260px;
   --sidebar-bg: #0d0d0d;
 
   /* Accent - Tek renk: Yesil */
@@ -90,14 +90,12 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
-  overflow: hidden;
 }
 
 /* ========== APP LAYOUT ========== */
 .app-layout {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 /* ========== SIDEBAR ========== */
@@ -195,6 +193,24 @@ body {
   color: var(--accent-primary);
 }
 
+.nav-item.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Tree görünümü - profiller kategori altında girintili */
+.nav-item-sub {
+  margin-left: var(--space-md);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+}
+
+.nav-item-sub svg {
+  width: 16px;
+  height: 16px;
+}
+
 .sidebar-footer {
   padding: var(--space-md);
   border-top: 1px solid var(--border-secondary);
@@ -236,6 +252,7 @@ body {
   display: flex;
   overflow: hidden;
   background: var(--bg-primary);
+  min-height: 0; /* Flex overflow fix */
 }
 
 .content-container {
@@ -244,6 +261,7 @@ body {
   flex-direction: column;
   padding: var(--space-lg);
   overflow-y: auto;
+  min-height: 0; /* Flex overflow fix */
 }
 
 /* ========== PAGE HEADER ========== */
@@ -325,6 +343,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-height: 0; /* Flex overflow fix */
   min-width: 0;
 }
 
@@ -341,12 +360,26 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-md);
+  align-items: start; /* Paneller kendi yuksekliginde kalsın */
+}
+
+/* Call kategorisinde Player gizli - tek kolon */
+.controls-row.call-mode {
+  grid-template-columns: 1fr;
 }
 
 .panel-controls,
 .panel-player {
   display: flex;
   flex-direction: column;
+}
+
+/* Player boş durumda kompakt */
+.panel-player .empty-state {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 /* VU Section icinde */
@@ -536,10 +569,20 @@ body {
   color: white;
 }
 
+/* Record butonu - Hazırlanıyor state */
+.btn-record.preparing {
+  background: var(--accent-warning, #f59e0b);
+  color: white;
+  cursor: wait;
+  pointer-events: none;
+}
+
 /* Kayit ikonu toggle */
 .btn-record .icon-square { display: none; }
 .btn-record.active .icon-circle { display: none; }
 .btn-record.active .icon-square { display: block; }
+.btn-record.preparing .icon-circle { display: none; }
+.btn-record.preparing .icon-square { display: none; }
 
 /* Monitor butonu */
 .btn-monitor {
@@ -707,41 +750,74 @@ body {
   display: block;
 }
 
-.device-info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-sm);
+/* Ses Durumu Panel - 3 Bolumlu Yapi */
+.audio-status-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-.device-info-item {
-  padding: var(--space-md);
+.audio-status-section {
   background: var(--bg-input);
   border-radius: var(--radius-md);
-  text-align: center;
+  padding: var(--space-sm) var(--space-md);
 }
 
-.device-info-label {
+.audio-status-title {
   font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: var(--space-xs);
   font-weight: 600;
+  margin-bottom: var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border-secondary);
 }
 
-.device-info-value {
-  font-size: 14px;
+.audio-status-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.audio-status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.audio-status-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.audio-status-value {
+  font-size: 12px;
   font-weight: 600;
   color: var(--accent-primary);
   font-family: var(--font-mono);
+  text-align: right;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.device-info-value.warning {
+.audio-status-value.good {
+  color: var(--accent-primary);
+}
+
+.audio-status-value.warning {
   color: var(--accent-warning);
 }
 
-.device-info-value.danger {
+.audio-status-value.danger {
   color: var(--accent-danger);
+}
+
+.audio-status-value.muted {
+  color: var(--text-muted);
 }
 
 /* ========== RECORDING PLAYER ========== */
@@ -1013,6 +1089,43 @@ body {
 .btn-clear:hover {
   background: var(--bg-input);
   color: var(--text-secondary);
+}
+
+/* Copy Button */
+.btn-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: auto;
+  margin-right: 6px;
+}
+
+.btn-copy:hover {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.btn-copy.copied {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+  color: white;
+}
+
+.btn-copy .icon-check {
+  stroke: white;
+}
+
+.panel-header .btn-clear {
+  margin-left: 0;
 }
 
 /* ========== SETTINGS DRAWER ========== */

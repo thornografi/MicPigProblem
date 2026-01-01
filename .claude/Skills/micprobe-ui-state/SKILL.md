@@ -1,19 +1,50 @@
 ---
 name: micprobe-ui-state
-description: "MicProbe UI state, monitoring/recording ayrimi ve kontrol kilitleme. Anahtar kelimeler: updateButtonStates, monitoring, recording, player, timer, disable, progress bar"
+description: "MicProbe UI state, mod bazli UI, sidebar kategorileri, buton/selector kilitleme. Anahtar kelimeler: updateButtonStates, monitoring, recording, player, timer, disable, progress bar, call, record, kategori"
 ---
 
 # MicProbe — UI State & Davranis Kurallari
 
-## Temel Kural
+## Kategori Bazli UI Davranisi
 
-- **Monitoring** basladiginda kayit tarafindaki butun kontroller kilitlenir (kullanici karistirmasin).
-- **Recording** sirasinda ise kayitla ilgili kontroller aktif kalir, diger ayarlar kilitlenir.
+### Sidebar Yapisi
+
+```
+📞 Sesli Görüşme (call)
+├── Discord
+├── Zoom / Meet / Teams
+├── WhatsApp Arama
+└── Telegram Arama
+
+🎙️ Kayıt (record)
+├── WhatsApp Sesli Mesaj
+├── Telegram Sesli Mesaj
+├── Eski Web Kayıt
+└── Ham Kayıt
+```
+
+### Mod Bazli Kontrol Gorunurlugu (OCP)
+
+UI, profil yeteneklerini (`canMonitor`, `canRecord`) okuyarak butonlari gosterir:
+
+| Profil Tipi | canMonitor | canRecord | UI |
+|-------------|------------|-----------|-----|
+| call | true | false | Sadece Monitor |
+| record | false | true | Sadece Kayıt + Player |
+
+Not: Tüm `record` kategorisi profilleri (mictest dahil) `canMonitor=false`.
+
+### Temel Kural
+
+- `profile.canMonitor` = true → Monitor butonu görünür
+- `profile.canRecord` = true → Kayıt butonu + Player görünür
+- Bu yetenekler Config.js'de otomatik hesaplanır (UI hesaplamaz)
 
 ## Ozel Ayarlar Paneli
 
 - `customSettingsPanel` ana panelde genisletilebilir sekilde gosterilir.
 - Her profilde gorunur, profil bazli locked/editable ayarlar dinamik olarak listelenir.
+- **allowedValues:** Dropdown'lar sadece profilin izin verdigi degerleri gosterir.
 - Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
 - Kontrol: `updateCustomSettingsPanel()` fonksiyonu icerisinde.
 
@@ -31,9 +62,13 @@ Cozum yaklasimi:
 - Yeni kayit yuklenince progress fill `scaleX(0)` yap.
 - Duration invalidken progress’i ya sifirla ya da `knownDurationSeconds` fallback ile hesapla.
 
-## Profil Degisimi ve Monitoring
+## Profil Degisimi
 
-Profil degistiginde aktif monitoring/recording yeni ayarlarla yeniden baslatilir.
+Profil degistiginde:
+1. Aktif islem varsa durdurulur
+2. Yeni profil ayarlari uygulanir
+3. Kategori degistiyse UI güncellenir (call↔record)
+4. Gerekirse yeniden baslatilir
 
 **Onemli:** `applyProfile()` icinde restart async bekler:
 ```javascript

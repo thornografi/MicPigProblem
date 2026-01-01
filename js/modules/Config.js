@@ -85,7 +85,7 @@ export const SETTINGS = {
   },
   bitrate: {
     type: 'enum',
-    values: [32000, 48000, 64000, 96000, 128000],
+    values: [16000, 24000, 32000, 48000, 64000, 96000, 128000],
     default: 64000,
     label: 'Opus Bitrate (WebRTC)',
     category: 'loopback',
@@ -114,7 +114,7 @@ export const SETTINGS = {
     unit: 'ms',
     ui: { type: 'radio', name: 'timeslice' }
   }
-  // NOT: delay ayari kaldirildi - monitoring'de sabit 2sn kullaniliyor
+  // NOT: delay ayari kaldirildi - monitoring'de sabit 1.7sn kullaniliyor (Monitor.js DEFAULT_DELAY_SECONDS)
 };
 
 // Varsayilan profil degerleri
@@ -128,97 +128,127 @@ const DEFAULT_VALUES = {
 };
 
 // Profil fabrika fonksiyonu - tekrari onler
-// settings objesi: { locked: [], editable: [] } veya 'all' string'i
+// settings objesi: { locked: [], editable: [], allowedValues: {} } veya 'all' string'i
 // locked: Deger sabit, UI'da disabled (kullanici degistiremez)
 // editable: Kullanici degistirebilir
-// 'all': Tum ayarlar editable (ozel/legacy modlar icin)
+// allowedValues: Her ayar icin izin verilen degerler (profil bazli kisitlama)
+// 'all': Tum ayarlar editable, tum degerler izinli (test modlari icin)
 function createProfile(id, label, desc, icon, category, overrides = {}, settings = {}) {
   // Geriye uyumluluk: Eski array format veya 'all' string destegi
   let lockedSettings = [];
   let editableSettings = [];
+  let allowedValues = {};
 
   if (settings === 'all') {
-    // Tum ayarlar editable
+    // Tum ayarlar editable, tum degerler izinli
     editableSettings = Object.keys(SETTINGS);
     lockedSettings = [];
+    allowedValues = {}; // Bos = tum degerler izinli
   } else if (Array.isArray(settings)) {
     // Eski format: array = editable listesi (geriye uyumluluk)
     editableSettings = settings;
     lockedSettings = [];
+    allowedValues = {};
   } else {
-    // Yeni format: { locked: [], editable: [] }
+    // Yeni format: { locked: [], editable: [], allowedValues: {} }
     lockedSettings = settings.locked || [];
     editableSettings = settings.editable || [];
+    allowedValues = settings.allowedValues || {};
   }
+
+  // OCP: Profil kendi yeteneklerini biliyor
+  // call kategorisi = monitoring, record kategorisi = kayit
+  // Istisna: loopback editable ise monitoring de yapilabilir
+  const isCallCategory = category === 'call';
+  const loopbackEditable = settings === 'all' || editableSettings.includes('loopback');
 
   return {
     id, label, desc, icon, category,
     values: overrides === null ? null : { ...DEFAULT_VALUES, ...overrides },
     lockedSettings,
     editableSettings,
+    allowedValues, // Profil bazli deger kisitlamalari
+    // OCP: Yetenekler profilde tanimli
+    canMonitor: isCallCategory || loopbackEditable,
+    canRecord: !isCallCategory,
     // Geriye uyumluluk
     allowedSettings: editableSettings.length > 0 ? editableSettings : 'all'
   };
 }
 
 // Senaryo bazli profil tanimlari
+// İKİ ANA KATEGORİ: call (sesli görüşme) ve record (kayıt)
 export const PROFILES = {
-  // CANLI GORUSME SENARYOLARI (WebRTC Loopback)
-  // Loopback ON, mode standard (WebRTC simulasyonu icin)
-  discord: createProfile('discord', 'Discord Voice', 'Discord, Guilded - yüksek kalite ses',
-    'gamepad', 'call', { loopback: true, mode: 'standard', bitrate: 96000, sampleRate: 48000, channelCount: 2 },
-    { locked: ['loopback', 'mode'], editable: ['ec', 'ns', 'agc', 'bitrate', 'sampleRate', 'channelCount'] }),
-  zoom: createProfile('zoom', 'Zoom / Meet', 'Zoom, Teams, Meet - optimize edilmiş',
-    'video', 'call', { loopback: true, mode: 'standard', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'mode', 'channelCount'], editable: ['ec', 'ns', 'agc', 'bitrate', 'sampleRate'] }),
+  // ═══════════════════════════════════════════════════════════════
+  // 📞 SESLİ GÖRÜŞME (call) - WebRTC Loopback, Monitoring Only
+  // ═══════════════════════════════════════════════════════════════
+  // Call profilleri: EC/NS/AGC platformlar tarafindan kesinlikle kullaniliyor
+  'discord': createProfile('discord', 'Discord', 'Discord, Guilded - varsayılan mono, boost ile yüksek kalite',
+    'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'mode', 'sampleRate', 'ec', 'ns', 'agc'],
+      editable: ['bitrate', 'channelCount'],
+      allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] } }),
 
-  // SESLI MESAJ SENARYOLARI (MediaRecorder Bitrate)
-  // Loopback OFF, mode standard (MediaRecorder kayit)
-  whatsapp: createProfile('whatsapp', 'WhatsApp Sesli Mesaj', 'Dusuk bitrate voice message',
-    'message', 'voice', { mediaBitrate: 16000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['loopback', 'mode'], editable: ['ec', 'ns', 'agc', 'mediaBitrate'] }),
-  telegram: createProfile('telegram', 'Telegram Sesli Mesaj', 'Orta kalite voice note',
-    'send', 'voice', { mediaBitrate: 24000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['loopback', 'mode'], editable: ['ec', 'ns', 'agc', 'mediaBitrate'] }),
+  'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - optimize edilmiş',
+    'video', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'mode', 'channelCount', 'ec', 'ns', 'agc'],
+      editable: ['bitrate', 'sampleRate'],
+      allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 48000] } }),
 
-  // TEMEL TEST - Ham Kayit
-  // Tum ayarlar serbest - dinamik kilitleme JS tarafinda (buffer icin)
-  mictest: createProfile('mictest', 'Ham Kayit', 'Tum ayarlar serbest - test ve deneme',
-    'mic', 'basic', { ec: false, ns: false, agc: false, mode: 'direct', loopback: false },
-    'all'),
+  'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Arama', 'WhatsApp sesli/görüntülü arama - düşük bitrate',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
+      editable: ['bitrate'],
+      allowedValues: { bitrate: [16000, 24000, 32000] } }),
 
-  // GELISMIS / OZEL
-  // ScriptProcessor odakli kayit profili - mode ve loopback kilitli
-  legacy: createProfile('legacy', 'Eski Web Kayıt', 'ScriptProcessor ile kayıt testi',
-    'history', 'advanced', { mode: 'scriptprocessor', buffer: 1024, timeslice: 1000, loopback: false },
-    { locked: ['mode', 'loopback'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] })
+  'telegram-call': createProfile('telegram-call', 'Telegram Arama', 'Telegram sesli arama - adaptive bitrate',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
+      editable: ['bitrate'],
+      allowedValues: { bitrate: [24000, 32000, 48000, 64000] } }),
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🎙️ KAYIT (record) - MediaRecorder, Recording Primary
+  // ═══════════════════════════════════════════════════════════════
+  'whatsapp-voice': createProfile('whatsapp-voice', 'WhatsApp Sesli Mesaj', 'Düşük bitrate voice message',
+    'message', 'record', { mediaBitrate: 16000, timeslice: 250, loopback: false, mode: 'standard' },
+    { locked: ['loopback', 'mode'],
+      editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
+      allowedValues: { mediaBitrate: [0, 16000, 24000], timeslice: [0, 100, 250, 500] } }),
+
+  'telegram-voice': createProfile('telegram-voice', 'Telegram Sesli Mesaj', 'Telegram voice note (32-64kbps)',
+    'send', 'record', { mediaBitrate: 32000, timeslice: 250, loopback: false, mode: 'standard' },
+    { locked: ['loopback', 'mode'],
+      editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
+      allowedValues: { mediaBitrate: [0, 24000, 32000, 64000], timeslice: [0, 100, 250, 500] } }),
+
+  'legacy': createProfile('legacy', 'Eski Web Kayıt', 'ScriptProcessor ile kayıt testi',
+    'history', 'record', { mode: 'scriptprocessor', buffer: 1024, timeslice: 1000, loopback: false },
+    { locked: ['mode', 'loopback'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
+    // allowedValues yok = tum degerler izinli
+
+  'mictest': createProfile('mictest', 'Ham Kayıt', 'Kayıt ayarları serbest - test ve deneme',
+    'mic', 'record', { ec: false, ns: false, agc: false, mode: 'direct', loopback: false },
+    { locked: ['loopback'], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'mode', 'buffer', 'mediaBitrate', 'timeslice'] })
+    // allowedValues yok = tum degerler izinli (test profili)
 };
 
 // Kategori tanimlari (UI siralama icin)
+// Sadece iki ana kategori: call ve record
 export const PROFILE_CATEGORIES = {
   call: {
     id: 'call',
-    label: 'Canli Gorusme',
-    desc: 'Discord, Zoom, Meet gibi uygulamalar',
+    label: 'Sesli Görüşme',
+    icon: '📞',
+    desc: 'Discord, Zoom, WhatsApp/Telegram arama',
     order: 1
   },
-  voice: {
-    id: 'voice',
-    label: 'Sesli Mesaj',
-    desc: 'WhatsApp, Telegram voice note',
+  record: {
+    id: 'record',
+    label: 'Kayıt',
+    icon: '🎙️',
+    desc: 'WhatsApp/Telegram sesli mesaj, ham kayıt',
     order: 2
-  },
-  basic: {
-    id: 'basic',
-    label: 'Temel Test',
-    desc: 'Mikrofon kontrolu',
-    order: 3
-  },
-  advanced: {
-    id: 'advanced',
-    label: 'Gelismis',
-    desc: 'Ozel ayarlar ve legacy API',
-    order: 4
   }
 };
 

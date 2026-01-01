@@ -1,9 +1,50 @@
 ---
 name: micprobe-modules
-description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, modul, module"
+description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, modul, module, profil kategorileri, call, record"
 ---
 
 # MicProbe Modul Referansi
+
+## Uygulama Mimarisi
+
+### İki Ana Kategori
+
+| Kategori | Amaç | Teknoloji | Birincil Aksiyon |
+|----------|------|-----------|------------------|
+| `call` | Sesli görüşme simülasyonu | WebRTC Loopback | Monitoring |
+| `record` | Sesli mesaj simülasyonu | MediaRecorder | Recording |
+
+### Profil Yapısı
+
+```javascript
+// Sesli Görüşme (call) - Monitoring Only
+'discord':         { category: 'call', loopback: true, bitrate: 64000, channelCount: 1 }
+'zoom':            { category: 'call', loopback: true, bitrate: 48000 }  // Zoom/Meet/Teams
+'whatsapp-call':   { category: 'call', loopback: true, bitrate: 24000 }
+'telegram-call':   { category: 'call', loopback: true, bitrate: 24000 }
+
+// Kayıt (record) - Recording Only
+'whatsapp-voice':  { category: 'record', loopback: false, mediaBitrate: 16000 }
+'telegram-voice':  { category: 'record', loopback: false, mediaBitrate: 32000 }
+'legacy':          { category: 'record', mode: 'scriptprocessor', loopback: false }
+'mictest':         { category: 'record', mode: 'direct', loopback: false }  // Kayıt ayarları serbest
+```
+
+### allowedValues (Profil Bazlı Değer Kısıtlamaları)
+
+Her profil, editable ayarlar için izin verilen değerleri tanımlayabilir:
+
+```javascript
+// Örnek: Zoom profili
+{ locked: ['loopback', 'mode', 'channelCount', 'ec', 'ns', 'agc'],
+  editable: ['bitrate', 'sampleRate'],
+  allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 48000] } }
+
+// UI'da kullanım (app.js - updateCustomSettingsPanel)
+const allowedValues = profile.allowedValues?.[key] || setting.values;
+```
+
+**Amaç:** Kullanıcının mantıksız değerler seçmesini engeller (örn: WhatsApp için 128kbps)
 
 ## Dosya Yapisi
 
@@ -11,13 +52,13 @@ description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: A
 js/
 ├── app.js              # Orchestrator + Loopback + UI bindings
 └── modules/
+    ├── constants.js    # Merkezi sabitler (AUDIO, DELAY, VU_METER, SIGNAL, ...)
     ├── Config.js       # Merkezi yapilandirma (SETTINGS, PROFILES)
     ├── EventBus.js     # Pub/Sub singleton
     ├── AudioEngine.js  # Merkezi AudioContext (singleton)
-    ├── AudioUtils.js   # (KALDIRILDI - bos modul, inline pattern kullaniliyor)
     ├── VuMeter.js      # dB gostergesi
     ├── Recorder.js     # Kayit (MediaRecorder)
-    ├── Monitor.js      # Canli dinleme
+    ├── Monitor.js      # Canli dinleme (5 mod)
     ├── Player.js       # Oynatma
     ├── DeviceInfo.js   # Bilgi paneli
     ├── Logger.js       # UI log paneli
@@ -25,229 +66,139 @@ js/
     ├── StatusManager.js# Durum badge
     ├── StreamHelper.js # getUserMedia wrapper
     ├── WorkletHelper.js# AudioWorklet yardimcilari
-    └── utils.js        # formatTime, getBestAudioMimeType helpers
+    └── utils.js        # formatTime, getBestAudioMimeType, stopStreamTracks, sleep
 ```
 
-## Modül Detaylari
-
-### Config
-Merkezi yapilandirma - ayar tanimlari, profil degerleri ve UI binding.
+## constants.js (Merkezi Sabitler)
 ```javascript
-import { PROFILES, SETTINGS, getProfileValue, validateSetting } from './Config.js';
+import { AUDIO, DELAY, VU_METER, SIGNAL, BYTES } from './constants.js';
 
-// Profil degerleri (Guncellendi: discord=Gamer/Hi-Fi, zoom=Konferans)
-PROFILES.discord.values.bitrate      // 96000 (Gamer/Hi-Fi)
-PROFILES.discord.values.channelCount // 2 (Stereo)
-PROFILES.zoom.values.bitrate         // 48000 (Konferans)
-PROFILES.zoom.values.channelCount    // 1 (Mono - locked)
+// Audio sabitleri
+AUDIO.FFT_SIZE              // 256
+AUDIO.SMOOTHING_TIME_CONSTANT // 0.7
+AUDIO.CENTER_VALUE          // 128 (8-bit audio center)
 
-// Voice profil degerleri (codec-simulated monitor icin)
-PROFILES.whatsapp.values.mediaBitrate // 16000
-PROFILES.whatsapp.values.timeslice    // 250 (chunk uretimi icin)
-PROFILES.telegram.values.mediaBitrate // 24000
-PROFILES.telegram.values.timeslice    // 250
+// Delay sabitleri (echo/feedback onleme)
+DELAY.MAX_SECONDS           // 3.0
+DELAY.DEFAULT_SECONDS       // 1.7
 
-// Ayar metadata + UI binding
-SETTINGS.buffer.values          // [1024, 2048, 4096]
-SETTINGS.buffer.ui              // { type: 'radio', name: 'bufferSize' }
-SETTINGS.ec.ui                  // { type: 'checkbox', id: 'ec' }
-SETTINGS.loopback.ui            // { type: 'toggle', id: 'loopbackToggle' }
-SETTINGS.sampleRate.values      // [16000, 22050, 44100, 48000]
-SETTINGS.sampleRate.ui          // { type: 'radio', name: 'sampleRate' }
-SETTINGS.channelCount.values    // [1, 2]
-SETTINGS.channelCount.labels    // { 1: 'Mono', 2: 'Stereo' }
-SETTINGS.bitrate.values         // [32000, 48000, 64000, 96000, 128000]
+// VU Meter sabitleri
+VU_METER.RMS_THRESHOLD      // 0.0001
+VU_METER.MIN_DB             // -60
+VU_METER.CLIPPING_THRESHOLD_DB // -0.5
 
-// Helper fonksiyonlar
-getProfileValue('discord', 'bitrate')  // 96000
-validateSetting('buffer', 4096)        // true
-getProfileList()                       // UI icin profil listesi
-getSettingsByCategory('constraints')   // ec, ns, agc, sampleRate, channelCount
+// Sinyal bekleme sabitleri (loopback)
+SIGNAL.MAX_WAIT_MS          // 2000
+SIGNAL.POLL_INTERVAL_MS     // 50
+SIGNAL.RMS_THRESHOLD        // 0.001
 ```
-**Kategoriler:** constraints, pipeline, loopback, recording
 
-**UI Tipleri:** checkbox, toggle, radio (enum icin)
+## Config
+```javascript
+import { PROFILES, SETTINGS, PROFILE_CATEGORIES, getProfileValue, getSettingsByCategory } from './Config.js';
 
-### EventBus (Singleton)
+// Kategori ornekleri
+PROFILE_CATEGORIES.call   // { id: 'call', label: 'Sesli Gorusme', order: 1 }
+PROFILE_CATEGORIES.record // { id: 'record', label: 'Kayit', order: 2 }
+
+// Profil ornekleri
+PROFILES['discord'].category          // 'call'
+PROFILES['discord'].values.bitrate    // 64000
+PROFILES['discord'].allowedValues     // { bitrate: [64000, 96000, 128000, 256000, 384000] }
+PROFILES['whatsapp-voice'].category   // 'record'
+PROFILES['whatsapp-voice'].values.mediaBitrate // 16000
+
+// OCP: Profil yetenekleri (otomatik hesaplanir)
+PROFILES['discord'].canMonitor        // true (call kategorisi)
+PROFILES['discord'].canRecord         // false
+PROFILES['whatsapp-voice'].canMonitor // false (record kategorisi)
+PROFILES['whatsapp-voice'].canRecord  // true
+PROFILES['mictest'].canMonitor        // false (loopback locked)
+PROFILES['mictest'].canRecord         // true
+
+// Ayar metadata
+SETTINGS.buffer.values   // [1024, 2048, 4096]
+SETTINGS.buffer.ui       // { type: 'radio', name: 'bufferSize' }
+
+// Helpers
+getProfileValue('discord', 'bitrate')
+getSettingsByCategory('constraints')  // ec, ns, agc, sampleRate, channelCount
+```
+
+## EventBus (Singleton)
 ```javascript
 import eventBus from './EventBus.js';
 eventBus.emit('event:name', data);
 eventBus.on('event:name', callback);
-eventBus.once('event:name', callback); // Tek seferlik
 ```
 
-### AudioEngine (Singleton)
-Merkezi AudioContext - VuMeter ve diger moduller kullanir.
+## AudioEngine (Singleton)
 ```javascript
 import audioEngine from './AudioEngine.js';
-await audioEngine.warmup();           // Pre-init (sayfa yuklenmesinde)
-audioEngine.connectStream(stream);    // Mikrofon bagla
-audioEngine.getContext();             // AudioContext
-audioEngine.getAnalyser();            // AnalyserNode (fftSize: 256)
-audioEngine.getState();               // Debug bilgisi
+await audioEngine.warmup();
+audioEngine.connectStream(stream);
+audioEngine.getAnalyser();  // fftSize: 256
 ```
-**Emits:** `log:webaudio`
 
-### VuMeter
-dB bazli ses seviyesi gostergesi. AudioEngine'den AnalyserNode kullanir.
+## VuMeter
 ```javascript
 new VuMeter({ barId, peakId, dotId });
 ```
 **Listens:** `stream:started`, `stream:stopped`, `loopback:remoteStream`
-**Emits:** `vumeter:level`, `vumeter:audiocontext`, `vumeter:started`, `vumeter:stopped`
+**Emits:** `vumeter:level`, `vumeter:audiocontext`
 
-`vumeter:audiocontext` payload: `{ sampleRate, baseLatency, outputLatency, state, fftSize }`
-(Not: maxChannelCount kaldirildi - channels bilgisi artik track.getSettings()'den geliyor)
-
-### Recorder
-MediaRecorder + opsiyonel WebAudio pipeline.
+## Recorder
 ```javascript
 const recorder = new Recorder({ constraints });
-await recorder.warmup();              // Pre-init
 await recorder.start(constraints, recordMode, timeslice, bufferSize, mediaBitrate);
 // recordMode: 'direct' | 'standard' | 'scriptprocessor' | 'worklet'
-// timeslice: 0 (tek parca) veya pozitif ms (chunked)
-// bufferSize: ScriptProcessor buffer boyutu (default: 4096)
-// mediaBitrate: MediaRecorder bitrate - sesli mesaj simulasyonu icin (default: 0)
 recorder.stop();
-recorder.getIsRecording();
 ```
 **Emits:** `recording:started`, `recording:completed`, `stream:started`, `stream:stopped`
 
-### Monitor
-Canli mikrofon dinleme (5 mod).
+## Monitor
 ```javascript
 const monitor = new Monitor();
-await monitor.startWebAudio(constraints);       // WebAudio + Delay
-await monitor.startScriptProcessor(constraints);// Deprecated API + Delay
-await monitor.startAudioWorklet(constraints);   // Modern AudioWorklet + Delay
-await monitor.startDirect(constraints);         // Sadece Delay (processing yok)
-await monitor.startCodecSimulated(constraints, mediaBitrate, mode, timeslice, bufferSize);  // Codec simülasyonu
+await monitor.startWebAudio(constraints);                    // WebAudio + Delay
+await monitor.startScriptProcessor(constraints, bufferSize); // Deprecated API
+await monitor.startAudioWorklet(constraints);                // Modern AudioWorklet
+await monitor.startDirect(constraints);                      // Sadece Delay
+await monitor.startCodecSimulated(constraints, mediaBitrate, mode, timeslice, bufferSize);
 await monitor.stop();
-monitor.getMode();  // 'standard' | 'scriptprocessor' | 'worklet' | 'direct' | 'codec-simulated'
 ```
+**Codec-Simulated:** MediaRecorder -> MediaSource -> Audio -> Delay -> Speaker
+**Emits:** `monitor:started`, `monitor:stopped`
 
-**Codec-Simulated Mode:**
-- Recording ile birebir ayni pipeline
-- MediaRecorder → MediaSource → Audio → Delay → Speaker
-- Parametreler: mediaBitrate, mode, timeslice, bufferSize
-- WhatsApp/Telegram gibi profillerde otomatik aktif (mediaBitrate > 0)
-
-**Emits:** `monitor:started`, `monitor:stopped`, `stream:started`, `stream:stopped`
-
-### Player
-Kayit oynatma.
+## Player
 ```javascript
-new Player({ containerId, playBtnId, progressBarId, progressFillId, timeId, filenameId, metaId, downloadBtnId, noRecordingId });
+new Player({ containerId, playBtnId, progressBarId, ... });
 ```
-**Listens:** `recording:completed`, `recording:started`
-**Emits:** `player:loaded`, `player:ended`, `player:reset`
+**Listens:** `recording:completed`
+**Emits:** `player:loaded`, `player:ended`
 
-### DeviceInfo
-AudioContext ve stream bilgi paneli. Channels bilgisi stream:started'da track'tan alinir.
+## DeviceInfo
 ```javascript
 const deviceInfo = new DeviceInfo();
-await deviceInfo.initFromAudioEngine();  // AudioEngine'den bilgi al
+await deviceInfo.initFromAudioEngine();
 ```
 **Listens:** `vumeter:level`, `vumeter:audiocontext`, `stream:started`
 
-**Onemli:** Channels artik `ac.destination.maxChannelCount` degil, `track.getSettings().channelCount` ile gosteriliyor (gercek mikrofon kanali).
+## Logger / LogManager
+- `Logger`: UI log paneli (filtrelenebilir)
+- `LogManager`: IndexedDB'ye kategorili loglama (singleton)
 
-### Logger
-UI log paneli (filtrelenebilir).
-```javascript
-new Logger('containerId');
-```
-**Listens:** `log`, `log:*` (tum kategoriler)
+**Kategoriler:** error, stream, webaudio, recorder, system
 
-### LogManager (Singleton)
-IndexedDB'ye kategorili loglama.
-```javascript
-import logManager from './LogManager.js';
-logManager.getAll();
-logManager.getByCategory('webaudio');
-logManager.exportJSON();
-```
-**Listens:** `log:error`, `log:webaudio`, `log:stream`, `log:recorder`, `log:system`
-
-### StatusManager
-Durum badge gostergesi.
+## StatusManager
 ```javascript
 new StatusManager('badgeId');
 ```
 **Listens:** `recording:started`, `monitor:started`, `stream:stopped`
 
-## Event Haritasi
+## Gelistirme
 
-| Event | Emitter | Listener |
-|-------|---------|----------|
-| `stream:started` | Recorder, Monitor, app.js | VuMeter, DeviceInfo, LogManager |
-| `stream:stopped` | Recorder, Monitor, app.js | VuMeter, StatusManager, LogManager |
-| `recording:started` | Recorder, app.js | Player, StatusManager |
-| `recording:completed` | Recorder, app.js | Player, LogManager |
-| `recorder:started` | Recorder, app.js | LogManager |
-| `recorder:stopped` | Recorder, app.js | LogManager |
-| `recorder:error` | Recorder | app.js |
-| `monitor:started` | Monitor, app.js | StatusManager, LogManager |
-| `monitor:stopped` | Monitor, app.js | StatusManager, LogManager |
-| `monitor:error` | Monitor | app.js |
-| `vumeter:level` | VuMeter | DeviceInfo |
-| `vumeter:audiocontext` | VuMeter | DeviceInfo |
-| `vumeter:started` | VuMeter | - |
-| `vumeter:stopped` | VuMeter | - |
-| `player:loaded` | Player | - |
-| `player:ended` | Player | - |
-| `player:paused` | Player | - |
-| `player:reset` | Player | - |
-| `status:changed` | StatusManager | - |
-| `log` | Any | Logger |
-| `log:webaudio` | AudioEngine, Monitor, Recorder, app.js | LogManager, Logger |
-| `log:stream` | app.js, Monitor, StreamHelper | LogManager, Logger |
-| `log:recorder` | Recorder, app.js | LogManager, Logger |
-| `log:system` | app.js, LogManager | LogManager, Logger |
-| `log:error` | Any | LogManager, Logger |
-| `log:clear` | app.js | Logger |
+**Yeni ayar eklemek icin:**
+1. `Config.js` -> SETTINGS'e ekle (type, default, label, category, ui)
+2. `mic_probe.html` -> HTML kontrol ekle
 
-## Yeni Modul Ekleme
-
-1. `js/modules/YeniModul.js` olustur
-2. EventBus import et
-3. Dinleyecegi event'leri `eventBus.on()` ile bagla
-4. Yayinlayacagi event'leri `eventBus.emit()` ile gonder
-5. `app.js`'de import et ve baslat
-6. Bu SKILL.md'yi guncelle
-
-## Yeni Ayar Ekleme (OCP Mimari)
-
-Sadece **2 dosya** degisikligi gerekir:
-
-### 1. Config.js - SETTINGS'e ekle
-```javascript
-yeniAyar: {
-  type: 'boolean',           // veya 'enum'
-  default: false,
-  label: 'Yeni Ayar',
-  category: 'constraints',
-  ui: { type: 'checkbox', id: 'yeniAyar' }  // UI binding
-}
-```
-
-### 2. mic_probe.html - HTML kontrol ekle
-```html
-<input id="yeniAyar" type="checkbox" data-setting="yeniAyar">
-```
-
-### Otomatik Calisan Mekanizmalar
-- `getSettingElements()` - Config.js `ui` metadata'dan dinamik
-- `applyProfile()` - Profil degerleri dinamik uygulanir
-- `updateSettingVisibility()` - Locked/editable durumu dinamik
-- Custom Settings Panel - Otomatik listelenir
-
-## Console Debug Komutlari
-
-```javascript
-getAudioEngineState()   // AudioEngine durumu
-getMonitorState()       // Monitor durumu
-exportLogs()            // JSON indir
-getLogStats()           // Kategori sayilari
-```
+Diger mekanizmalar (`applyProfile`, `updateSettingVisibility`) otomatik calisir.
