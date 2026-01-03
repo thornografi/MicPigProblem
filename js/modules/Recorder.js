@@ -6,7 +6,8 @@
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
-import { getBestAudioMimeType, createAudioContext, getAudioContextOptions } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder } from './utils.js';
+import { BUFFER, bytesToKB } from './constants.js';
 
 class Recorder {
   constructor(config) {
@@ -68,7 +69,7 @@ class Recorder {
     }
   }
 
-  async start(constraints, recordModeOrUseWebAudio = false, timeslice = 0, bufferSize = 4096, mediaBitrate = 0) {
+  async start(constraints, recordModeOrUseWebAudio = false, timeslice = 0, bufferSize = BUFFER.DEFAULT_SIZE, mediaBitrate = 0) {
     if (this.isRecording) return;
 
     const recordMode = typeof recordModeOrUseWebAudio === 'string'
@@ -231,26 +232,12 @@ class Recorder {
         recordStream = this.destinationNode.stream;
       }
 
-      // MediaRecorder options
-      const preferredMimeType = getBestAudioMimeType();
-      const recorderOptions = {};
-
-      if (preferredMimeType) {
-        recorderOptions.mimeType = preferredMimeType;
-      }
-
-      // Sesli mesaj simülasyonu icin bitrate ayarla
-      // 0 = tarayici varsayilani, >0 = belirli bitrate
-      if (this.mediaBitrate > 0) {
-        recorderOptions.audioBitsPerSecond = this.mediaBitrate;
-      }
-
-      try {
-        this.mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
-      } catch {
-        // Options desteklenmiyorsa fallback
-        this.mediaRecorder = new MediaRecorder(recordStream);
-      }
+      // MediaRecorder olustur - DRY: createMediaRecorder helper kullaniliyor
+      // Sesli mesaj simülasyonu icin bitrate ayarla (0 = varsayilan)
+      const recorderOptions = this.mediaBitrate > 0
+        ? { audioBitsPerSecond: this.mediaBitrate }
+        : {};
+      this.mediaRecorder = createMediaRecorder(recordStream, recorderOptions);
 
       const bitrateInfo = this.mediaBitrate > 0
         ? `${(this.mediaBitrate / 1000).toFixed(0)} kbps`
@@ -290,7 +277,7 @@ class Recorder {
           ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
           : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
 
-        eventBus.emit('log', `Kayit tamamlandi: ${(blob.size / 1024).toFixed(1)} KB (${bitrateComparison})`);
+        eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(blob.size).toFixed(1)} KB (${bitrateComparison})`);
         eventBus.emit('recording:completed', {
           blob,
           mimeType,
@@ -411,11 +398,9 @@ class Recorder {
       this.mediaRecorder.stop();
     }
 
-    // Stream durdur
-    if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
-      this.stream = null;
-    }
+    // Stream durdur (DRY: stopStreamTracks kullan)
+    stopStreamTracks(this.stream);
+    this.stream = null;
 
     this.isRecording = false;
 

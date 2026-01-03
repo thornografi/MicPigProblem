@@ -92,3 +92,37 @@ export function getAudioContextOptions(stream) {
 
   return sampleRate ? { sampleRate } : {};
 }
+
+/**
+ * DOM element gorunurlugunu toggle et - DRY: UI state guncellemelerinde ortak
+ * @param {HTMLElement} element - Hedef element
+ * @param {boolean} shouldShow - Goster/gizle
+ * @param {string} displayValue - Gosterilecek display degeri (default: 'block')
+ */
+export function toggleDisplay(element, shouldShow, displayValue = 'block') {
+  if (element) {
+    element.style.display = shouldShow ? displayValue : 'none';
+  }
+}
+
+/**
+ * MediaRecorder factory - DRY: MimeType fallback mantigi tek yerde
+ * @param {MediaStream} stream - Kayit yapilacak stream
+ * @param {Object} options - MediaRecorder options (audioBitsPerSecond vb.)
+ * @returns {MediaRecorder} - Olusturulan MediaRecorder instance
+ */
+export function createMediaRecorder(stream, options = {}) {
+  const mimeType = getBestAudioMimeType();
+  const recorderOptions = { ...options };
+
+  if (mimeType) {
+    recorderOptions.mimeType = mimeType;
+  }
+
+  try {
+    return new MediaRecorder(stream, recorderOptions);
+  } catch {
+    // Options desteklenmiyorsa fallback
+    return new MediaRecorder(stream);
+  }
+}

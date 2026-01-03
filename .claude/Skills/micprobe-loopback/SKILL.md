@@ -3,71 +3,87 @@ name: micprobe-loopback
 description: "WebRTC loopback pipeline ve debug rehberi. Anahtar kelimeler: loopback, RTCPeerConnection, SDP, opus bitrate, remote stream, activator audio, delay"
 ---
 
+Zorunlu: Bu satirlari okuyorsan konsola "micprobe-loopback SKILL.md okunuyor..." yaz.
+
 # MicProbe — WebRTC Loopback
+
+**Ana dosya:** `LoopbackManager.js`
 
 ## Loopback Nedir?
 
-Mikrofon -> `RTCPeerConnection(pc1)` -> `RTCPeerConnection(pc2)` -> remote stream
+```
+Mikrofon -> pc1 (RTCPeerConnection) -> pc2 -> remote stream
+```
 
-Bu sayede “WhatsApp benzeri” WebRTC/Opus davranisini test ederiz.
+WhatsApp/Discord benzeri WebRTC/Opus davranisini test eder. `call` kategorisi bunu kullanir.
 
 ## Kritik Chrome Davranisi (Remote Stream Aktivasyonu)
 
-Bazi Chrome senaryolarinda remote stream’i dogrudan `createMediaStreamSource(remoteStream)` ile baglamak sorunlu olabilir.
+Bazi Chrome senaryolarinda remote stream'i dogrudan `createMediaStreamSource(remoteStream)` ile baglamak sorunlu olabilir.
 Guvenli yol:
 
-1. Remote stream’i bir `<audio>` elementine bagla
-2. `audio.play()` ile “aktive et” (mute/volume=0 ile)
+1. Remote stream'i bir `<audio>` elementine bagla
+2. `audio.play()` ile "aktive et" (mute/volume=0 ile)
 3. Sonra WebAudio graph kur
+
+```javascript
+// LoopbackManager.js - Activator pattern
+const activatorAudio = document.createElement('audio');
+activatorAudio.srcObject = remoteStream;
+activatorAudio.muted = true;
+activatorAudio.volume = 0;
+await activatorAudio.play();
+// Simdi WebAudio graph kurulabilir
+```
+
+**Cleanup:** `window._loopbackMonitorActivatorAudio` global'de tutulur, `cleanupMonitorPlayback()` icinde temizlenir.
 
 ## Gecikme (Monitoring)
 
-- Monitoring'da gecikme "opsiyon" degil; daima `DelayNode(DELAY.DEFAULT_SECONDS)` ile hoparlore gider (feedback/echo onleme).
-- Loopback monitoring da ayni kuraldadir: remote stream -> (opsiyonel Worklet/ScriptProcessor) -> Delay -> speaker
-- Deger: `constants.js` -> `DELAY.DEFAULT_SECONDS` (1.7s)
+Monitoring'da gecikme zorunlu - `DelayNode` ile hoparlore gider (feedback onleme).
+
+```
+remote stream -> Source -> [Worklet] -> DelayNode(1.7s) -> speaker
+```
+
+Modlar: `direct`, `standard`, `worklet` (ScriptProcessor loopback'te YASAK)
+
+Deger: `constants.js` → `DELAY.DEFAULT_SECONDS` (1.7s), `DELAY.MAX_SECONDS` (3.0s)
 
 ## Opus Bitrate
 
-SDP icinde `maxaveragebitrate` ile set edilir.
-Bitrate degisimleri encoder init/stabilizasyonu etkileyebilir; loglarda gecikmeler gorulebilir.
+SDP'de `maxaveragebitrate` ile set edilir. Detay: `LoopbackManager.js:setOpusBitrate()`
 
-## Dinamik Sinyal Bekleme (Polling)
+Bitrate degisimleri encoder init'i etkiler; loglarda gecikmeler gorulebilir.
 
-Kayit baslatilmadan once codec'in hazir olmasini beklemek icin **polling** kullanilir:
+## Dinamik Sinyal Bekleme (UI Senkronizasyonu)
 
-```javascript
-import { SIGNAL } from './constants.js';
+WebRTC codec hazir olana kadar UI "Monitoring" durumuna gecmez.
+Detay: `MonitoringController.js:_waitForSignal()`
 
-// Sabit sure yerine sinyal algilanana kadar bekle
-const maxWait = SIGNAL.MAX_WAIT_MS;        // 2000
-const pollInterval = SIGNAL.POLL_INTERVAL_MS; // 50
-const threshold = SIGNAL.RMS_THRESHOLD;    // 0.001
-let waited = 0;
-
-while (waited < maxWait && !signalDetected) {
-  analyserNode.getByteTimeDomainData(testArray);
-  const rms = calculateRms(testArray);
-  if (rms > threshold) break;
-  await sleep(pollInterval);
-  waited += pollInterval;
-}
+```
+Setup → [Sinyal bekle max 2sn] → UI "Monitoring" → Ses hemen gelir
 ```
 
-**Avantajlari:**
-- Hizli sistemlerde gereksiz bekleme yok
-- Yavas sistemlerde codec hazir olmadan kayit baslamaz
-- Bos/sessiz kayit sorunu onlenir
+Sabitler: `constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_MS` (50), `SIGNAL.RMS_THRESHOLD` (0.001)
 
-**Log ornegi:**
-```
-Loopback: Sinyal bekleniyor (max 2000ms)
-Loopback: Sinyal bekleme tamamlandi - ✅ SINYAL VAR (waited: 150ms)
-```
+**Not:** Loopback recording kaldirildi. Loopback sadece monitoring (call kategorisi) icin kullanilir.
 
 ## Debug Checklist
 
-- ICE state `connected/completed` mi?
+- ICE state `connected/completed` mi? (timeout: `LOOPBACK.ICE_WAIT_MS` = 3000ms)
 - `ontrack` ile gelen stream `active=true` mi?
 - Remote track `muted`/`readyState` ne?
 - Monitor graph log'u delay'i gosteriyor mu (`delaySeconds: DELAY.DEFAULT_SECONDS`)?
+
+## Tum Sabitler (constants.js)
+
+| Sabit | Deger | Aciklama |
+|-------|-------|----------|
+| `DELAY.DEFAULT_SECONDS` | 1.7 | Feedback onleme gecikmesi |
+| `DELAY.MAX_SECONDS` | 3.0 | DelayNode max |
+| `SIGNAL.MAX_WAIT_MS` | 2000 | Sinyal bekleme timeout |
+| `SIGNAL.POLL_INTERVAL_MS` | 50 | Polling araligi |
+| `SIGNAL.RMS_THRESHOLD` | 0.001 | Sinyal algilama esigi |
+| `LOOPBACK.ICE_WAIT_MS` | 3000 | ICE baglanti timeout |
 

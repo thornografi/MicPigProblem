@@ -52,6 +52,12 @@ class VuMeter {
   async start(stream) {
     if (!stream) return;
 
+    // Resize handler'i yeniden ekle (stop()'da kaldirilmis olabilir)
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler); // Duplicate onleme
+      window.addEventListener('resize', this.resizeHandler);
+    }
+
     // AudioEngine'den hazir analyser al (pre-init sayesinde hizli)
     this.analyser = await audioEngine.connectStream(stream);
     this.update();
@@ -118,10 +124,10 @@ class VuMeter {
       this.remoteAudioCtx = null;
     }
 
-    // Remote VU elementlerini sifirla
+    // Remote VU elementlerini sifirla (container visibility'i UI tarafindan kontrol edilir)
     if (this.remoteBarEl) this.remoteBarEl.style.transform = 'scaleX(0)';
     if (this.remotePeakEl) this.remotePeakEl.style.transform = 'translateX(0)';
-    if (this.remoteContainerEl) this.remoteContainerEl.style.display = 'none';
+    // NOT: Container display'i burada degistirilmez - profil kategorisine gore UI tarafindan yonetilir
 
     this.remotePeakLevel = 0;
   }

@@ -5,8 +5,8 @@
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
-import { getBestAudioMimeType, createAudioContext, getAudioContextOptions } from './utils.js';
-import { DELAY, THROTTLE } from './constants.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder } from './utils.js';
+import { DELAY, THROTTLE, BUFFER } from './constants.js';
 
 class Monitor {
   constructor() {
@@ -135,7 +135,7 @@ class Monitor {
     }
   }
 
-  async startScriptProcessor(constraints, bufferSize = 4096) {
+  async startScriptProcessor(constraints, bufferSize = BUFFER.DEFAULT_SIZE) {
     if (this.isMonitoring) return;
 
     try {
@@ -363,7 +363,7 @@ class Monitor {
    * Recording ile birebir ayni pipeline kullanir
    * Pipeline: Mic -> WebAudio(mode) -> Destination -> MediaRecorder -> MediaSource -> Audio -> Delay -> Speaker
    */
-  async startCodecSimulated(constraints, mediaBitrate, mode = 'standard', timeslice = 100, bufferSize = 4096) {
+  async startCodecSimulated(constraints, mediaBitrate, mode = 'standard', timeslice = 100, bufferSize = BUFFER.DEFAULT_SIZE) {
     if (this.isMonitoring) return;
 
     try {
@@ -446,25 +446,11 @@ class Monitor {
         });
       }
 
-      // MimeType - Recording ile ayni fonksiyon
-      const mimeType = getBestAudioMimeType() || 'audio/webm;codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        throw new Error(`MimeType desteklenmiyor: ${mimeType}`);
-      }
-
-      // MediaRecorder - WebAudio destination stream kullan (Recording ile ayni)
+      // MediaRecorder - DRY: createMediaRecorder helper kullaniliyor
       const recordStream = destinationNode.stream;
-      const recorderOptions = {
-        mimeType,
+      this.codecMediaRecorder = createMediaRecorder(recordStream, {
         audioBitsPerSecond: mediaBitrate
-      };
-
-      try {
-        this.codecMediaRecorder = new MediaRecorder(recordStream, recorderOptions);
-      } catch {
-        // Options desteklenmiyorsa fallback
-        this.codecMediaRecorder = new MediaRecorder(recordStream);
-      }
+      });
 
       eventBus.emit('log:recorder', {
         message: 'MediaRecorder olusturuldu (Codec-simulated)',
@@ -767,7 +753,7 @@ class Monitor {
     }
 
     if (this.stream) {
-      this.stream.getTracks().forEach(t => t.stop());
+      stopStreamTracks(this.stream);
       eventBus.emit('log:stream', {
         message: 'MediaStream track\'leri durduruldu',
         details: {}

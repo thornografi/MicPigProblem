@@ -3,33 +3,25 @@ name: skill-control
 description: "Skill ve dokumantasyon tutarlilik kontrolu. Anahtar kelimeler: skill check, skill audit, AGENTS.md, CLAUDE.md, senkronizasyon, sync, routing, duplicate, hardcoded, guncellik, consistency"
 ---
 
+Zorunlu:Bu satirlari okuyorsan konsola "skill-control SKILL.md okunuyor..." yaz ve bu .md yi okumaya devam et.
+
 # Skill Control - Tutarlilik ve Kalite Denetimi
 
 Bu skill cagrildiginda asagidaki tum kontrolleri sirayla yap ve sonuclari raporla.
 
+---
+
 ## 1. CLAUDE.md <-> AGENTS.md Senkronizasyon Kontrolu
 
 ### Neden Gerekli?
-- `CLAUDE.md`: Claude Code tarafindan okunur (proje talimatlari)
-- `AGENTS.md`: OpenAI Codex tarafindan okunur (ayni amac, farkli agent)
-- Her iki dosya da aynı şeyleri içermeli
+- `CLAUDE.md`: Claude Code tarafindan okunur
+- `AGENTS.md`: OpenAI Codex tarafindan okunur
+- Her iki dosya da ayni skill router tablosunu icermeli
 
 ### Kontrol Adimlari
 1. `CLAUDE.md` ve `AGENTS.md` dosyalarini oku
-2. Skill Router tablolarini karsilastir:
-   - Ayni skill'ler listelenmis mi?
-   - Ayni dosya yollari gosterilmis mi?
-   - Ayni anahtar kelimeler mevcut mu?
-3. Farklilik varsa:
-   - Hangisi guncel? (son degisiklik tarihine bak)
-   - Senkronize et: `git log -1 --format="%ai" -- CLAUDE.md AGENTS.md`
-
-### AGENTS.md Syntax Notlari (Codex Uyumluluk)
-- Codex, AGENTS.md'yi koken calisma dizinine kadar hiyerarsik arar
-- `AGENTS.override.md` varsa once onu okur
-- Fallback dosyalar `config.toml`'da tanimlanabilir
-- Dosya boyutu varsayilan 32KB ile sinirli
-- Claude CLAUDE.md kullanir, Codex AGENTS.md - icerik ayni olmali
+2. Skill Router tablolarini karsilastir (skill sayisi, dosya yollari, anahtar kelimeler)
+3. Farklilik varsa: `git log -1 --format="%ai" -- CLAUDE.md AGENTS.md` ile hangisi guncel bul
 
 ### Beklenen Cikti
 ```
@@ -38,33 +30,28 @@ SENKRONIZASYON KONTROLU
 CLAUDE.md Skill Sayisi: X
 AGENTS.md Skill Sayisi: Y
 Eslesme: TAMAM / UYUMSUZ
-
-Farklilklar:
-- [varsa listele]
+Farklilklar: [varsa listele]
 ```
 
 ---
 
-## 2. Skill Routing Problemleri Kontrolu
+## 2. Skill Routing ve Cakisma Kontrolu
 
 ### Kontrol Edilecekler
-1. **Overlapping Keywords**: Birden fazla skill ayni anahtar kelimeyi kullaniyor mu?
-   - Ornek: Hem `micprobe-loopback` hem `web-audio-api` "AudioContext" iceriyorsa = PROBLEM
 
-2. **Orphan Skills**: SKILL.md var ama router tablosunda yok mu?
-   - `.claude/Skills/*/SKILL.md` dosyalarini listele
-   - CLAUDE.md'deki tabloyla karsilastir
-
-3. **Missing Skills**: Router'da listelenmis ama SKILL.md dosyasi yok mu?
-   - Tablodaki dosya yollarini dogrula
+| Kontrol | Aciklama | Ornek |
+|---------|----------|-------|
+| **Overlapping Keywords** | Ayni keyword birden fazla skill'de mi? | "AudioContext" → web-audio-api, micprobe-modules (!) |
+| **Orphan Skills** | SKILL.md var ama router'da yok mu? | `.claude/Skills/*/SKILL.md` listele, tabloyla karsilastir |
+| **Missing Skills** | Router'da var ama SKILL.md yok mu? | Tablodaki yollari dogrula |
 
 ### Beklenen Cikti
 ```
 ROUTING ANALIZI
 ===============
 Toplam Skill: X
-Orphan: [varsa listele]
-Missing: [varsa listele]
+Orphan: [listele]
+Missing: [listele]
 Overlapping Keywords:
 - "keyword" -> skill1, skill2 (CAKISMA!)
 ```
@@ -84,47 +71,29 @@ description: "..."     # ZORUNLU, anahtar kelimeler icermeli
 ```
 
 ### 3.2 Uzunluk Kontrolu
-- `description` 250 karakteri gecmemeli (agent anlayabilmeli)
-- SKILL.md toplam 250 satiri gecmemeli (performans)
-- Cok uzunsa: ozetleme veya bolme onerisi
-- CLAUDE.MD/AGENTS.md toplam 150 karakteri geçmemeli(proje kökü)
+| Dosya | Limit | Asim Aksiyonu |
+|-------|-------|---------------|
+| SKILL.md description | 250 karakter | Kisalt |
+| SKILL.md toplam | 250 satir | Ozetle veya bol |
+| CLAUDE.md / AGENTS.md | 150 satir | Skill'lere tasi |
 
-### 3.3 Tekrarlayan Bilgi Kontrolu
-- Ayni bilgi birden fazla skill'de tekrarlaniyor mu?
-- Ortak bilgiler ana CLAUDE.md'ye mi tasinmali?
+### 3.3 Hardcoded Deger Kontrolu
+Sorunlu: Sabit port, dosya yolu (C:\...), URL, config degerleri
+Dogru: Config referansi (`Config.XXX`, `SETTINGS.xxx`)
 
-### 3.4 Hardcoded vs Parametrik Bilgi
-Sorunlu ornekler:
-```markdown
-# YANLIS - Hardcoded
-Port: 8080
-Buffer: 4096
+### 3.4 Staleness (Guncellik) Kontrolu
 
-# DOGRU - Referans
-Port: Config.js'den SETTINGS.port
-Buffer: SETTINGS.buffer.default
+```
+SORU: Skill'in referans ettigi kod degisti mi?
+      |
+      +-- EVET → Skill STALE, guncellenmeli
+      |
+      +-- HAYIR → OK
 ```
 
-Kontrol et:
-- Sabit port numaralari
-- Sabit dosya yollari (C:\... gibi)
-- Sabit URL'ler
-- Config.js'de tanimli olmasi gereken degerler
-
-### 3.5 Kod Guncelligi Kontrolu
-Her skill icin:
+**Kontrol Yontemi:**
 1. SKILL.md'de referans edilen fonksiyon/modulleri bul
-2. Gercek kod dosyasinda mevcut mu kontrol et
-3. Gerçek kod dosyasında olup da skillerde olmayan önemli bir özellik var mı?
-
-Ornek:
-```
-SKILL.md diyor ki:
-  recorder.start(constraints, recordMode, timeslice)
-
-Gercek kod (Recorder.js):
-  async start(constraints, recordMode, timeslice, bufferSize) <- 4. parametre eklenmis!
-```
+2. Gercek kodda mevcut mu, signature degisti mi kontrol et
 
 ### Beklenen Cikti
 ```
@@ -132,31 +101,27 @@ SKILL KALITE RAPORU
 ===================
 skill-name:
   Frontmatter: OK / EKSIK
-  Uzunluk: OK (X satir) / UZUN (X satir)
+  Uzunluk: OK (X satir) / UZUN
   Hardcoded: OK / UYARI [detay]
-  Guncellik: OK / ESKI [detay]
-
-[diger skill'ler...]
+  Staleness: OK / STALE [detay]
 ```
 
 ---
 
-## 4. Cakisma Matrisi
+## 4. Bulgu Duzeltme Kurali Kontrolu
 
-Tum skill'lerin anahtar kelimelerini cikar ve cakisma matrisi olustur:
+> Yeni eklenen "Bulgu Duzeltme Sonrasi Zorunlu Analiz" kurali CLAUDE.md ve AGENTS.md'de var mi?
 
-```
-KEYWORD MATRIX
-==============
-Keyword          | Skills
------------------|--------------------
-AudioContext     | web-audio-api, micprobe-modules (!)
-EventBus         | micprobe-modules
-RTCPeerConnection| micprobe-loopback
-...
-```
+### Kontrol Edilecekler
 
-`(!)` = Birden fazla skill ayni kelimeyi kullaniyor - routing problemi riski
+| Kural | CLAUDE.md'de Var mi? | AGENTS.md'de Var mi? |
+|-------|---------------------|---------------------|
+| Varyant Analizi | ? | ? |
+| Etki Analizi | ? | ? |
+| DRY Ihlali Analizi | ? | ? |
+| Checklist | ? | ? |
+
+Eksikse: Ilgili dosyaya ekle.
 
 ---
 
@@ -167,9 +132,10 @@ Rapor sonunda:
 ONERILEN AKSIYONLAR
 ===================
 [ ] AGENTS.md ile CLAUDE.md senkronize edilmeli
-[ ] skill-X: description kisaltilmali
+[ ] skill-X: description kisaltilmali (280 -> 250 karakter)
 [ ] skill-Y: Recorder.js API degismis, SKILL.md guncellenmeli
 [ ] "AudioContext" keyword'u tek skill'e atanmali
+[ ] CLAUDE.md'ye "Bulgu Duzeltme" kurali eklenmeli
 ```
 
 ---
@@ -180,7 +146,7 @@ Bu skill cagrildiginda:
 1. Tum dosyalari oku: CLAUDE.md, AGENTS.md, .claude/Skills/*/SKILL.md
 2. Yukardaki 5 bolumu sirayla kontrol et
 3. Sonuclari ozet rapor olarak sun
-4. Kritik sorunlari vurgula (senkronizasyon, missing skills, stale docs)
+4. Kritik sorunlari vurgula
 
 ## Ornek Cagri
 

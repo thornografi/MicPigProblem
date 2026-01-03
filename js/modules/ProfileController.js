@@ -6,6 +6,7 @@
 
 import eventBus from './EventBus.js';
 import { PROFILES, SETTINGS } from './Config.js';
+import { toggleDisplay } from './utils.js';
 
 /**
  * ProfileController class - Profil islemlerini yonetir
@@ -302,10 +303,6 @@ class ProfileController {
       return el && el.style.display !== 'none';
     };
 
-    const toggleDisplay = (element, shouldShow) => {
-      if (element) element.style.display = shouldShow ? 'block' : 'none';
-    };
-
     const { pipelineSection, webrtcSection, developerSection } = this.elements;
 
     // Pipeline section: webaudio, mode, buffer
@@ -330,6 +327,44 @@ class ProfileController {
    */
   getCurrentProfileId() {
     return this.currentProfileId;
+  }
+
+  /**
+   * Profil teknik bilgi parcalarini olustur - DRY: UI'da badge/subtitle icin ortak
+   * @param {Object} profile - Profil objesi veya null
+   * @returns {string[]} - Teknik bilgi parcalari dizisi
+   */
+  buildTechParts(profile) {
+    if (!profile?.values) return ['Manuel Ayarlar'];
+
+    const techParts = [];
+
+    if (profile.values.loopback) {
+      techParts.push('WebRTC Loopback');
+      techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
+    } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
+      techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
+    } else {
+      techParts.push('Direct Recording');
+    }
+
+    if (profile.values.mode === 'scriptprocessor') {
+      techParts.push('ScriptProcessor');
+    } else if (profile.values.mode === 'worklet') {
+      techParts.push('AudioWorklet');
+    }
+
+    return techParts;
+  }
+
+  /**
+   * Profil teknik bilgisini string olarak getir
+   * @param {string} profileId - Profil ID'si (opsiyonel, default: current)
+   * @returns {string} - "WebRTC Loopback + Opus 64kbps" gibi
+   */
+  getTechString(profileId = null) {
+    const profile = profileId ? PROFILES[profileId] : this.getCurrentProfile();
+    return this.buildTechParts(profile).join(' + ');
   }
 }
 

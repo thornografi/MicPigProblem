@@ -527,7 +527,7 @@ body {
 /* ========== BUTTONS ========== */
 .button-row {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .btn {
@@ -554,8 +554,9 @@ body {
   transform: scale(0.98);
 }
 
-/* Record butonu */
+/* Record butonu - refresh butonu ile hizali */
 .btn-record {
+  flex: 0 0 auto;
   background: var(--bg-elevated);
   color: var(--text-primary);
 }
@@ -584,8 +585,9 @@ body {
 .btn-record.preparing .icon-circle { display: none; }
 .btn-record.preparing .icon-square { display: none; }
 
-/* Monitor butonu */
+/* Monitor butonu - combobox ile hizali */
 .btn-monitor {
+  flex: 1;
   background: var(--accent-primary);
   color: var(--bg-primary);
 }
@@ -731,6 +733,7 @@ body {
 }
 
 #remoteVuContainer {
+  display: none;
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border-secondary);
@@ -1120,8 +1123,18 @@ body {
   color: white;
 }
 
+/* Icon toggle - default states */
 .btn-copy .icon-check {
+  display: none;
   stroke: white;
+}
+
+.btn-copy.copied .icon-copy {
+  display: none;
+}
+
+.btn-copy.copied .icon-check {
+  display: block;
 }
 
 .panel-header .btn-clear {
@@ -1283,7 +1296,6 @@ body {
 }
 
 /* ========== TOGGLE CONTAINERS ========== */
-.webaudio-toggle-container,
 .loopback-toggle-container {
   display: flex;
   align-items: center;
@@ -1468,18 +1480,28 @@ body {
   pointer-events: none;
 }
 
+/* Hidden utility - genel gizleme */
+.hidden {
+  display: none !important;
+}
+
+/* Settings containers - profil bazli gosterilir */
+#bufferSizeContainer,
+#opusBitrateContainer,
+#mediaBitrateContainer {
+  display: none;
+}
+
 /* Kilitli ayarlar icin stil - profil tarafindan zorunlu tutulan ayarlar */
 /* Container bazli kilitli ayar gosterimi (drawer icinde) */
 .mode-container.setting-locked,
-.loopback-toggle-container.setting-locked,
-.webaudio-toggle-container.setting-locked {
+.loopback-toggle-container.setting-locked {
   position: relative;
   opacity: 0.7;
 }
 
 .mode-container.setting-locked::after,
-.loopback-toggle-container.setting-locked::after,
-.webaudio-toggle-container.setting-locked::after {
+.loopback-toggle-container.setting-locked::after {
   content: '🔒';
   position: absolute;
   top: 8px;
@@ -1492,9 +1514,7 @@ body {
 .mode-container.setting-locked .toggle-slider,
 .mode-container.setting-locked input,
 .loopback-toggle-container.setting-locked .toggle-slider,
-.loopback-toggle-container.setting-locked input,
-.webaudio-toggle-container.setting-locked .toggle-slider,
-.webaudio-toggle-container.setting-locked input {
+.loopback-toggle-container.setting-locked input {
   pointer-events: none;
   cursor: not-allowed;
 }
@@ -1570,10 +1590,6 @@ body {
     flex-direction: column;
   }
 
-  .device-info-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .mic-dropdown {
     min-width: 140px;
     font-size: 13px;
@@ -1605,10 +1621,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
-
-/* Eski siniflar - uyumluluk icin */
-.card { display: none; }
-.scenario-cards { display: none; }
 
 /* ========== OZEL AYARLAR PANEL (Ana sayfa) ========== */
 .panel-custom-settings {

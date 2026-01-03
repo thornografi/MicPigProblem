@@ -19,7 +19,7 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 ┌─────────────────────────────────────────────────────────────────┐
 │  📞 SESLİ GÖRÜŞME (call)                                        │
 │  ─────────────────────────────────                              │
-│  Amaç: WebRTC codec gecikmesi/kalite testi                      │
+│  Amaç: WebRTC codec kalite testi (kendini duyma)                │
 │  Teknoloji: WebRTC Loopback (Opus)                              │
 │  Birincil Aksiyon: Monitoring (kendini duyma)                   │
 │  Profiller: Discord, Zoom/Meet/Teams, WhatsApp Call, Telegram Call │
@@ -41,8 +41,8 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 📞 Sesli Görüşme
 ├── Discord
 ├── Zoom / Meet / Teams
-├── WhatsApp Arama
-└── Telegram Arama
+├── WhatsApp Web Arama
+└── Telegram Web Arama
 
 🎙️ Kayıt
 ├── WhatsApp Sesli Mesaj
@@ -51,12 +51,12 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 └── Ham Kayıt
 ```
 
-### Kategori Bazlı Davranış
+### Kategori Bazlı Yetenekler
 
-| Kategori | Birincil UI | İkincil UI | Gizli |
-|----------|-------------|------------|-------|
-| `call` | 🎧 Monitor | - | Recording |
-| `record` | 🔴 Kayıt | ▶️ Oynat | - |
+| Kategori | Yetenekler | UI Aksiyonları |
+|----------|------------|----------------|
+| `call` | Monitoring only | 🎧 Monitor |
+| `record` | Recording + Playback | 🔴 Kayıt, ▶️ Oynat |
 
 
 ## Skill Router
@@ -65,10 +65,73 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 
 | Konu / Anahtar Kelimeler | Skill | Dosya |
 |---|---|---|
-| `getUserMedia`, `MediaRecorder`, `AudioContext`, `VU meter`, `AnalyserNode`, `MediaSource`, `decodeAudioData` | `web-audio-api` | `.claude/Skills/web-audio-api/SKILL.md` |
-| Proje mimarisi, `EventBus`, `Config`, `Recorder`, `Monitor`, `Player`, modul yapisi, profil kategorileri | `micprobe-modules` | `.claude/Skills/micprobe-modules/SKILL.md` |
+| `getUserMedia`, `MediaRecorder`, `AudioContext`, `AnalyserNode`, `ScriptProcessorNode`, `AudioWorkletNode`, `GainNode`, `MediaStreamDestination`, `MediaSource` | `web-audio-api` | `.claude/Skills/web-audio-api/SKILL.md` |
+| Proje mimarisi, `Config`, `EventBus`, `Recorder`, `Monitor`, `Player`, `RecordingController`, `MonitoringController`, `ProfileUIManager`, modul yapisi, profil kategorileri | `micprobe-modules` | `.claude/Skills/micprobe-modules/SKILL.md` |
 | WebRTC loopback, `RTCPeerConnection`, SDP/Opus bitrate, remote stream "activator", loopback delay | `micprobe-loopback` | `.claude/Skills/micprobe-loopback/SKILL.md` |
 | Log analizi, kategori tutarliligi, `runSanityChecks`, export/import | `micprobe-logging` | `.claude/Skills/micprobe-logging/SKILL.md` |
 | UI state, mod bazli UI, sidebar kategorileri, buton/selector kilitleme, player/timer davranisi | `micprobe-ui-state` | `.claude/Skills/micprobe-ui-state/SKILL.md` |
-| Local server, port cakismasi, `server.js`, `localhost:8080`, python directory listing | `micprobe-dev-server` | `.claude/Skills/micprobe-dev-server/SKILL.md` |
 | Skill audit, AGENTS.md, CLAUDE.md senkronizasyon, routing, duplicate, hardcoded, guncellik kontrolu | `skill-control` | `.claude/Skills/skill-control/SKILL.md` |
+
+---
+
+## Bulgu Duzeltme Sonrasi Zorunlu Analiz
+
+> **KRITIK:** Bir bulgu/hata duzeltildikten sonra asagidaki 3 analiz ZORUNLU!
+
+### 1. Varyant Analizi (Benzer Kod Kontrolu)
+
+Duzeltilen pattern baska yerlerde de var mi?
+
+`
+SORU: Bu hata/eksiklik baska dosyalarda da olabilir mi?
+      |
+      +-- EVET → Grep ile tum repo'yu tara, ayni fix'i uygula
+      |
+      +-- HAYIR → Devam et
+`
+
+**Ornek:** `.Count` tuzagi bir yerde duzeltildiyse, tum repo'da ara:
+`powershell
+rg -n ")\s*\.Count" src | rg -v "@\("
+`
+
+### 2. Etki Analizi (Yan Etki Kontrolu)
+
+Duzeltme baska yerleri kirdi mi?
+
+`
+SORU: Bu degisiklik baska fonksiyonlari/modulleri etkiler mi?
+      |
+      +-- EVET → Etkilenen yerleri guncelle, test et
+      |
+      +-- HAYIR → Devam et
+`
+
+> **Detay icin:** `Skill("workflow-impact")` cagir
+
+### 3. DRY Ihlali Analizi (Tekrar Eden Kod)
+
+Ayni/benzer kod birden fazla yerde mi var?
+
+`
+SORU: Bu fix'i uygularken copy-paste yaptin mi?
+      |
+      +-- EVET → Helper fonksiyon olustur, tek noktadan yonet
+      |
+      +-- HAYIR → Devam et
+
+SORU: Ayni mantik 2+ yerde tekrarlaniyor mu?
+      |
+      +-- EVET → Refactor: Ortak kod Utils'e tasinmali
+      |
+      +-- HAYIR → Devam et
+`
+
+### Checklist (Her Fix Sonrasi)
+
+`
+[ ] Varyant taramasi yaptim (grep/rg ile)
+[ ] Etki analizi yaptim (bagimlilari kontrol ettim)
+[ ] DRY kontrolu yaptim (tekrar eden kod yok)
+[ ] (Gerekiyorsa) Skill guncellemesi onerdim
+`

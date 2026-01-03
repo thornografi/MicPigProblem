@@ -1,6 +1,6 @@
 /**
  * LogManager - Kategorili loglama sistemi
- * Kategoriler: error, audio, stream, webaudio, recorder, system
+ * Kategoriler: error, warning, audio, stream, webaudio, recorder, system, ui
  *
  * Browser'da dosya sistemine dogrudan yazilamaz.
  * Bu modul:
@@ -14,6 +14,7 @@ import { DELAY, LOG } from './constants.js';
 
 const LOG_CATEGORIES = {
   ERROR: 'error',
+  WARNING: 'warning',
   AUDIO: 'audio',
   STREAM: 'stream',
   WEBAUDIO: 'webaudio',
@@ -26,6 +27,7 @@ class LogManager {
   constructor() {
     this.logs = {
       error: [],
+      warning: [],
       audio: [],
       stream: [],
       webaudio: [],
@@ -85,9 +87,8 @@ class LogManager {
     eventBus.on('log:system', (data) => this.log('system', data.message, data.details));
     eventBus.on('log:ui', (data) => this.log('ui', data.message, data.details));
     eventBus.on('log:warning', (data) => {
-      // Warning'lari error kategorisinde logla (ama console.warn kullan)
-      console.warn('[WARNING]', data.message, data.details || '');
-      this.log('error', `[WARN] ${data.message}`, data.details);
+      // Warning'lar ayri kategoride (console'da turuncu)
+      this.log('warning', data.message, data.details);
     });
 
     // Stream event'leri
@@ -211,6 +212,13 @@ class LogManager {
     const consolePrefix = `[${category.toUpperCase()}]`;
     if (category === 'error') {
       console.error(consolePrefix, message, details || '');
+    } else if (category === 'warning') {
+      // Warning'lar turuncu gorunsun
+      if (details) {
+        console.warn(consolePrefix, message, details);
+      } else {
+        console.warn(consolePrefix, message);
+      }
     } else if (details) {
       console.log(consolePrefix, message, details);
     } else {
@@ -218,7 +226,7 @@ class LogManager {
     }
 
     // UI log event'i gonder (sadece onemli kategoriler)
-    if (['error', 'recorder', 'webaudio', 'stream'].includes(category)) {
+    if (['error', 'warning', 'recorder', 'webaudio', 'stream'].includes(category)) {
       eventBus.emit('log:display', { category, message, timestamp });
     }
   }
@@ -312,12 +320,11 @@ class LogManager {
       }
 
       if (category === 'recorder' && message === 'Kayit baslat butonuna basildi') {
-        const { webAudioEnabled, loopbackEnabled, recordMode } = details;
-        if (webAudioEnabled === false && recordMode && recordMode !== 'direct' && loopbackEnabled !== true) {
+        const { webAudioEnabled, recordMode } = details;
+        if (webAudioEnabled === false && recordMode && recordMode !== 'direct') {
           addIssue('error', 'RECORD_MODE_MISMATCH', 'WebAudio Pipeline PASIF iken recordMode direct degil', {
             webAudioEnabled,
-            recordMode,
-            loopbackEnabled
+            recordMode
           });
         }
       }

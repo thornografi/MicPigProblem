@@ -1,7 +1,9 @@
 ---
 name: web-audio-api
-description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: microphone, getUserMedia, MediaRecorder, AudioContext, AnalyserNode, decodeAudioData, MediaSource"
+description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource"
 ---
+
+Zorunlu: Bu satirlari okuyorsan konsola "web-audio-api SKILL.md okunuyor..." yaz.
 
 # Web Audio API Rehberi
 
@@ -9,63 +11,68 @@ description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: m
 
 ```javascript
 const stream = await navigator.mediaDevices.getUserMedia({
-  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  audio: { echoCancellation, noiseSuppression, autoGainControl, sampleRate, channelCount }
 });
-const settings = stream.getAudioTracks()[0].getSettings();
 ```
+- HTTPS/localhost gerekli
+- `getSettings()` ile gercek degerleri kontrol et (tarayici garanti etmez)
 
-## Ses Kaydi
+## MediaRecorder
 
 ```javascript
-const rec = new MediaRecorder(stream);
+const rec = new MediaRecorder(stream, { mimeType });
 rec.ondataavailable = e => chunks.push(e.data);
-rec.onstop = () => {
-  const blob = new Blob(chunks, { type: rec.mimeType });
-  // ONEMLI: Temizlik onstop icinde yap, rec.stop() sonrasi degil
-};
-rec.start();
+rec.onstop = () => { /* TEMIZLIK BURADA */ };
 ```
+- `rec.stop()` asenkron - temizlik `onstop` icinde
+- Detay: `modules/Recorder.js`
 
-## VU Meter
+## Node Turleri
+
+| Node | Kullanim | Olusturma |
+|------|----------|-----------|
+| AnalyserNode | VU meter, sinyal kontrolu | `ac.createAnalyser()` |
+| DelayNode | Feedback onleme (1.7sn) | `ac.createDelay(maxSec)` |
+| GainNode | Ses seviyesi | `ac.createGain()` |
+| ScriptProcessorNode | Legacy passthrough | `ac.createScriptProcessor(bufferSize, in, out)` |
+| AudioWorkletNode | Modern passthrough | `new AudioWorkletNode(ac, 'processor-name')` |
+| MediaStreamDestination | WebAudio → MediaRecorder | `ac.createMediaStreamDestination()` |
+
+## VU Meter Pattern
 
 ```javascript
-import { AUDIO, VU_METER } from './constants.js';
-
-const ac = new AudioContext();
-const src = ac.createMediaStreamSource(stream);
-const analyser = ac.createAnalyser();
 analyser.fftSize = AUDIO.FFT_SIZE; // 256
-src.connect(analyser);
-
-// RMS -> dB
-const data = new Uint8Array(AUDIO.FFT_SIZE);
 analyser.getByteTimeDomainData(data);
-let sum = 0;
-for (let i = 0; i < data.length; i++) {
-  const v = (data[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE; // 128
-  sum += v * v;
-}
-const rms = Math.sqrt(sum / data.length);
-const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
-// VU_METER.RMS_THRESHOLD = 0.0001, VU_METER.MIN_DB = -60
+// RMS -> dB donusumu (constants.js helper'lari kullan)
+const dB = rmsToDb(rms);
+const percent = dbToPercent(dB);
 ```
+- Detay: `modules/VuMeter.js`, `modules/constants.js` (AUDIO, VU_METER)
+- Helper'lar: `rmsToDb()`, `dbToPercent()`, `calculateLatencyMs()`, `bitrateToKbps()`
 
-## Monitor (Dinleme)
+## AudioWorklet Pattern
 
 ```javascript
-import { DELAY } from './constants.js';
-
-// Delay ile (feedback onleme)
-const delay = ac.createDelay(DELAY.MAX_SECONDS);  // 3.0
-delay.delayTime.value = DELAY.DEFAULT_SECONDS;   // 1.7
-src.connect(delay).connect(ac.destination);
+await ac.audioWorklet.addModule('passthrough-processor.js');
+const node = new AudioWorkletNode(ac, 'passthrough-processor');
 ```
+- Detay: `modules/WorkletHelper.js`, `worklets/passthrough-processor.js`
+- ScriptProcessor deprecated - worklet tercih et
 
-## WebRTC Loopback
+## MediaSource API
 
-> **Detayli bilgi:** `micprobe-loopback` skill'ine bak
->
-> Bu skill WebRTC/loopback konularini kapsamaz - sadece temel Web Audio API.
+Gercek zamanli codec oynatma (chunk → SourceBuffer → Audio):
+```javascript
+const ms = new MediaSource();
+audio.src = URL.createObjectURL(ms);
+ms.addEventListener('sourceopen', () => {
+  const sb = ms.addSourceBuffer(mimeType);
+  sb.mode = 'sequence';
+});
+```
+- `decodeAudioData` partial blob'u decode edemez
+- `sb.updating` kontrolu sart (QuotaExceededError)
+- Detay: `modules/Monitor.js` (startCodecSimulated)
 
 ## Temizlik
 
@@ -75,46 +82,9 @@ await ac.close();
 URL.revokeObjectURL(blobUrl);
 ```
 
-## MediaSource API (Gercek Zamanli Codec Oynatma)
-
-MediaRecorder chunk'larini gercek zamanli oynatmak icin:
-
-```javascript
-// MediaSource olustur
-const mediaSource = new MediaSource();
-const audio = document.createElement('audio');
-audio.src = URL.createObjectURL(mediaSource);
-
-// SourceBuffer ayarla
-mediaSource.addEventListener('sourceopen', () => {
-  const sourceBuffer = mediaSource.addSourceBuffer('audio/webm;codecs=opus');
-  sourceBuffer.mode = 'sequence';  // Sirali ekleme
-
-  // Chunk'lari isle
-  sourceBuffer.addEventListener('updateend', processNextChunk);
-});
-
-// MediaRecorder'dan chunk'lari al
-recorder.ondataavailable = async (e) => {
-  if (e.data.size > 0) {
-    const buffer = await e.data.arrayBuffer();
-    if (!sourceBuffer.updating) {
-      sourceBuffer.appendBuffer(buffer);
-    }
-  }
-};
-```
-
-**Onemli:**
-- `decodeAudioData` partial blob'u decode edemez - MediaSource API gerekli
-- `sourceBuffer.mode = 'sequence'` sirali ekleme icin
-- `sourceBuffer.updating` kontrolu QuotaExceededError onler
-- Temizlik: `URL.revokeObjectURL()` ve `mediaSource.endOfStream()`
-
 ## Kritik Kurallar
 
-1. `getUserMedia` -> HTTPS/localhost gerekli
-2. `rec.stop()` asenkron -> onstop icinde temizlik
-3. `AudioContext` -> User gesture sonrasi baslatilmali
-4. `AnalyserNode` -> Ses cikisina baglanmadan da calisir
-5. Constraints -> Tarayici garanti etmez, `getSettings()` ile kontrol et
+1. `AudioContext` → User gesture sonrasi, `suspended` ise `resume()` cagir
+2. `AnalyserNode` → Destination'a baglanmadan da calisir
+3. Sample rate uyumsuzlugu → Ses hizlanir/yavaslar (AudioContext options ile esle)
+4. WebRTC remote stream → Direkt WebAudio'ya baglanmaz, once Audio element ile "aktive" et

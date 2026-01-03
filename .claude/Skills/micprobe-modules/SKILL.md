@@ -1,204 +1,169 @@
 ---
 name: micprobe-modules
-description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, modul, module, profil kategorileri, call, record"
+description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, RecordingController, MonitoringController, ProfileUIManager, modul, module, profil kategorileri, call, record"
 ---
+
+Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." yaz.
 
 # MicProbe Modul Referansi
 
-## Uygulama Mimarisi
+## Uygulama Akisi
 
-### İki Ana Kategori
-
-| Kategori | Amaç | Teknoloji | Birincil Aksiyon |
-|----------|------|-----------|------------------|
-| `call` | Sesli görüşme simülasyonu | WebRTC Loopback | Monitoring |
-| `record` | Sesli mesaj simülasyonu | MediaRecorder | Recording |
-
-### Profil Yapısı
-
-```javascript
-// Sesli Görüşme (call) - Monitoring Only
-'discord':         { category: 'call', loopback: true, bitrate: 64000, channelCount: 1 }
-'zoom':            { category: 'call', loopback: true, bitrate: 48000 }  // Zoom/Meet/Teams
-'whatsapp-call':   { category: 'call', loopback: true, bitrate: 24000 }
-'telegram-call':   { category: 'call', loopback: true, bitrate: 24000 }
-
-// Kayıt (record) - Recording Only
-'whatsapp-voice':  { category: 'record', loopback: false, mediaBitrate: 16000 }
-'telegram-voice':  { category: 'record', loopback: false, mediaBitrate: 32000 }
-'legacy':          { category: 'record', mode: 'scriptprocessor', loopback: false }
-'mictest':         { category: 'record', mode: 'direct', loopback: false }  // Kayıt ayarları serbest
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│  CALL Kategorisi (Discord, Zoom, WhatsApp/Telegram Arama)       │
+│  ───────────────────────────────────────────────────────────    │
+│  User clicks Monitor → MonitoringController.start()             │
+│    → LoopbackManager.setup() → WebRTC Loopback                  │
+│    → Monitor.startCodecSimulated() → Kendini duyma (1.7sn)      │
+└─────────────────────────────────────────────────────────────────┘
 
-### allowedValues (Profil Bazlı Değer Kısıtlamaları)
-
-Her profil, editable ayarlar için izin verilen değerleri tanımlayabilir:
-
-```javascript
-// Örnek: Zoom profili
-{ locked: ['loopback', 'mode', 'channelCount', 'ec', 'ns', 'agc'],
-  editable: ['bitrate', 'sampleRate'],
-  allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 48000] } }
-
-// UI'da kullanım (app.js - updateCustomSettingsPanel)
-const allowedValues = profile.allowedValues?.[key] || setting.values;
+┌─────────────────────────────────────────────────────────────────┐
+│  RECORD Kategorisi (WhatsApp/Telegram Voice, Legacy, Ham)       │
+│  ───────────────────────────────────────────────────────────    │
+│  User clicks Record → Recorder.start()                          │
+│    → MediaRecorder → Blob                                       │
+│  User clicks Play → Player.load(blob)                           │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-**Amaç:** Kullanıcının mantıksız değerler seçmesini engeller (örn: WhatsApp için 128kbps)
 
 ## Dosya Yapisi
 
 ```
 js/
-├── app.js              # Orchestrator + Loopback + UI bindings
+├── app.js                       # Orchestrator, event wiring (~940)
+├── controllers/
+│   ├── RecordingController.js   # Normal kayit wrapper (~120)
+│   └── MonitoringController.js  # Loopback monitor + sinyal bekleme (~310)
+├── ui/
+│   ├── ProfileUIManager.js      # Profil UI, settings panel (~190)
+│   └── DebugConsole.js          # Debug fonksiyonlari (~145)
 └── modules/
-    ├── constants.js    # Merkezi sabitler (AUDIO, DELAY, VU_METER, SIGNAL, ...)
-    ├── Config.js       # Merkezi yapilandirma (SETTINGS, PROFILES)
-    ├── EventBus.js     # Pub/Sub singleton
-    ├── AudioEngine.js  # Merkezi AudioContext (singleton)
-    ├── VuMeter.js      # dB gostergesi
-    ├── Recorder.js     # Kayit (MediaRecorder)
-    ├── Monitor.js      # Canli dinleme (5 mod)
-    ├── Player.js       # Oynatma
-    ├── DeviceInfo.js   # Bilgi paneli
-    ├── Logger.js       # UI log paneli
-    ├── LogManager.js   # IndexedDB loglama
-    ├── StatusManager.js# Durum badge
-    ├── StreamHelper.js # getUserMedia wrapper
-    ├── WorkletHelper.js# AudioWorklet yardimcilari
-    └── utils.js        # formatTime, getBestAudioMimeType, stopStreamTracks, sleep
+    ├── Config.js                # PROFILES, SETTINGS
+    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL
+    ├── EventBus.js              # Pub/Sub singleton
+    ├── ProfileController.js     # applyProfile, constraint logic
+    ├── UIStateManager.js        # Buton state yonetimi
+    ├── LoopbackManager.js       # WebRTC loopback setup
+    ├── Recorder.js              # MediaRecorder wrapper
+    ├── Monitor.js               # Modlar: direct, standard, worklet, codec-simulated; scriptprocessor sadece record/legacy icin
+    ├── Player.js                # Blob oynatma
+    ├── VuMeter.js               # dB gostergesi
+    └── ...
 ```
 
-## constants.js (Merkezi Sabitler)
+## Kategori & Profiller
+
+| Kategori | Yetenek | Profiller |
+|----------|---------|-----------|
+| `call` | Monitoring only | discord, zoom, whatsapp-call, telegram-call |
+| `record` | Recording + Playback | whatsapp-voice, telegram-voice, legacy, mictest |
+
+Profil detaylari: `Config.js` → `PROFILES`
+
+## Controllers (Yeni)
+
+### RecordingController
 ```javascript
-import { AUDIO, DELAY, VU_METER, SIGNAL, BYTES } from './constants.js';
+import recordingController from './controllers/RecordingController.js';
 
-// Audio sabitleri
-AUDIO.FFT_SIZE              // 256
-AUDIO.SMOOTHING_TIME_CONSTANT // 0.7
-AUDIO.CENTER_VALUE          // 128 (8-bit audio center)
+// Normal kayit (record kategorisi icin) - Loopback YOK
+await recordingController.toggle();
+await recordingController.start();
+await recordingController.stop();
+```
+**Not:** Loopback recording kaldirildi. Recording sadece MediaRecorder uzerinden (Recorder.js).
 
-// Delay sabitleri (echo/feedback onleme)
-DELAY.MAX_SECONDS           // 3.0
-DELAY.DEFAULT_SECONDS       // 1.7
+### MonitoringController
+```javascript
+import monitoringController from './controllers/MonitoringController.js';
 
-// VU Meter sabitleri
-VU_METER.RMS_THRESHOLD      // 0.0001
-VU_METER.MIN_DB             // -60
-VU_METER.CLIPPING_THRESHOLD_DB // -0.5
+// Loopback modunda monitor (call kategorisi icin)
+await monitoringController.toggle();
+await monitoringController.start();  // Sinyal bekler, sonra UI gunceller
+await monitoringController.stop();
+```
+**Emits:** `monitor:started`, `monitor:stopped`, `stream:started`, `stream:stopped`, `loopback:remoteStream`
+**Ozellik:** `_waitForSignal()` - WebRTC codec hazir olana kadar UI bekler
 
-// Sinyal bekleme sabitleri (loopback)
-SIGNAL.MAX_WAIT_MS          // 2000
-SIGNAL.POLL_INTERVAL_MS     // 50
-SIGNAL.RMS_THRESHOLD        // 0.001
+### ProfileUIManager
+```javascript
+import profileUIManager from './ui/ProfileUIManager.js';
+
+profileUIManager.init(scenarioCards, navItems);
+profileUIManager.updateSettingsPanel(profileId);
+profileUIManager.handleProfileSelect(profileId);
 ```
 
-## Config
+## Core Modules
+
+### Config
 ```javascript
-import { PROFILES, SETTINGS, PROFILE_CATEGORIES, getProfileValue, getSettingsByCategory } from './Config.js';
+import { PROFILES, SETTINGS, getProfileValue } from './Config.js';
 
-// Kategori ornekleri
-PROFILE_CATEGORIES.call   // { id: 'call', label: 'Sesli Gorusme', order: 1 }
-PROFILE_CATEGORIES.record // { id: 'record', label: 'Kayit', order: 2 }
-
-// Profil ornekleri
-PROFILES['discord'].category          // 'call'
-PROFILES['discord'].values.bitrate    // 64000
-PROFILES['discord'].allowedValues     // { bitrate: [64000, 96000, 128000, 256000, 384000] }
-PROFILES['whatsapp-voice'].category   // 'record'
-PROFILES['whatsapp-voice'].values.mediaBitrate // 16000
-
-// OCP: Profil yetenekleri (otomatik hesaplanir)
-PROFILES['discord'].canMonitor        // true (call kategorisi)
-PROFILES['discord'].canRecord         // false
-PROFILES['whatsapp-voice'].canMonitor // false (record kategorisi)
-PROFILES['whatsapp-voice'].canRecord  // true
-PROFILES['mictest'].canMonitor        // false (loopback locked)
-PROFILES['mictest'].canRecord         // true
-
-// Ayar metadata
-SETTINGS.buffer.values   // [1024, 2048, 4096]
-SETTINGS.buffer.ui       // { type: 'radio', name: 'bufferSize' }
-
-// Helpers
+PROFILES['discord'].values.bitrate     // 64000
+PROFILES['discord'].canMonitor         // true (OCP: otomatik)
+PROFILES['discord'].canRecord          // false
 getProfileValue('discord', 'bitrate')
-getSettingsByCategory('constraints')  // ec, ns, agc, sampleRate, channelCount
 ```
 
-## EventBus (Singleton)
+### EventBus
 ```javascript
 import eventBus from './EventBus.js';
 eventBus.emit('event:name', data);
 eventBus.on('event:name', callback);
 ```
 
-## AudioEngine (Singleton)
+### Recorder (record kategorisi icin)
 ```javascript
-import audioEngine from './AudioEngine.js';
-await audioEngine.warmup();
-audioEngine.connectStream(stream);
-audioEngine.getAnalyser();  // fftSize: 256
+const recorder = new Recorder({ constraints });
+await recorder.start(constraints, mode, timeslice, bufferSize, mediaBitrate);
+recorder.stop();
 ```
+**Emits:** `recording:started`, `recording:completed`
 
-## VuMeter
+### Monitor (MonitoringController uzerinden)
+Modlar:
+- `worklet` → Call kategorisi (WebRTC Loopback + AudioWorklet)
+- `direct`, `standard` → Record kategorisi veya non-loopback monitoring
+- `scriptprocessor` → **SADECE record kategorisi** (legacy profili, mictest secenebilir). Call/arama modunda YASAK!
+- `codec-simulated` → Loopback monitoring icin (dahili mod)
+
+**Codec-Simulated:** Mic → MediaRecorder → MediaSource → Audio → DelayNode(1.7s) → Speaker
+
+**Onemli:** ScriptProcessorNode deprecated API'dir ve sadece eski web kayit sitelerini simule etmek icin kullanilir. Call kategorisinde (WebRTC loopback) asla kullanilamaz.
+
+### VuMeter
 ```javascript
 new VuMeter({ barId, peakId, dotId });
 ```
-**Listens:** `stream:started`, `stream:stopped`, `loopback:remoteStream`
-**Emits:** `vumeter:level`, `vumeter:audiocontext`
+**Listens:** `stream:started`, `loopback:remoteStream`
 
-## Recorder
+### Player
 ```javascript
-const recorder = new Recorder({ constraints });
-await recorder.start(constraints, recordMode, timeslice, bufferSize, mediaBitrate);
-// recordMode: 'direct' | 'standard' | 'scriptprocessor' | 'worklet'
-recorder.stop();
-```
-**Emits:** `recording:started`, `recording:completed`, `stream:started`, `stream:stopped`
-
-## Monitor
-```javascript
-const monitor = new Monitor();
-await monitor.startWebAudio(constraints);                    // WebAudio + Delay
-await monitor.startScriptProcessor(constraints, bufferSize); // Deprecated API
-await monitor.startAudioWorklet(constraints);                // Modern AudioWorklet
-await monitor.startDirect(constraints);                      // Sadece Delay
-await monitor.startCodecSimulated(constraints, mediaBitrate, mode, timeslice, bufferSize);
-await monitor.stop();
-```
-**Codec-Simulated:** MediaRecorder -> MediaSource -> Audio -> Delay -> Speaker
-**Emits:** `monitor:started`, `monitor:stopped`
-
-## Player
-```javascript
-new Player({ containerId, playBtnId, progressBarId, ... });
+new Player({ containerId, playBtnId, ... });
 ```
 **Listens:** `recording:completed`
-**Emits:** `player:loaded`, `player:ended`
 
-## DeviceInfo
-```javascript
-const deviceInfo = new DeviceInfo();
-await deviceInfo.initFromAudioEngine();
+## Event Akisi
+
 ```
-**Listens:** `vumeter:level`, `vumeter:audiocontext`, `stream:started`
+Recording (record):
+  Recorder.start() → stream:started → recording:started
+  Recorder.stop()  → recording:completed → stream:stopped
 
-## Logger / LogManager
-- `Logger`: UI log paneli (filtrelenebilir)
-- `LogManager`: IndexedDB'ye kategorili loglama (singleton)
-
-**Kategoriler:** error, stream, webaudio, recorder, system
-
-## StatusManager
-```javascript
-new StatusManager('badgeId');
+Monitoring (call):
+  MonitoringController.start() → stream:started → loopback:remoteStream → monitor:started
+  MonitoringController.stop()  → monitor:stopped → stream:stopped
 ```
-**Listens:** `recording:started`, `monitor:started`, `stream:stopped`
 
 ## Gelistirme
 
-**Yeni ayar eklemek icin:**
-1. `Config.js` -> SETTINGS'e ekle (type, default, label, category, ui)
-2. `mic_probe.html` -> HTML kontrol ekle
+**Yeni ayar eklemek:**
+1. `Config.js` → SETTINGS'e ekle
+2. `mic_probe.html` → HTML kontrol ekle
+3. `ProfileUIManager.js` otomatik isle
 
-Diger mekanizmalar (`applyProfile`, `updateSettingVisibility`) otomatik calisir.
+**Yeni profil eklemek:**
+1. `Config.js` → PROFILES'a createProfile() ile ekle
+2. Sidebar'a HTML ekle (data-profile attribute)

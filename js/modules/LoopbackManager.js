@@ -5,8 +5,8 @@
  */
 
 import eventBus from './EventBus.js';
-import { createAudioContext, getAudioContextOptions } from './utils.js';
-import { DELAY, SIGNAL } from './constants.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks } from './utils.js';
+import { DELAY, SIGNAL, BUFFER } from './constants.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
 
 /**
@@ -422,27 +422,13 @@ class LoopbackManager {
     this.pc1 = null;
     this.pc2 = null;
 
-    this.remoteStream?.getTracks().forEach(t => t.stop());
+    stopStreamTracks(this.remoteStream);
     this.remoteStream = null;
 
     if (this.audioCtx) {
       await this.audioCtx.close();
       this.audioCtx = null;
     }
-
-    // Global debug degiskenlerini temizle
-    if (window._loopbackActivatorAudio) {
-      window._loopbackActivatorAudio.pause();
-      window._loopbackActivatorAudio.srcObject = null;
-      window._loopbackActivatorAudio = null;
-    }
-    if (window._loopbackRecordAudioCtx) {
-      await window._loopbackRecordAudioCtx.close();
-      window._loopbackRecordAudioCtx = null;
-    }
-    window._loopbackRecorder = null;
-    window._loopbackChunks = null;
-    window._loopbackSetupStart = null;
 
     eventBus.emit('log:stream', {
       message: 'Loopback: Kaynaklar temizlendi',
@@ -526,10 +512,11 @@ class LoopbackManager {
       throw new Error('Loopback Monitor: remote stream yok');
     }
 
-    const { mode: requestedMode = 'standard', bufferSize = 4096 } = options;
+    const { mode: requestedMode = 'standard', bufferSize = BUFFER.DEFAULT_SIZE } = options;
 
     const safeMode = (() => {
-      const allowed = new Set(['direct', 'standard', 'scriptprocessor', 'worklet']);
+      // Loopback monitoring icin izin verilen modlar (ScriptProcessor YASAK - sadece record icin)
+      const allowed = new Set(['direct', 'standard', 'worklet']);
       if (!allowed.has(requestedMode)) return 'standard';
       if (requestedMode === 'worklet' && !this.workletSupported) return 'standard';
       return requestedMode;
@@ -570,23 +557,7 @@ class LoopbackManager {
 
     const delaySeconds = this.monitorDelay.delayTime.value;
 
-    if (safeMode === 'scriptprocessor') {
-      const channelCount = Math.min(2, this.monitorSrc.channelCount || 1);
-      this.monitorProc = this.monitorCtx.createScriptProcessor(bufferSize, channelCount, channelCount);
-      this.monitorProc.onaudioprocess = (e) => {
-        const inputBuffer = e.inputBuffer;
-        const outputBuffer = e.outputBuffer;
-        const channels = Math.min(inputBuffer.numberOfChannels, outputBuffer.numberOfChannels);
-        for (let ch = 0; ch < channels; ch++) {
-          const input = inputBuffer.getChannelData(ch);
-          const output = outputBuffer.getChannelData(ch);
-          output.set(input);
-        }
-      };
-
-      this.monitorSrc.connect(this.monitorProc);
-      this.monitorProc.connect(this.monitorDelay);
-    } else if (safeMode === 'worklet') {
+    if (safeMode === 'worklet') {
       await ensurePassthroughWorklet(this.monitorCtx);
       this.monitorWorklet = createPassthroughWorkletNode(this.monitorCtx);
       this.monitorSrc.connect(this.monitorWorklet);
@@ -604,7 +575,6 @@ class LoopbackManager {
     const graphByMode = {
       direct: `WebRTC RemoteStream -> Source -> DelayNode(${delaySeconds}s) -> Destination`,
       standard: `WebRTC RemoteStream -> Source -> DelayNode(${delaySeconds}s) -> Destination`,
-      scriptprocessor: `WebRTC RemoteStream -> Source -> ScriptProcessor -> DelayNode(${delaySeconds}s) -> Destination`,
       worklet: `WebRTC RemoteStream -> Source -> AudioWorklet(passthrough) -> DelayNode(${delaySeconds}s) -> Destination`
     };
 

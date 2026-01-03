@@ -1,9 +1,15 @@
 /**
- * DeviceInfo - Ses Durumu Paneli
- * 2 bolum: Cihaz (mikrofon, kanal), Codec (bitrate)
+ * DeviceInfo - Ses Cihazi Yonetimi ve Durum Paneli
+ * 1. Mikrofon secimi ve listeleme
+ * 2. Cihaz bilgisi gosterimi (mikrofon, kanal)
+ * 3. Codec bilgisi gosterimi (bitrate)
  * Stream baslangicinda ve profil degisikliginde guncellenir
  */
 import eventBus from './EventBus.js';
+import { stopStreamTracks } from './utils.js';
+
+// Storage key for persisting mic selection
+const MIC_STORAGE_KEY = 'micprobe_selectedMic';
 
 class DeviceInfo {
   constructor() {
@@ -16,6 +22,14 @@ class DeviceInfo {
     this.targetBitrateEl = document.getElementById('infoTargetBitrate');
     this.actualBitrateEl = document.getElementById('infoActualBitrate');
 
+    // Mikrofon secici elementleri (init ile set edilir)
+    this.micSelector = null;
+    this.refreshMicsBtn = null;
+
+    // Mikrofon state
+    this.selectedDeviceId = localStorage.getItem(MIC_STORAGE_KEY) || '';
+    this.hasMicPermission = false;
+
     // Panel her zaman gorunur
     this.showPanel();
 
@@ -23,6 +37,209 @@ class DeviceInfo {
     eventBus.on('stream:started', (stream) => this.updateStreamInfo(stream));
     eventBus.on('profile:changed', (data) => this.updateTargetBitrate(data));
     eventBus.on('loopback:stats', (stats) => this.updateActualBitrate(stats));
+  }
+
+  /**
+   * Mikrofon secici elementlerini initialize et
+   * @param {Object} elements - { micSelector, refreshMicsBtn }
+   */
+  initMicSelector(elements) {
+    this.micSelector = elements.micSelector;
+    this.refreshMicsBtn = elements.refreshMicsBtn;
+
+    // Event listener'lari baglat
+    this.setupMicEventListeners();
+
+    // Sayfa yuklendiginde izinsiz listele
+    this.tryEnumerateWithoutPermission();
+  }
+
+  /**
+   * Mikrofon event listener'larini kur
+   */
+  setupMicEventListeners() {
+    // Yenile butonu
+    if (this.refreshMicsBtn) {
+      this.refreshMicsBtn.addEventListener('click', () => {
+        this.enumerateMicrophones();
+      });
+    }
+
+    // Mikrofon secici
+    if (this.micSelector) {
+      // Tiklandiginda izin yoksa iste
+      this.micSelector.addEventListener('mousedown', async (e) => {
+        if (!this.hasMicPermission) {
+          e.preventDefault();
+          await this.enumerateMicrophones();
+        }
+      });
+
+      // Secim degistiginde
+      this.micSelector.addEventListener('change', (e) => {
+        this.selectedDeviceId = e.target.value;
+        const selectedOption = this.micSelector.options[this.micSelector.selectedIndex];
+
+        // localStorage'a kaydet
+        if (this.selectedDeviceId) {
+          localStorage.setItem(MIC_STORAGE_KEY, this.selectedDeviceId);
+        } else {
+          localStorage.removeItem(MIC_STORAGE_KEY);
+        }
+
+        eventBus.emit('log:stream', {
+          message: `Mikrofon secildi: ${selectedOption.textContent}`,
+          details: { deviceId: this.selectedDeviceId || 'default' }
+        });
+      });
+    }
+
+    // Cihaz degisikligi dinle
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', async () => {
+        if (this.hasMicPermission) {
+          eventBus.emit('log:stream', {
+            message: 'Cihaz degisikligi algilandi, liste guncelleniyor...',
+            details: {}
+          });
+          await this.enumerateMicrophones(true);
+        }
+      });
+    }
+  }
+
+  /**
+   * Mikrofon listesini dropdown'a doldur
+   * @param {MediaDeviceInfo[]} allMics - Tum audio input cihazlari
+   * @param {Object} options - { logWarnings: boolean }
+   * @returns {MediaDeviceInfo[]} Filtrelenmis gercek mikrofonlar
+   */
+  buildMicrophoneDropdown(allMics, options = {}) {
+    const { logWarnings = true } = options;
+
+    if (!this.micSelector) return [];
+
+    // Windows virtual entries'i filtrele
+    const virtualIds = ['default', 'communications'];
+    const realMics = allMics.filter(m => !virtualIds.includes(m.deviceId));
+
+    // Varsayilan cihazi bul
+    const defaultEntry = allMics.find(m => m.deviceId === 'default');
+    let defaultRealDeviceId = null;
+
+    if (defaultEntry && defaultEntry.label) {
+      const defaultLabel = defaultEntry.label.replace(/^(Varsay[ıi]lan|Default)\s*-\s*/i, '').trim();
+      const matchingReal = realMics.find(m => m.label === defaultLabel);
+      if (matchingReal) {
+        defaultRealDeviceId = matchingReal.deviceId;
+      }
+    }
+
+    if (!defaultRealDeviceId && realMics.length > 0) {
+      defaultRealDeviceId = realMics[0].deviceId;
+    }
+
+    // Dropdown temizle
+    this.micSelector.innerHTML = '';
+
+    // Secili cihaz hala mevcut mu kontrol et
+    const selectedStillExists = realMics.some(m => m.deviceId === this.selectedDeviceId);
+    if (this.selectedDeviceId && !selectedStillExists) {
+      if (logWarnings) {
+        eventBus.emit('log:warning', {
+          message: 'Onceden secili mikrofon artik mevcut degil',
+          details: { lostDeviceId: this.selectedDeviceId.slice(0, 8) }
+        });
+      }
+      this.selectedDeviceId = '';
+      localStorage.removeItem(MIC_STORAGE_KEY);
+    }
+
+    // Dropdown doldur
+    realMics.forEach((mic, index) => {
+      const option = document.createElement('option');
+      option.value = mic.deviceId;
+
+      let label = mic.label || `Mikrofon ${index + 1}`;
+      if (mic.deviceId === defaultRealDeviceId) {
+        label += ' (varsayilan)';
+      }
+      option.textContent = label;
+
+      if (mic.deviceId === this.selectedDeviceId) {
+        option.selected = true;
+      } else if (!this.selectedDeviceId && mic.deviceId === defaultRealDeviceId) {
+        option.selected = true;
+        this.selectedDeviceId = mic.deviceId;
+      }
+
+      this.micSelector.appendChild(option);
+    });
+
+    return realMics;
+  }
+
+  /**
+   * Mikrofonlari listele (izin isteyerek)
+   * @param {boolean} silent - Log yazma
+   */
+  async enumerateMicrophones(silent = false) {
+    try {
+      // Izin almak icin getUserMedia cagir
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stopStreamTracks(tempStream);
+      this.hasMicPermission = true;
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const allMics = devices.filter(d => d.kind === 'audioinput');
+
+      const realMics = this.buildMicrophoneDropdown(allMics, { logWarnings: true });
+
+      if (!silent) {
+        eventBus.emit('log:stream', {
+          message: `${realMics.length} mikrofon bulundu`,
+          details: { devices: realMics.map(m => m.label || m.deviceId.slice(0, 8)) }
+        });
+      }
+    } catch (err) {
+      this.hasMicPermission = false;
+      eventBus.emit('log:error', {
+        category: 'stream',
+        message: 'Mikrofon listesi alinamadi',
+        details: { error: err.message }
+      });
+    }
+  }
+
+  /**
+   * Izinsiz mikrofon listele (label'lar bos olabilir)
+   */
+  async tryEnumerateWithoutPermission() {
+    if (!this.micSelector) return;
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const allMics = devices.filter(d => d.kind === 'audioinput');
+
+      const hasLabels = allMics.some(m => m.label);
+      this.hasMicPermission = hasLabels;
+
+      if (hasLabels) {
+        this.buildMicrophoneDropdown(allMics, { logWarnings: false });
+      } else {
+        this.micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
+      }
+    } catch (err) {
+      this.micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
+    }
+  }
+
+  /**
+   * Secili mikrofon deviceId'sini dondur
+   * @returns {string} deviceId veya ''
+   */
+  getSelectedDeviceId() {
+    return this.micSelector?.value || '';
   }
 
   /**

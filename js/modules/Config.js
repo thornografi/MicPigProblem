@@ -29,7 +29,7 @@ export const SETTINGS = {
   },
   sampleRate: {
     type: 'enum',
-    values: [16000, 22050, 44100, 48000],
+    values: [16000, 24000, 48000],  // Opus-uyumlu: wideband, super-wideband, fullband
     default: 48000,
     label: 'Örnekleme Hızı',
     category: 'constraints',
@@ -85,7 +85,7 @@ export const SETTINGS = {
   },
   bitrate: {
     type: 'enum',
-    values: [16000, 24000, 32000, 48000, 64000, 96000, 128000],
+    values: [16000, 24000, 32000, 48000, 64000, 96000, 128000, 256000, 384000],  // Discord Nitro: 256k, 384k
     default: 64000,
     label: 'Opus Bitrate (WebRTC)',
     category: 'loopback',
@@ -183,26 +183,26 @@ export const PROFILES = {
   // 📞 SESLİ GÖRÜŞME (call) - WebRTC Loopback, Monitoring Only
   // ═══════════════════════════════════════════════════════════════
   // Call profilleri: EC/NS/AGC platformlar tarafindan kesinlikle kullaniliyor
-  'discord': createProfile('discord', 'Discord', 'Discord, Guilded - varsayılan mono, boost ile yüksek kalite',
-    'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
+  'discord': createProfile('discord', 'Discord', 'Discord, Guilded - Krisp noise suppression, AudioWorklet',
+    'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'mode', 'sampleRate', 'ec', 'ns', 'agc'],
       editable: ['bitrate', 'channelCount'],
       allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] } }),
 
-  'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - optimize edilmiş',
-    'video', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
+  'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - AudioWorklet pipeline',
+    'video', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'mode', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate', 'sampleRate'],
-      allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 48000] } }),
+      allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 24000, 48000] } }),
 
-  'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Arama', 'WhatsApp sesli/görüntülü arama - düşük bitrate',
-    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+  'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Web Arama', 'WhatsApp Web sesli/görüntülü arama',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
       allowedValues: { bitrate: [16000, 24000, 32000] } }),
 
-  'telegram-call': createProfile('telegram-call', 'Telegram Arama', 'Telegram sesli arama - adaptive bitrate',
-    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'standard', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+  'telegram-call': createProfile('telegram-call', 'Telegram Web Arama', 'Telegram Web sesli arama',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
       allowedValues: { bitrate: [24000, 32000, 48000, 64000] } }),
@@ -212,24 +212,24 @@ export const PROFILES = {
   // ═══════════════════════════════════════════════════════════════
   'whatsapp-voice': createProfile('whatsapp-voice', 'WhatsApp Sesli Mesaj', 'Düşük bitrate voice message',
     'message', 'record', { mediaBitrate: 16000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['loopback', 'mode'],
+    { locked: ['mode'],
       editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
       allowedValues: { mediaBitrate: [0, 16000, 24000], timeslice: [0, 100, 250, 500] } }),
 
   'telegram-voice': createProfile('telegram-voice', 'Telegram Sesli Mesaj', 'Telegram voice note (32-64kbps)',
     'send', 'record', { mediaBitrate: 32000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['loopback', 'mode'],
+    { locked: ['mode'],
       editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
       allowedValues: { mediaBitrate: [0, 24000, 32000, 64000], timeslice: [0, 100, 250, 500] } }),
 
   'legacy': createProfile('legacy', 'Eski Web Kayıt', 'ScriptProcessor ile kayıt testi',
     'history', 'record', { mode: 'scriptprocessor', buffer: 1024, timeslice: 1000, loopback: false },
-    { locked: ['mode', 'loopback'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
+    { locked: ['mode'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
     // allowedValues yok = tum degerler izinli
 
   'mictest': createProfile('mictest', 'Ham Kayıt', 'Kayıt ayarları serbest - test ve deneme',
     'mic', 'record', { ec: false, ns: false, agc: false, mode: 'direct', loopback: false },
-    { locked: ['loopback'], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'mode', 'buffer', 'mediaBitrate', 'timeslice'] })
+    { locked: [], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'mode', 'buffer', 'mediaBitrate', 'timeslice'] })
     // allowedValues yok = tum degerler izinli (test profili)
 };
 

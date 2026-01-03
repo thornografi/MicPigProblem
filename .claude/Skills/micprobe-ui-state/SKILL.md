@@ -3,25 +3,15 @@ name: micprobe-ui-state
 description: "MicProbe UI state, mod bazli UI, sidebar kategorileri, buton/selector kilitleme. Anahtar kelimeler: updateButtonStates, monitoring, recording, player, timer, disable, progress bar, call, record, kategori"
 ---
 
+Zorunlu: Bu satirlari okuyorsan konsola "micprobe-ui-state SKILL.md okunuyor..." yaz.
+
 # MicProbe — UI State & Davranis Kurallari
 
 ## Kategori Bazli UI Davranisi
 
 ### Sidebar Yapisi
 
-```
-📞 Sesli Görüşme (call)
-├── Discord
-├── Zoom / Meet / Teams
-├── WhatsApp Arama
-└── Telegram Arama
-
-🎙️ Kayıt (record)
-├── WhatsApp Sesli Mesaj
-├── Telegram Sesli Mesaj
-├── Eski Web Kayıt
-└── Ham Kayıt
-```
+Sidebar yapısı için bkz: `CLAUDE.md` → Uygulama Mimarisi
 
 ### Mod Bazli Kontrol Gorunurlugu (OCP)
 
@@ -46,7 +36,7 @@ Not: Tüm `record` kategorisi profilleri (mictest dahil) `canMonitor=false`.
 - Her profilde gorunur, profil bazli locked/editable ayarlar dinamik olarak listelenir.
 - **allowedValues:** Dropdown'lar sadece profilin izin verdigi degerleri gosterir.
 - Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
-- Kontrol: `updateCustomSettingsPanel()` fonksiyonu icerisinde.
+- Kontrol: `app.js` → `updateCustomSettingsPanel()` fonksiyonu
 
 ## Sayaç (Timer)
 
@@ -72,19 +62,24 @@ Profil degistiginde:
 
 **Onemli:** `applyProfile()` icinde restart async bekler:
 ```javascript
-// app.js - applyProfile() icinde
+// ProfileController.js - applyProfile() icinde
 if (previousMode === 'monitoring') {
-  await monitorToggleBtn.onclick();  // Restart tamamlanana kadar bekle
+  await this.callbacks.stopMonitoring();
+}
+// ...ayarlar uygulanir...
+if (previousMode === 'monitoring') {
+  await this.callbacks.startMonitoring();
 }
 ```
 
 Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 
-## Nereye Bakilir?
+## Dosya Referanslari
 
-- UI state: `js/app.js` -> `updateButtonStates()`
-- Timer: `js/app.js` -> `startTimer()/stopTimer()`
-- Profil degisimi: `js/app.js` -> `applyProfile()`
-- Player: `js/modules/Player.js`
-- Stil/disabled gorunumu: `css/style.css`
+- UI state: `modules/UIStateManager.js` → `updateButtonStates()`
+- Profil UI: `ui/ProfileUIManager.js` → `handleProfileSelect()`
+- Profil logic: `modules/ProfileController.js` → `applyProfile()`
+- Timer: `app.js` → `startTimer()/stopTimer()`
+- Player: `modules/Player.js`
+- Stil: `css/style.css`
 

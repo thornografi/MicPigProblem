@@ -5,6 +5,7 @@
  */
 
 import { PROFILES, SETTINGS } from './Config.js';
+import { formatTime } from './utils.js';
 
 /**
  * UIStateManager class - UI durumlarini yonetir
@@ -27,16 +28,23 @@ class UIStateManager {
       downloadBtn: null,
       micSelector: null,
       refreshMicsBtn: null,
-      preparingOverlay: null
+      preparingOverlay: null,
+      profileSelector: null,
+      timerEl: null
     };
 
     // Radio button koleksiyonlari
     this.radioGroups = {
       processingMode: [],
       bitrate: [],
+      mediaBitrate: [],
       timeslice: [],
       bufferSize: []
     };
+
+    // Nav items ve scenario cards (profil secim disabling icin)
+    this.navItems = [];
+    this.scenarioCards = [];
 
     // State getters (dısarıdan set edilir)
     this.getState = {
@@ -45,6 +53,13 @@ class UIStateManager {
       currentProfileId: () => 'discord',
       isWorkletSupported: () => true
     };
+
+    // ProfileController referansi (locked settings icin)
+    this.profileController = null;
+
+    // Timer state
+    this.timerInterval = null;
+    this.timerStartTime = null;
   }
 
   /**
@@ -72,12 +87,29 @@ class UIStateManager {
   }
 
   /**
+   * Nav items ve scenario cards'i set et (profil secimi icin)
+   * @param {Object} collections - { navItems, scenarioCards }
+   */
+  setProfileCollections(collections) {
+    if (collections.navItems) this.navItems = collections.navItems;
+    if (collections.scenarioCards) this.scenarioCards = collections.scenarioCards;
+  }
+
+  /**
+   * ProfileController referansini set et
+   * @param {Object} controller - ProfileController instance
+   */
+  setProfileController(controller) {
+    this.profileController = controller;
+  }
+
+  /**
    * Button ve control durumlarini guncelle
+   * DRY: Tum UI state guncellemeleri tek yerde
    */
   updateButtonStates() {
     const currentMode = this.getState.currentMode();
     const isPreparing = this.getState.isPreparing();
-    const currentProfileId = this.getState.currentProfileId();
     const WORKLET_SUPPORTED = this.getState.isWorkletSupported();
 
     const isIdle = currentMode === null;
@@ -98,7 +130,8 @@ class UIStateManager {
       progressBar,
       downloadBtn,
       micSelector,
-      refreshMicsBtn
+      refreshMicsBtn,
+      profileSelector
     } = this.elements;
 
     // Toggle butonlarin active state'leri
@@ -110,11 +143,12 @@ class UIStateManager {
     monitorToggleBtn?.classList.toggle('preparing', isPreparing && !isRecording);
 
     // Monitoring sirasinda kayit butonunu disable et ve tersi
+    // Preparing state'de de butonlar disabled
     if (recordToggleBtn) recordToggleBtn.disabled = isMonitoring || isPreparing;
     if (monitorToggleBtn) monitorToggleBtn.disabled = isRecording || isPreparing;
 
-    // Monitoring sirasinda kayit tarafini tamamen kilitle
-    const disableRecordingUi = isMonitoring;
+    // Aktif islem sirasinda kayit tarafini tamamen kilitle (recording VEYA monitoring)
+    const disableRecordingUi = isMonitoring || isRecording;
     processingModeContainer?.classList.toggle('ui-disabled', !isIdle);
     timesliceContainer?.classList.toggle('ui-disabled', disableRecordingUi);
     recordingPlayerCard?.classList.toggle('ui-disabled', disableRecordingUi);
@@ -145,13 +179,15 @@ class UIStateManager {
       }
     }
 
-    // Profil kilitleri kontrolu
-    const profile = PROFILES[currentProfileId];
+    // Profil kilitleri kontrolu - ProfileController'dan al
+    const profile = this.profileController?.getCurrentProfile();
     const lockedSettings = profile?.lockedSettings || [];
 
     // Ayar toggle'lari icin disabled durumu hesapla
     const shouldBeDisabled = (settingKey) => {
+      // Aktif islem varsa her zaman disabled
       if (!isIdle) return true;
+      // Profil kilidi varsa disabled
       return lockedSettings.includes(settingKey);
     };
 
@@ -159,21 +195,48 @@ class UIStateManager {
     if (loopbackToggle) loopbackToggle.disabled = shouldBeDisabled('loopback');
     if (ecCheckbox) ecCheckbox.disabled = shouldBeDisabled('ec');
     if (nsCheckbox) nsCheckbox.disabled = shouldBeDisabled('ns');
-    if (agcCheckbox) agcCheckbox.disabled = shouldBeDisabled('ag');
+    if (agcCheckbox) agcCheckbox.disabled = shouldBeDisabled('agc');
 
-    // Mikrofon secici - aktif islem varken degistirilemez
+    // Mikrofon secici - aktif islem varken degistirilemez (profil kilidi yok)
     if (micSelector) micSelector.disabled = !isIdle;
     if (refreshMicsBtn) refreshMicsBtn.disabled = !isIdle;
 
-    // Radio gruplarini guncelle
+    // Profil butonlari - aktif islem VEYA preparing varken degistirilemez
+    const disableProfiles = !isIdle || isPreparing;
+    this.navItems.forEach(item => {
+      item.classList.toggle('disabled', disableProfiles);
+      item.setAttribute('aria-disabled', disableProfiles ? 'true' : 'false');
+    });
+    this.scenarioCards.forEach(card => {
+      card.classList.toggle('disabled', disableProfiles);
+      card.setAttribute('aria-disabled', disableProfiles ? 'true' : 'false');
+    });
+    if (profileSelector) {
+      profileSelector.disabled = disableProfiles;
+    }
+
+    // Loopback durumu - dinamik kilitleme kurallari icin
+    const isLoopbackOn = loopbackToggle?.checked ?? false;
+
+    // Processing mode selector - profil kilidi + aktif session kontrolu
     this.radioGroups.processingMode.forEach(radio => {
       const workletUnsupported = radio.value === 'worklet' && !WORKLET_SUPPORTED;
       radio.disabled = shouldBeDisabled('mode') || workletUnsupported;
     });
 
-    this.radioGroups.bitrate.forEach(r => r.disabled = shouldBeDisabled('bitrate'));
-    this.radioGroups.timeslice.forEach(r => r.disabled = shouldBeDisabled('timeslice'));
-    this.radioGroups.bufferSize.forEach(r => r.disabled = shouldBeDisabled('buffer'));
+    // Bitrate selector - profil kilidi + loopback OFF ise disabled
+    this.radioGroups.bitrate.forEach(r => r.disabled = shouldBeDisabled('bitrate') || !isLoopbackOn);
+
+    // Timeslice selector - profil kilidi + loopback ON ise disabled
+    this.radioGroups.timeslice.forEach(r => r.disabled = shouldBeDisabled('timeslice') || isLoopbackOn);
+
+    // MediaBitrate selector - profil kilidi + loopback ON ise disabled
+    this.radioGroups.mediaBitrate.forEach(r => r.disabled = shouldBeDisabled('mediaBitrate') || isLoopbackOn);
+
+    // Buffer size selector - profil kilidi + AudioWorklet/non-ScriptProcessor modunda disabled
+    const selectedMode = document.querySelector('input[name="processingMode"]:checked')?.value;
+    const isScriptProcessorMode = selectedMode === 'scriptprocessor';
+    this.radioGroups.bufferSize.forEach(r => r.disabled = shouldBeDisabled('buffer') || !isScriptProcessorMode);
 
     // Buton text'lerini guncelle
     const recordBtnText = recordToggleBtn?.querySelector('.btn-text');
@@ -210,6 +273,37 @@ class UIStateManager {
   hidePreparingState() {
     if (this.elements.preparingOverlay) {
       this.elements.preparingOverlay.classList.remove('visible');
+    }
+  }
+
+  /**
+   * Kayit timer'ini baslat
+   */
+  startTimer() {
+    const { timerEl } = this.elements;
+    if (!timerEl) return;
+
+    this.timerStartTime = Date.now();
+    timerEl.textContent = '0:00';
+    timerEl.style.display = 'block';
+
+    this.timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - this.timerStartTime) / 1000);
+      timerEl.textContent = formatTime(elapsed);
+    }, 1000);
+  }
+
+  /**
+   * Kayit timer'ini durdur
+   */
+  stopTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    const { timerEl } = this.elements;
+    if (timerEl) {
+      timerEl.style.display = 'none';
     }
   }
 
