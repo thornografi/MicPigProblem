@@ -1,6 +1,6 @@
 ---
 name: web-audio-api
-description: "Web Audio API, mikrofon, ses kaydi, VU meter. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource"
+description: "Web Audio API, mikrofon, ses kaydi, VU meter, WASM Opus encoding. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource, WASM Opus, OggOpusWriter, opus-encoder-worker"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "web-audio-api SKILL.md okunuyor..." yaz.
@@ -36,7 +36,7 @@ rec.onstop = () => { /* TEMIZLIK BURADA */ };
 | GainNode | Ses seviyesi | `ac.createGain()` |
 | ScriptProcessorNode | Legacy passthrough | `ac.createScriptProcessor(bufferSize, in, out)` |
 | AudioWorkletNode | Modern passthrough | `new AudioWorkletNode(ac, 'processor-name')` |
-| MediaStreamDestination | WebAudio → MediaRecorder | `ac.createMediaStreamDestination()` |
+| MediaStreamDestination | Web Audio → MediaRecorder | `ac.createMediaStreamDestination()` |
 
 ## VU Meter Pattern
 
@@ -58,6 +58,23 @@ const node = new AudioWorkletNode(ac, 'passthrough-processor');
 ```
 - Detay: `modules/WorkletHelper.js`, `worklets/passthrough-processor.js`
 - ScriptProcessor deprecated - worklet tercih et
+
+## WASM Opus Encoding (WhatsApp Web Pattern)
+
+WhatsApp Web, sesli mesajlar icin `ScriptProcessorNode(4096, 1, 1) + WASM Opus` kullanir:
+
+```javascript
+// ScriptProcessor → PCM → Web Worker → WASM Opus → .ogg
+const processor = ac.createScriptProcessor(4096, 1, 1);
+processor.onaudioprocess = (e) => {
+  const pcm = e.inputBuffer.getChannelData(0);
+  opusWorker.encode(pcm.slice()); // Worker'a gonder
+};
+```
+
+- Detay: `modules/OpusWorkerHelper.js`, `lib/opus/encoderWorker.min.js` (opus-recorder WASM)
+- MediaRecorder kullanilmiyor - dogrudan Opus encoding
+- Output: `.ogg` (audio/ogg; codecs=opus)
 
 ## MediaSource API
 
@@ -87,4 +104,4 @@ URL.revokeObjectURL(blobUrl);
 1. `AudioContext` → User gesture sonrasi, `suspended` ise `resume()` cagir
 2. `AnalyserNode` → Destination'a baglanmadan da calisir
 3. Sample rate uyumsuzlugu → Ses hizlanir/yavaslar (AudioContext options ile esle)
-4. WebRTC remote stream → Direkt WebAudio'ya baglanmaz, once Audio element ile "aktive" et
+4. WebRTC remote stream → Direkt Web Audio'ya baglanmaz, once Audio element ile "aktive" et

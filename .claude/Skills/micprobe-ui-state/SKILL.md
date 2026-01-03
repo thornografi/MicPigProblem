@@ -79,7 +79,7 @@ Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 - UI state: `modules/UIStateManager.js` → `updateButtonStates()`
 - Profil UI: `ui/ProfileUIManager.js` → `handleProfileSelect()`
 - Profil logic: `modules/ProfileController.js` → `applyProfile()`
-- Timer: `app.js` → `startTimer()/stopTimer()`
+- Timer: `modules/UIStateManager.js` → `startTimer()/stopTimer()`
 - Player: `modules/Player.js`
 - Stil: `css/style.css`
 

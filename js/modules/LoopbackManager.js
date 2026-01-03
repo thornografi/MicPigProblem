@@ -212,9 +212,6 @@ class LoopbackManager {
       await this._waitForTrackUnmute(remoteTrack);
     }
 
-    // Kisa bir bekleme - audio akisi baslasin
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     eventBus.emit('log:stream', {
       message: `Loopback: WebRTC baglantisi kuruldu - ICE:${this.pc1.iceConnectionState}/${this.pc2.iceConnectionState} Track:${remoteTrack?.readyState} Muted:${remoteTrack?.muted}`,
       details: {

@@ -56,7 +56,7 @@ class Player {
   }
 
   load(data) {
-    const { blob, mimeType, filename } = data;
+    const { blob, mimeType, filename, durationMs } = data;
 
     // Onceki URL'i temizle
     if (this.currentUrl) {
@@ -64,7 +64,8 @@ class Player {
     }
 
     this.currentBlob = blob;
-    this.knownDurationSeconds = null;
+    // Duration varsa direkt kullan (WASM Opus icin onemli - decodeAudioData calismayabilir)
+    this.knownDurationSeconds = durationMs ? durationMs / 1000 : null;
     this.currentUrl = URL.createObjectURL(blob);
 
     this.audio.src = this.currentUrl;
@@ -79,7 +80,12 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(blob.size / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${UNKNOWN_DURATION}`;
+      const durationText = this.knownDurationSeconds ? formatTime(this.knownDurationSeconds) : UNKNOWN_DURATION;
+      this.metaEl.textContent = `${(blob.size / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Duration: ${durationText}`;
+    }
+
+    if (this.timeEl && this.knownDurationSeconds) {
+      this.timeEl.textContent = `0:00 / ${formatTime(this.knownDurationSeconds)}`;
     }
 
     if (this.downloadBtnEl) {
@@ -145,6 +151,11 @@ class Player {
   }
 
   async probeDuration(blob, mimeType) {
+    // Duration zaten biliniyorsa (recording:completed'dan geldi) atla
+    if (this.knownDurationSeconds && this.knownDurationSeconds > 0) {
+      return;
+    }
+
     // 1) Metadata'dan gelirse kullan
     await new Promise((resolve) => {
       const onMeta = () => resolve();
@@ -193,7 +204,7 @@ class Player {
     }
 
     if (this.metaEl) {
-      this.metaEl.textContent = `${(sizeBytes / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Süre: ${formatTime(durationSeconds)}`;
+      this.metaEl.textContent = `${(sizeBytes / BYTES.PER_KB).toFixed(1)} KB - ${mimeType} - Duration: ${formatTime(durationSeconds)}`;
     }
   }
 
@@ -249,7 +260,10 @@ class Player {
         }
       }
       if (this.timeEl) {
-        this.timeEl.textContent = `${formatTime(currentTime)} / ${UNKNOWN_DURATION}`;
+        const durationText = (Number.isFinite(fallbackDuration) && fallbackDuration > 0)
+          ? formatTime(fallbackDuration)
+          : UNKNOWN_DURATION;
+        this.timeEl.textContent = `${formatTime(currentTime)} / ${durationText}`;
       }
       return;
     }

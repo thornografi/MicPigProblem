@@ -10,10 +10,10 @@ class StatusManager {
     this.currentStatus = 'idle';
 
     this.statusConfig = {
-      idle: { class: 'status-idle', text: 'Hazir' },
-      recording: { class: 'status-recording', text: 'Kaydediliyor' },
-      monitoring: { class: 'status-monitoring', text: 'Monitor Aktif' },
-      webaudio: { class: 'status-webaudio', text: 'WebAudio Aktif' },
+      idle: { class: 'status-idle', text: 'Ready' },
+      recording: { class: 'status-recording', text: 'Recording' },
+      monitoring: { class: 'status-monitoring', text: 'Monitor Active' },
+      webaudio: { class: 'status-webaudio', text: 'WebAudio Active' },
       loopback: { class: 'status-loopback', text: 'WebRTC Loopback' }
     };
 

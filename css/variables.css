@@ -1,0 +1,219 @@
+/* MicProbe - Unified Design System
+   ================================
+   Tum renkler ve stiller burada tanimlanir.
+   Landing ve App ayni design token'lari kullanir.
+*/
+
+:root {
+  /* ========== CORE COLORS ========== */
+  /* Base palette - her iki view icin ortak */
+  --color-orange: #ff6b35;
+  --color-orange-light: #ff8555;
+  --color-purple: #a855f7;
+  --color-purple-light: #c084fc;
+  --color-coral: #e85d3b;
+  --color-pink: #d946a8;
+
+  /* Background - Dark theme */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-tertiary: #1a1028;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-solid: #1a1a24;
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  --bg-elevated: rgba(255, 255, 255, 0.08);
+
+  /* Gradient backgrounds - Landing VE App icin */
+  --gradient-bg: linear-gradient(135deg, #0a0a0f 0%, #12121a 40%, #1a1028 70%, #2d1b4e 100%);
+  --gradient-bg-app: linear-gradient(145deg, #0a0a0f 0%, #0f0f18 30%, #151520 60%, #1a1028 100%);
+  --gradient-hero: radial-gradient(ellipse at 50% 100%, rgba(168, 85, 247, 0.15) 0%, transparent 60%);
+  --gradient-subtle: radial-gradient(ellipse at 80% 20%, rgba(255, 107, 53, 0.08) 0%, transparent 50%),
+                     radial-gradient(ellipse at 20% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+
+  /* Primary accent gradient - HER YERDE KULLANILIR */
+  --gradient-accent: linear-gradient(135deg, var(--color-orange) 0%, var(--color-purple) 100%);
+  --gradient-accent-warm: linear-gradient(135deg, var(--color-coral) 0%, var(--color-pink) 50%, var(--color-purple-light) 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(168, 85, 247, 0.9));
+
+  /* Muted accent gradients for backgrounds - DRY */
+  --gradient-accent-muted: linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(168, 85, 247, 0.1) 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(255, 107, 53, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%);
+  --gradient-accent-faint: linear-gradient(135deg, rgba(255, 107, 53, 0.03) 0%, rgba(168, 85, 247, 0.02) 100%);
+  --gradient-accent-hover: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(168, 85, 247, 0.06) 100%);
+  --gradient-accent-strong: linear-gradient(135deg, rgba(255, 107, 53, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%);
+  --gradient-accent-mid: linear-gradient(135deg, rgba(255, 107, 53, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+
+  /* Accent colors - Unified */
+  --accent-primary: var(--color-coral);
+  --accent-primary-hover: #f06a48;
+  --accent-primary-muted: rgba(232, 93, 59, 0.15);
+  --accent-secondary: var(--color-purple-light);
+  --accent-secondary-muted: rgba(192, 132, 252, 0.15);
+
+  /* Status colors */
+  --accent-danger: #e53935;
+  --accent-danger-muted: rgba(229, 57, 53, 0.15);
+  --accent-warning: #ff9800;
+  --accent-warning-muted: rgba(255, 152, 0, 0.15);
+  --accent-success: #1db954;
+  --accent-success-muted: rgba(29, 185, 84, 0.15);
+
+  /* Text colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #727272;
+
+  /* Border colors */
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.05);
+  --border-glow: rgba(168, 85, 247, 0.3);
+  --border-glow-orange: rgba(255, 107, 53, 0.3);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-bg-hover: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --backdrop-blur: 12px;
+
+  /* ========== SPACING ========== */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+
+  /* ========== BORDER RADIUS ========== */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ========== TRANSITIONS ========== */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ========== TYPOGRAPHY ========== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+
+  /* Font sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+
+  /* ========== SHADOWS ========== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+
+  /* Glow effects - tutarli accent renkleri */
+  --glow-accent: 0 0 25px rgba(232, 93, 59, 0.3);
+  --glow-accent-strong: 0 0 40px rgba(232, 93, 59, 0.5);
+  --glow-purple: 0 0 25px rgba(192, 132, 252, 0.3);
+  --glow-purple-strong: 0 0 40px rgba(168, 85, 247, 0.4);
+  --glow-danger: 0 0 20px rgba(229, 57, 53, 0.4);
+
+  /* Legacy aliases (eski kod uyumlulugu) */
+  --shadow-glow: var(--glow-purple);
+  --shadow-glow-orange: var(--glow-accent);
+
+  /* ========== Z-INDEX ========== */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
+
+  /* ========== LAYOUT ========== */
+  --sidebar-width: 282px;
+  --navbar-height: 72px;
+  --max-width: 1200px;
+  --sidebar-nav-top: 30px;
+
+  /* ========== UI STATES ========== */
+  --opacity-disabled: 0.55;
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== FOCUS STATES ========== */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ========== UTILITY CLASSES ========== */
+.hidden {
+  display: none !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

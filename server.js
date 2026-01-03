@@ -63,7 +63,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === '/') {
-    pathname = '/mic_probe.html';
+    pathname = '/index.html';
   }
 
   if (pathname === '/favicon.ico') {

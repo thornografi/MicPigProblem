@@ -13,7 +13,9 @@
       "Bash(start:*)",
       "Bash(dir /s /b \"C:\\Users\\burra\\.claude\\skills\\*SKILL.md\")",
       "Bash(if not exist \"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\" mkdir \"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\")",
-      "Bash(cmd /c \"if not exist \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\" mkdir \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\"\")"
+      "Bash(cmd /c \"if not exist \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\" mkdir \"\"C:\\Users\\burra\\Documents\\VSCodeWorkSpaces\\Personal-Workspace\\MicBigProblem\\.claude\\Skills\\skill-control\"\"\")",
+      "Bash(dir:*)",
+      "Bash(curl:*)"
     ]
   }
 }

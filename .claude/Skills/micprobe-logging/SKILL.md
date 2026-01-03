@@ -38,6 +38,6 @@ Her kategori icin `log:<category>` event'i dinlenir.
 `getSanityReport()` su durumları kontrol eder:
 - Monitoring + recording cakismasi
 - Monitor delay degeri eksik/hatali mi
-- WebAudio Pipeline pasifken mode uyumsuzlugu
+- Web Audio Pipeline pasifken mode uyumsuzlugu
 - Stream start/stop dengesi
 

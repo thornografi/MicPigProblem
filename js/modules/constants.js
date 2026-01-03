@@ -62,6 +62,17 @@ export const LOOPBACK = {
   ICE_WAIT_MS: 3000               // ICE baglanti bekleme suresi
 };
 
+// === OPUS (WASM Encoder) ===
+export const OPUS = {
+  FRAME_SIZE: 960,                // 20ms @ 48kHz (standart Opus frame)
+  MIN_BITRATE: 6000,              // Minimum Opus bitrate (bps)
+  MAX_BITRATE: 510000,            // Maximum Opus bitrate (bps)
+  WHATSAPP_BITRATE: 16000,        // WhatsApp sesli mesaj tipik bitrate
+  WHATSAPP_BUFFER: 4096,          // WhatsApp ScriptProcessor buffer boyutu
+  CHANNELS: 1,                    // Mono (voice)
+  PRE_SKIP: 312                   // Encoder delay (~3.75ms @ 48kHz)
+};
+
 // === HELPER FUNCTIONS ===
 
 /**

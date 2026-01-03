@@ -5,8 +5,8 @@
  */
 import eventBus from '../modules/EventBus.js';
 import loopbackManager from '../modules/LoopbackManager.js';
-import { DELAY, SIGNAL, AUDIO } from '../modules/constants.js';
-import { stopStreamTracks, createAudioContext, getAudioContextOptions } from '../modules/utils.js';
+import { DELAY } from '../modules/constants.js';
+import { stopStreamTracks } from '../modules/utils.js';
 import { requestStream } from '../modules/StreamHelper.js';
 
 class MonitoringController {
@@ -17,7 +17,9 @@ class MonitoringController {
     // Dependency injection ile gelen fonksiyonlar
     this.deps = {
       getConstraints: () => ({}),
-      getProcessingMode: () => 'direct',
+      getPipeline: () => 'direct',
+      getEncoder: () => 'mediarecorder',
+      getProcessingMode: () => 'direct', // Geriye uyumluluk
       isLoopbackEnabled: () => false,
       isWebAudioEnabled: () => false,
       getOpusBitrate: () => 64000,
@@ -61,15 +63,15 @@ class MonitoringController {
     const useWebAudio = this.deps.isWebAudioEnabled();
     const useLoopback = this.deps.isLoopbackEnabled();
     const constraints = this.deps.getConstraints();
-    const monitorMode = useWebAudio ? this.deps.getProcessingMode() : 'direct';
+    const pipeline = useWebAudio ? this.deps.getPipeline() : 'direct';
     const mediaBitrate = this.deps.getMediaBitrate();
 
     // Pipeline aciklamasi
-    const pipeline = this._buildPipelineDescription(useLoopback, monitorMode, mediaBitrate);
+    const pipelineDesc = this._buildPipelineDescription(useLoopback, pipeline, mediaBitrate);
 
     eventBus.emit('log:stream', {
       message: 'Monitor Baslat butonuna basildi',
-      details: { constraints, webAudioEnabled: useWebAudio, loopbackEnabled: useLoopback, mediaBitrate, monitorMode, pipeline }
+      details: { constraints, webAudioEnabled: useWebAudio, loopbackEnabled: useLoopback, mediaBitrate, pipeline, pipelineDesc }
     });
 
     try {
@@ -82,9 +84,9 @@ class MonitoringController {
       this.deps.uiStateManager?.showPreparingState();
 
       if (useLoopback) {
-        await this._startLoopbackMonitoring(constraints, monitorMode);
+        await this._startLoopbackMonitoring(constraints, pipeline);
       } else {
-        await this._startNormalMonitoring(constraints, monitorMode, mediaBitrate);
+        await this._startNormalMonitoring(constraints, pipeline, mediaBitrate);
       }
 
     } catch (err) {
@@ -106,7 +108,7 @@ class MonitoringController {
   /**
    * Loopback monitoring
    */
-  async _startLoopbackMonitoring(constraints, monitorMode) {
+  async _startLoopbackMonitoring(constraints, pipeline) {
     eventBus.emit('log', '🔄 Loopback modunda monitor baslatiliyor...');
 
     // Mikrofon al (requestStream ile constraint mismatch kontrolu dahil)
@@ -119,16 +121,13 @@ class MonitoringController {
       opusBitrate
     });
 
-    // Dinamik sinyal bekleme - codec hazir olana kadar bekle
-    const waited = await this._waitForSignal(remoteStream, opusBitrate);
-
     // Remote stream'i hoparlore bagla
     await loopbackManager.startMonitorPlayback(remoteStream, {
-      mode: monitorMode,
+      mode: pipeline,
       bufferSize: this.deps.getBufferSize()
     });
 
-    // UI guncelle (sinyal algilandi, artik hazir)
+    // UI guncelle
     this.deps.setIsPreparing(false);
     this.deps.setCurrentMode('monitoring');
     this.deps.uiStateManager?.updateButtonStates();
@@ -138,13 +137,13 @@ class MonitoringController {
     eventBus.emit('stream:started', this.loopbackLocalStream);  // Local VU Meter
     eventBus.emit('loopback:remoteStream', remoteStream);       // Remote VU Meter
 
-    eventBus.emit('log', `🎧 Loopback monitor hazir (${waited}ms beklendi)`);
+    eventBus.emit('log', '🎧 Loopback monitor hazir');
   }
 
   /**
    * Normal monitoring (loopback kapali)
    */
-  async _startNormalMonitoring(constraints, monitorMode, mediaBitrate) {
+  async _startNormalMonitoring(constraints, pipeline, mediaBitrate) {
     const monitor = this.deps.monitor;
     const useWebAudio = this.deps.isWebAudioEnabled();
 
@@ -152,15 +151,15 @@ class MonitoringController {
       // CODEC-SIMULATED MODE
       const timeslice = this.deps.getTimeslice();
       const bufferSize = this.deps.getBufferSize();
-      eventBus.emit('log', `🎙️ Codec-simulated monitor baslatiliyor (${monitorMode} ${mediaBitrate} bps, ${timeslice}ms)...`);
-      await monitor.startCodecSimulated(constraints, mediaBitrate, monitorMode, timeslice, bufferSize);
+      eventBus.emit('log', `🎙️ Codec-simulated monitor baslatiliyor (${pipeline} ${mediaBitrate} bps, ${timeslice}ms)...`);
+      await monitor.startCodecSimulated(constraints, mediaBitrate, pipeline, timeslice, bufferSize);
     } else if (useWebAudio) {
       // WEBAUDIO MODE
-      if (monitorMode === 'direct') {
+      if (pipeline === 'direct') {
         await monitor.startDirect(constraints);
-      } else if (monitorMode === 'scriptprocessor') {
+      } else if (pipeline === 'scriptprocessor') {
         await monitor.startScriptProcessor(constraints, this.deps.getBufferSize());
-      } else if (monitorMode === 'worklet') {
+      } else if (pipeline === 'worklet') {
         await monitor.startAudioWorklet(constraints);
       } else {
         await monitor.startWebAudio(constraints);
@@ -221,77 +220,19 @@ class MonitoringController {
 
   // === HELPER METODLAR ===
 
-  /**
-   * Dinamik sinyal bekleme - WebRTC codec hazir olana kadar bekle
-   * UI senkronizasyonu icin: Sinyal algilanmadan "monitoring" durumuna gecme
-   */
-  async _waitForSignal(remoteStream, opusBitrate) {
-    const maxWait = SIGNAL.MAX_WAIT_MS;
-    const pollInterval = SIGNAL.POLL_INTERVAL_MS;
-    const signalThreshold = SIGNAL.RMS_THRESHOLD;
-    let waited = 0;
-    let signalDetected = false;
-    let lastRms = 0;
-
-    // Gecici AudioContext ve Analyser olustur
-    const acOptions = getAudioContextOptions(remoteStream);
-    const tempCtx = await createAudioContext(acOptions);
-    const analyser = tempCtx.createAnalyser();
-    analyser.fftSize = AUDIO.FFT_SIZE;
-    const testArray = new Uint8Array(analyser.fftSize);
-
-    // Remote stream'i analyser'a bagla
-    const source = tempCtx.createMediaStreamSource(remoteStream);
-    source.connect(analyser);
-
-    eventBus.emit('log:webaudio', {
-      message: `Loopback Monitor: Sinyal bekleniyor (max ${maxWait}ms)`,
-      details: { opusBitrate: `${opusBitrate / 1000} kbps`, threshold: signalThreshold }
-    });
-
-    while (waited < maxWait && !signalDetected) {
-      analyser.getByteTimeDomainData(testArray);
-      let sum = 0;
-      for (let i = 0; i < testArray.length; i++) {
-        const val = (testArray[i] - 128) / 128;
-        sum += val * val;
-      }
-      lastRms = Math.sqrt(sum / testArray.length);
-
-      if (lastRms > signalThreshold) {
-        signalDetected = true;
-        break;
-      }
-
-      await new Promise(r => setTimeout(r, pollInterval));
-      waited += pollInterval;
-    }
-
-    // Temizlik
-    source.disconnect();
-    await tempCtx.close();
-
-    eventBus.emit('log:webaudio', {
-      message: `Loopback Monitor: Sinyal bekleme tamamlandi - ${signalDetected ? '✅ SINYAL VAR' : '⚠️ TIMEOUT'}`,
-      details: { rms: lastRms.toFixed(6), waited: `${waited}ms`, signalDetected }
-    });
-
-    return waited;
-  }
-
-  _buildPipelineDescription(useLoopback, monitorMode, mediaBitrate) {
+  _buildPipelineDescription(useLoopback, pipeline, mediaBitrate) {
     const delayStr = `${DELAY.DEFAULT_SECONDS}sn Delay`;
-    const modeStr = monitorMode === 'scriptprocessor' ? 'ScriptProcessor'
-                  : monitorMode === 'worklet' ? 'AudioWorklet'
-                  : monitorMode === 'direct' ? 'Direct'
-                  : 'WebAudio';
+    const pipelineStr = pipeline === 'scriptprocessor' ? 'ScriptProcessor'
+                      : pipeline === 'worklet' ? 'AudioWorklet'
+                      : pipeline === 'direct' ? 'Direct'
+                      : 'WebAudio';
 
     if (useLoopback) {
-      return `WebRTC Loopback + ${modeStr} + ${delayStr} -> Speaker`;
+      return `WebRTC Loopback + ${pipelineStr} + ${delayStr} -> Speaker`;
     } else if (mediaBitrate > 0) {
       return `Codec-Simulated (${mediaBitrate}bps) + ${delayStr} -> Speaker`;
     } else {
-      return `${modeStr} + ${delayStr} -> Speaker`;
+      return `${pipelineStr} + ${delayStr} -> Speaker`;
     }
   }
 

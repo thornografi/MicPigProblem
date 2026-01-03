@@ -10,7 +10,9 @@ class RecordingController {
     // Dependency injection ile gelen fonksiyonlar
     this.deps = {
       getConstraints: () => ({}),
-      getProcessingMode: () => 'direct',
+      getPipeline: () => 'direct',
+      getEncoder: () => 'mediarecorder',
+      getProcessingMode: () => 'direct', // Geriye uyumluluk
       isWebAudioEnabled: () => false,
       getTimeslice: () => 0,
       getBufferSize: () => 4096,
@@ -52,11 +54,12 @@ class RecordingController {
   async start() {
     const useWebAudio = this.deps.isWebAudioEnabled();
     const constraints = this.deps.getConstraints();
-    const recordMode = useWebAudio ? this.deps.getProcessingMode() : 'direct';
+    const pipeline = useWebAudio ? this.deps.getPipeline() : 'direct';
+    const encoder = this.deps.getEncoder();
 
     eventBus.emit('log:recorder', {
       message: 'Kayit baslat butonuna basildi',
-      details: { constraints, webAudioEnabled: useWebAudio, recordMode }
+      details: { constraints, webAudioEnabled: useWebAudio, pipeline, encoder }
     });
 
     try {
@@ -73,7 +76,7 @@ class RecordingController {
       const mediaBitrate = this.deps.getMediaBitrate();
       const bufferSize = this.deps.getBufferSize();
 
-      await this.deps.recorder.start(constraints, recordMode, timeslice, bufferSize, mediaBitrate);
+      await this.deps.recorder.start(constraints, pipeline, encoder, timeslice, bufferSize, mediaBitrate);
 
       // UI guncelle
       this.deps.setIsPreparing(false);

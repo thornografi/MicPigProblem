@@ -126,3 +126,45 @@ export function createMediaRecorder(stream, options = {}) {
     return new MediaRecorder(stream);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Pipeline & Encoder Helper Functions (DRY - OCP)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Pipeline'in buffer ayari gerektirip gerektirmedigini dondurur
+ * ScriptProcessor kullanici tarafindan ayarlanabilir buffer'a sahip
+ * @param {string} pipeline - Pipeline tipi
+ * @returns {boolean}
+ */
+export function needsBufferSetting(pipeline) {
+  return pipeline === 'scriptprocessor';
+}
+
+/**
+ * Pipeline'in WebAudio kullanip kullanmadigini dondurur
+ * direct harici tum pipeline'lar WebAudio kullaniyor
+ * @param {string} pipeline - Pipeline tipi
+ * @returns {boolean}
+ */
+export function usesWebAudio(pipeline) {
+  return pipeline !== 'direct';
+}
+
+/**
+ * Encoder'in WASM Opus kullanip kullanmadigini dondurur
+ * @param {string} encoder - Encoder tipi
+ * @returns {boolean}
+ */
+export function usesWasmOpus(encoder) {
+  return encoder === 'wasm-opus';
+}
+
+/**
+ * Encoder'in MediaRecorder kullanip kullanmadigini dondurur
+ * @param {string} encoder - Encoder tipi
+ * @returns {boolean}
+ */
+export function usesMediaRecorder(encoder) {
+  return encoder === 'mediarecorder';
+}

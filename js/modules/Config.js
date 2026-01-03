@@ -31,7 +31,7 @@ export const SETTINGS = {
     type: 'enum',
     values: [16000, 24000, 48000],  // Opus-uyumlu: wideband, super-wideband, fullband
     default: 48000,
-    label: 'Örnekleme Hızı',
+    label: 'Sample Rate',
     category: 'constraints',
     unit: 'Hz',
     ui: { type: 'radio', name: 'sampleRate' }
@@ -40,30 +40,46 @@ export const SETTINGS = {
     type: 'enum',
     values: [1, 2],
     default: 1,
-    label: 'Kanal Sayısı',
+    label: 'Channel Count',
     category: 'constraints',
     labels: { 1: 'Mono', 2: 'Stereo' },
     ui: { type: 'radio', name: 'channelCount' }
   },
 
-  // Ses Isleme Modu (WebAudio entegre)
+  // Ses Isleme Pipeline (WebAudio graph)
   // direct: WebAudio yok, ham MediaStream
-  // standard: WebAudio basit graph
-  // scriptprocessor: WebAudio + ScriptProcessorNode (eski API)
-  // worklet: WebAudio + AudioWorkletNode (modern API)
-  mode: {
+  // standard: WebAudio basit graph (Source -> Destination)
+  // scriptprocessor: WebAudio + ScriptProcessorNode (eski API, buffer ayarlanabilir)
+  // worklet: WebAudio + AudioWorkletNode (modern API, sabit 128 sample)
+  pipeline: {
     type: 'enum',
     values: ['direct', 'standard', 'scriptprocessor', 'worklet'],
     default: 'standard',
-    label: 'Ses Isleme Modu',
+    label: 'Pipeline',
     category: 'pipeline',
     labels: {
-      direct: 'Direct (WebAudio yok)',
-      standard: 'Standard (WebAudio)',
-      scriptprocessor: 'ScriptProcessor (Eski API)',
-      worklet: 'AudioWorklet (Modern)'
+      direct: 'Direct (No Web Audio)',
+      standard: 'Standard (Web Audio)',
+      scriptprocessor: 'ScriptProcessorNode',
+      worklet: 'AudioWorklet'
     },
-    ui: { type: 'radio', name: 'processingMode' }
+    ui: { type: 'radio', name: 'pipeline' }
+  },
+
+  // Encoder (Kayit formati)
+  // mediarecorder: Tarayici MediaRecorder API (varsayilan codec)
+  // wasm-opus: WASM Opus encoder (WhatsApp Web pattern)
+  encoder: {
+    type: 'enum',
+    values: ['mediarecorder', 'wasm-opus'],
+    default: 'mediarecorder',
+    label: 'Encoder',
+    category: 'pipeline',
+    labels: {
+      mediarecorder: 'MediaRecorder',
+      'wasm-opus': 'WASM Opus'
+    },
+    ui: { type: 'radio', name: 'encoder' }
   },
   buffer: {
     type: 'enum',
@@ -93,12 +109,12 @@ export const SETTINGS = {
     ui: { type: 'radio', name: 'bitrate' }
   },
 
-  // MediaRecorder bitrate (Sesli mesaj icin)
+  // Ses bitrate (MediaRecorder veya WASM Opus encoder icin)
   mediaBitrate: {
     type: 'enum',
     values: [0, 16000, 24000, 32000, 64000, 128000],
     default: 0,
-    label: 'MediaRecorder Bitrate',
+    label: 'Voice Message Bitrate',
     category: 'recording',
     unit: 'bps',
     ui: { type: 'radio', name: 'mediaBitrate' }
@@ -122,7 +138,7 @@ export const SETTINGS = {
 const DEFAULT_VALUES = {
   ec: true, ns: true, agc: true,
   sampleRate: 48000, channelCount: 1,
-  mode: 'standard', buffer: 4096,
+  pipeline: 'standard', encoder: 'mediarecorder', buffer: 4096,
   loopback: true, bitrate: 64000, mediaBitrate: 0,
   timeslice: 0
 };
@@ -184,52 +200,54 @@ export const PROFILES = {
   // ═══════════════════════════════════════════════════════════════
   // Call profilleri: EC/NS/AGC platformlar tarafindan kesinlikle kullaniliyor
   'discord': createProfile('discord', 'Discord', 'Discord, Guilded - Krisp noise suppression, AudioWorklet',
-    'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'mode', 'sampleRate', 'ec', 'ns', 'agc'],
+    'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'pipeline', 'encoder', 'sampleRate', 'ec', 'ns', 'agc'],
       editable: ['bitrate', 'channelCount'],
       allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] } }),
 
   'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - AudioWorklet pipeline',
-    'video', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'mode', 'channelCount', 'ec', 'ns', 'agc'],
+    'video', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'pipeline', 'encoder', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate', 'sampleRate'],
       allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 24000, 48000] } }),
 
-  'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Web Arama', 'WhatsApp Web sesli/görüntülü arama',
-    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
+  'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Web Call', 'WhatsApp Web voice/video call',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'pipeline', 'encoder', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
       allowedValues: { bitrate: [16000, 24000, 32000] } }),
 
-  'telegram-call': createProfile('telegram-call', 'Telegram Web Arama', 'Telegram Web sesli arama',
-    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, mode: 'worklet', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'mode', 'ec', 'ns', 'agc'],
+  'telegram-call': createProfile('telegram-call', 'Telegram Web Call', 'Telegram Web voice call',
+    'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
+    { locked: ['loopback', 'pipeline', 'encoder', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
       allowedValues: { bitrate: [24000, 32000, 48000, 64000] } }),
 
   // ═══════════════════════════════════════════════════════════════
   // 🎙️ KAYIT (record) - MediaRecorder, Recording Primary
   // ═══════════════════════════════════════════════════════════════
-  'whatsapp-voice': createProfile('whatsapp-voice', 'WhatsApp Sesli Mesaj', 'Düşük bitrate voice message',
-    'message', 'record', { mediaBitrate: 16000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['mode'],
-      editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
-      allowedValues: { mediaBitrate: [0, 16000, 24000], timeslice: [0, 100, 250, 500] } }),
+  'whatsapp-voice': createProfile('whatsapp-voice', 'WhatsApp Voice Message',
+    'ScriptProcessor + WASM Opus (16-32kbps) - WhatsApp Web simulation',
+    'message', 'record', { mediaBitrate: 16000, timeslice: 0, loopback: false, pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 4096 },
+    { locked: ['pipeline', 'encoder', 'buffer', 'timeslice'],
+      editable: ['ec', 'ns', 'agc', 'mediaBitrate'],
+      allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
 
-  'telegram-voice': createProfile('telegram-voice', 'Telegram Sesli Mesaj', 'Telegram voice note (32-64kbps)',
-    'send', 'record', { mediaBitrate: 32000, timeslice: 250, loopback: false, mode: 'standard' },
-    { locked: ['mode'],
+  'telegram-voice': createProfile('telegram-voice', 'Telegram Voice Message',
+    'AudioWorklet + MediaRecorder Opus (16-32kbps) - Telegram Web simulation',
+    'send', 'record', { mediaBitrate: 32000, timeslice: 250, loopback: false, pipeline: 'worklet', encoder: 'mediarecorder' },
+    { locked: ['pipeline', 'encoder'],
       editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
-      allowedValues: { mediaBitrate: [0, 24000, 32000, 64000], timeslice: [0, 100, 250, 500] } }),
+      allowedValues: { mediaBitrate: [16000, 24000, 32000], timeslice: [0, 100, 250, 500] } }),
 
-  'legacy': createProfile('legacy', 'Eski Web Kayıt', 'ScriptProcessor ile kayıt testi',
-    'history', 'record', { mode: 'scriptprocessor', buffer: 1024, timeslice: 1000, loopback: false },
-    { locked: ['mode'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
+  'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + MediaRecorder - legacy web recording sites',
+    'history', 'record', { pipeline: 'scriptprocessor', encoder: 'mediarecorder', buffer: 1024, timeslice: 1000, loopback: false },
+    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
     // allowedValues yok = tum degerler izinli
 
-  'mictest': createProfile('mictest', 'Ham Kayıt', 'Kayıt ayarları serbest - test ve deneme',
-    'mic', 'record', { ec: false, ns: false, agc: false, mode: 'direct', loopback: false },
-    { locked: [], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'mode', 'buffer', 'mediaBitrate', 'timeslice'] })
+  'mictest': createProfile('mictest', 'Raw Recording', 'All recording settings unlocked - for testing',
+    'mic', 'record', { ec: false, ns: false, agc: false, pipeline: 'direct', encoder: 'mediarecorder', loopback: false },
+    { locked: [], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'pipeline', 'encoder', 'buffer', 'mediaBitrate', 'timeslice'] })
     // allowedValues yok = tum degerler izinli (test profili)
 };
 
@@ -238,16 +256,16 @@ export const PROFILES = {
 export const PROFILE_CATEGORIES = {
   call: {
     id: 'call',
-    label: 'Sesli Görüşme',
+    label: 'Voice Calls',
     icon: '📞',
-    desc: 'Discord, Zoom, WhatsApp/Telegram arama',
+    desc: 'Discord, Zoom, WhatsApp/Telegram calls',
     order: 1
   },
   record: {
     id: 'record',
-    label: 'Kayıt',
+    label: 'Voice Messages',
     icon: '🎙️',
-    desc: 'WhatsApp/Telegram sesli mesaj, ham kayıt',
+    desc: 'WhatsApp/Telegram voice messages, raw recording',
     order: 2
   }
 };

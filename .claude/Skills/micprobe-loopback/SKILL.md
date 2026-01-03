@@ -24,7 +24,7 @@ Guvenli yol:
 
 1. Remote stream'i bir `<audio>` elementine bagla
 2. `audio.play()` ile "aktive et" (mute/volume=0 ile)
-3. Sonra WebAudio graph kur
+3. Sonra Web Audio graph kur
 
 ```javascript
 // LoopbackManager.js - Activator pattern
@@ -33,7 +33,7 @@ activatorAudio.srcObject = remoteStream;
 activatorAudio.muted = true;
 activatorAudio.volume = 0;
 await activatorAudio.play();
-// Simdi WebAudio graph kurulabilir
+// Simdi Web Audio graph kurulabilir
 ```
 
 **Cleanup:** `window._loopbackMonitorActivatorAudio` global'de tutulur, `cleanupMonitorPlayback()` icinde temizlenir.

@@ -107,7 +107,7 @@ SORU: Bu degisiklik baska fonksiyonlari/modulleri etkiler mi?
       +-- HAYIR → Devam et
 `
 
-> **Detay icin:** `Skill("workflow-impact")` cagir
+> **Detay icin:** `skill-control` skill'ine bak
 
 ### 3. DRY Ihlali Analizi (Tekrar Eden Kod)
 

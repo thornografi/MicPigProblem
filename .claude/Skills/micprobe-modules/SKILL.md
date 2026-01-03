@@ -38,14 +38,20 @@ js/
 ├── ui/
 │   ├── ProfileUIManager.js      # Profil UI, settings panel (~190)
 │   └── DebugConsole.js          # Debug fonksiyonlari (~145)
+├── lib/opus/
+│   ├── encoderWorker.min.js     # opus-recorder WASM encoder (376KB)
+│   └── OggOpusWriter.js         # Ogg Opus container writer (yedek)
+├── worklets/
+│   └── passthrough-processor.js # AudioWorklet processor
 └── modules/
     ├── Config.js                # PROFILES, SETTINGS
-    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL
+    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL, OPUS
     ├── EventBus.js              # Pub/Sub singleton
     ├── ProfileController.js     # applyProfile, constraint logic
     ├── UIStateManager.js        # Buton state yonetimi
     ├── LoopbackManager.js       # WebRTC loopback setup
-    ├── Recorder.js              # MediaRecorder wrapper
+    ├── Recorder.js              # MediaRecorder + WASM Opus wrapper
+    ├── OpusWorkerHelper.js      # WASM Opus worker yonetimi
     ├── Monitor.js               # Modlar: direct, standard, worklet, codec-simulated; scriptprocessor sadece record/legacy icin
     ├── Player.js                # Blob oynatma
     ├── VuMeter.js               # dB gostergesi
@@ -117,10 +123,32 @@ eventBus.on('event:name', callback);
 ### Recorder (record kategorisi icin)
 ```javascript
 const recorder = new Recorder({ constraints });
-await recorder.start(constraints, mode, timeslice, bufferSize, mediaBitrate);
+await recorder.start(constraints, pipeline, encoder, timeslice, bufferSize, mediaBitrate);
 recorder.stop();
 ```
-**Emits:** `recording:started`, `recording:completed`
+**Pipeline (Web Audio Graph):**
+- `direct` → Web Audio yok, dogrudan MediaRecorder
+- `standard` → AudioContext → MediaRecorder
+- `scriptprocessor` → ScriptProcessorNode → MediaRecorder
+- `worklet` → AudioWorkletNode → MediaRecorder
+
+**Encoder (Kayit Formati):**
+- `mediarecorder` → Tarayici MediaRecorder API
+- `wasm-opus` → WASM Opus encoder (WhatsApp Web pattern)
+
+**Emits:** `recording:started`, `recording:completed`, `opus:progress`
+
+### OpusWorkerHelper (WASM Opus icin)
+```javascript
+import { isWasmOpusSupported, createOpusWorker } from './OpusWorkerHelper.js';
+
+if (isWasmOpusSupported()) {
+  const worker = await createOpusWorker({ sampleRate: 48000, channels: 1, bitrate: 16000 });
+  worker.encode(pcmData);
+  const result = await worker.finish(); // { blob, duration, frameCount }
+}
+```
+**WhatsApp Web Pattern:** `ScriptProcessorNode(4096, 1, 1) + WASM Opus`
 
 ### Monitor (MonitoringController uzerinden)
 Modlar:

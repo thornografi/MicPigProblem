@@ -6,7 +6,7 @@
 
 import eventBus from './EventBus.js';
 import { PROFILES, SETTINGS } from './Config.js';
-import { toggleDisplay } from './utils.js';
+import { toggleDisplay, needsBufferSetting, usesWasmOpus } from './utils.js';
 
 /**
  * ProfileController class - Profil islemlerini yonetir
@@ -210,11 +210,10 @@ class ProfileController {
     if (!isDynamicProfile) return;
 
     const loopback = this.elements.loopbackToggle?.checked ?? false;
-    const mode = this.callbacks.getRadioValue('processingMode', 'standard');
+    const pipeline = this.callbacks.getRadioValue('pipeline', 'standard');
 
-    // Kural 1: buffer sadece ScriptProcessor icin anlamli (AudioWorklet sabit 128)
-    const needsBuffer = mode === 'scriptprocessor';
-    this.callbacks.setSettingDisabled('buffer', !needsBuffer);
+    // Kural 1: buffer sadece ScriptProcessor pipeline icin anlamli (AudioWorklet sabit 128)
+    this.callbacks.setSettingDisabled('buffer', !needsBufferSetting(pipeline));
 
     // Kural 2: loopback ON -> mediaBitrate kilitle (WebRTC varsa MediaRecorder bitrate anlamsiz)
     this.callbacks.setSettingDisabled('mediaBitrate', loopback);
@@ -236,10 +235,10 @@ class ProfileController {
     const { customSettingsGrid, loopbackToggle } = this.elements;
     if (!customSettingsGrid) return;
 
-    const mode = this.callbacks.getRadioValue('processingMode', 'standard');
+    const pipeline = this.callbacks.getRadioValue('pipeline', 'standard');
     const loopbackOn = loopbackToggle?.checked ?? false;
     const dynamicLockMap = {
-      buffer: mode !== 'scriptprocessor',  // Sadece ScriptProcessor'da editable
+      buffer: !needsBufferSetting(pipeline),  // Sadece ScriptProcessor pipeline'da editable
       mediaBitrate: loopbackOn,            // Loopback ON -> disabled
       bitrate: !loopbackOn,                // Loopback OFF -> disabled
       timeslice: loopbackOn                // Loopback ON -> disabled
@@ -305,8 +304,8 @@ class ProfileController {
 
     const { pipelineSection, webrtcSection, developerSection } = this.elements;
 
-    // Pipeline section: webaudio, mode, buffer
-    toggleDisplay(pipelineSection, isVisible('webaudio') || isVisible('mode') || isVisible('buffer'));
+    // Pipeline section: webaudio, pipeline, encoder, buffer
+    toggleDisplay(pipelineSection, isVisible('webaudio') || isVisible('pipeline') || isVisible('encoder') || isVisible('buffer'));
 
     // WebRTC section: loopback, bitrate, mediaBitrate
     toggleDisplay(webrtcSection, isVisible('loopback') || isVisible('bitrate') || isVisible('mediaBitrate'));
@@ -339,19 +338,25 @@ class ProfileController {
 
     const techParts = [];
 
+    // Encoder bilgisi
     if (profile.values.loopback) {
       techParts.push('WebRTC Loopback');
       techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
+    } else if (usesWasmOpus(profile.values.encoder)) {
+      techParts.push(`WASM Opus ${(profile.values.mediaBitrate || 16000) / 1000}kbps`);
     } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
       techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
     } else {
       techParts.push('Direct Recording');
     }
 
-    if (profile.values.mode === 'scriptprocessor') {
+    // Pipeline bilgisi
+    if (profile.values.pipeline === 'scriptprocessor') {
       techParts.push('ScriptProcessor');
-    } else if (profile.values.mode === 'worklet') {
+    } else if (profile.values.pipeline === 'worklet') {
       techParts.push('AudioWorklet');
+    } else if (profile.values.pipeline === 'standard') {
+      techParts.push('Standard');
     }
 
     return techParts;

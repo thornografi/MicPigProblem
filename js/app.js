@@ -17,8 +17,9 @@ import Recorder from './modules/Recorder.js';
 import Monitor from './modules/Monitor.js';
 import StatusManager from './modules/StatusManager.js';
 import DeviceInfo from './modules/DeviceInfo.js';
-import { formatTime, createAudioContext, getAudioContextOptions, stopStreamTracks, toggleDisplay, createMediaRecorder } from './modules/utils.js';
+import { formatTime, createAudioContext, getAudioContextOptions, stopStreamTracks, toggleDisplay, createMediaRecorder, needsBufferSetting, usesWebAudio, usesWasmOpus, usesMediaRecorder } from './modules/utils.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet, isAudioWorkletSupported } from './modules/WorkletHelper.js';
+import { isWasmOpusSupported } from './modules/OpusWorkerHelper.js';
 import { PROFILES, SETTINGS, PROFILE_CATEGORIES } from './modules/Config.js';
 import { DELAY, SIGNAL, bytesToKB, AUDIO, BUFFER, calculateLatencyMs } from './modules/constants.js';
 import loopbackManager from './modules/LoopbackManager.js';
@@ -33,6 +34,7 @@ import profileUIManager from './ui/ProfileUIManager.js';
 // ERKEN TANIMLANAN SABITLER (applyProfile oncesi gerekli)
 // ============================================
 const WORKLET_SUPPORTED = isAudioWorkletSupported();
+const WASM_OPUS_SUPPORTED = isWasmOpusSupported();
 
 // ============================================
 // UTILITY FONKSIYONLAR
@@ -102,8 +104,9 @@ const opusBitrateContainer = document.getElementById('opusBitrateContainer');
 // Timeslice Test secici
 const timesliceInfoEl = document.getElementById('timesliceInfo');
 
-// Islem modu (kayit + monitor icin ortak)
-const processingModeContainer = document.getElementById('processingModeContainer');
+// Pipeline ve Encoder (kayit + monitor icin ortak)
+const pipelineContainer = document.getElementById('pipelineContainer');
+const encoderContainer = document.getElementById('encoderContainer');
 
 // Buffer size secici
 const bufferSizeContainer = document.getElementById('bufferSizeContainer');
@@ -139,7 +142,8 @@ const developerSection = document.getElementById('developerSection');
 // data-setting container cache (updateSectionVisibility icin)
 const settingContainers = {
   webaudio: document.querySelector('[data-setting="webaudio"]'),
-  mode: document.querySelector('[data-setting="mode"]'),
+  pipeline: document.querySelector('[data-setting="pipeline"]'),
+  encoder: document.querySelector('[data-setting="encoder"]'),
   buffer: document.querySelector('[data-setting="buffer"]'),
   loopback: document.querySelector('[data-setting="loopback"]'),
   bitrate: document.querySelector('[data-setting="bitrate"]'),
@@ -156,7 +160,8 @@ const scenarioCards = document.querySelectorAll('.scenario-card');
 const navItems = document.querySelectorAll('.nav-item[data-profile]');
 
 // Radio buton koleksiyonlari (cache - tekrar sorgu onlemi)
-const processingModeRadios = document.querySelectorAll('input[name="processingMode"]');
+const pipelineRadios = document.querySelectorAll('input[name="pipeline"]');
+const encoderRadios = document.querySelectorAll('input[name="encoder"]');
 const bitrateRadios = document.querySelectorAll('input[name="bitrate"]');
 // mediaBitrateRadios - KALDIRILDI: OCP mimarisi ile getSettingElements() dinamik kullaniliyor
 const timesliceRadios = document.querySelectorAll('input[name="timeslice"]');
@@ -297,14 +302,23 @@ function getConstraints() {
 }
 
 function isWebAudioEnabled() {
-  // Mode'a gore WebAudio durumunu belirle
-  // direct: WebAudio yok, diger modlar: WebAudio var
-  const mode = getRadioValue('processingMode', 'standard');
-  return mode !== 'direct';
+  // Pipeline'a gore WebAudio durumunu belirle
+  // direct: WebAudio yok, diger pipeline'lar: WebAudio var
+  const pipeline = getRadioValue('pipeline', 'standard');
+  return usesWebAudio(pipeline);
 }
 
+function getPipeline() {
+  return getRadioValue('pipeline', 'standard');
+}
+
+function getEncoder() {
+  return getRadioValue('encoder', 'mediarecorder');
+}
+
+// Geriye uyumluluk icin alias
 function getProcessingMode() {
-  return getRadioValue('processingMode', 'standard');
+  return getPipeline();
 }
 
 function isLoopbackEnabled() {
@@ -364,10 +378,10 @@ function updateTimesliceInfo(value) {
   infoText.classList.remove('warning', 'danger');
 
   if (value === 0) {
-    infoText.textContent = 'OFF: Tek chunk - timeslice yok';
+    infoText.textContent = 'OFF: Single chunk - no timeslice';
   } else {
     const chunksPerSec = 1000 / value;
-    infoText.textContent = `${value}ms: ~${chunksPerSec.toFixed(1)} chunk/sn - Citirtı frekansını dinle!`;
+    infoText.textContent = `${value}ms: ~${chunksPerSec.toFixed(1)} chunks/sec - Listen for glitch frequency!`;
 
     if (value <= 100) {
       infoText.classList.add('danger');
@@ -387,35 +401,51 @@ attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
 // NOT: webaudioToggle kaldirildi - artik mode secimi WebAudio durumunu belirliyor
 // Mode degisikliginde loglama asagida yapiliyor
 
-// Islem modu degisikligi loglama
-processingModeRadios.forEach(radio => {
+// Pipeline degisikligi loglama
+pipelineRadios.forEach(radio => {
   radio.addEventListener('change', (e) => {
-    const mode = e.target.value;
-    const labelByMode = {
+    const pipeline = e.target.value;
+    const labelByPipeline = {
       direct: 'Direct',
       standard: 'Standard',
       scriptprocessor: 'ScriptProcessor',
       worklet: 'AudioWorklet'
     };
 
-    // Buffer size gorunurlugu: profil ayarlarina veya mode'a bagli
+    // Buffer size gorunurlugu: profil ayarlarina veya pipeline'a bagli
     // - Profilde buffer locked/editable ise: updateSettingVisibility halleder
-    // - Profilde buffer yoksa: sadece ScriptProcessor modunda goster
+    // - Profilde buffer yoksa: sadece ScriptProcessor pipeline'inda goster
     const profile = profileController.getCurrentProfile();
     const bufferInProfile = profile?.lockedSettings?.includes('buffer') ||
                             profile?.editableSettings?.includes('buffer') ||
                             profile?.allowedSettings === 'all';
     if (!bufferInProfile) {
-      toggleDisplay(bufferSizeContainer, mode === 'scriptprocessor');
+      toggleDisplay(bufferSizeContainer, needsBufferSetting(pipeline));
     }
 
     // Dinamik kilitleme guncelle (buffer icin)
     profileController.updateDynamicLocks();
-    uiStateManager.updateButtonStates(); // AudioWorklet modunda buffer disabled olur
+    uiStateManager.updateButtonStates();
 
     eventBus.emit('log:webaudio', {
-      message: `Islem Modu: ${labelByMode[mode] || mode}`,
-      details: { setting: 'processingMode', value: mode }
+      message: `Pipeline: ${labelByPipeline[pipeline] || pipeline}`,
+      details: { setting: 'pipeline', value: pipeline }
+    });
+  });
+});
+
+// Encoder degisikligi loglama
+encoderRadios.forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    const encoder = e.target.value;
+    const labelByEncoder = {
+      mediarecorder: 'MediaRecorder',
+      'wasm-opus': 'WASM Opus'
+    };
+
+    eventBus.emit('log:webaudio', {
+      message: `Encoder: ${labelByEncoder[encoder] || encoder}`,
+      details: { setting: 'encoder', value: encoder }
     });
   });
 });
@@ -520,6 +550,11 @@ const pageSubtitle = document.getElementById('pageSubtitle');
 const settingsDrawer = document.getElementById('settingsDrawer');
 const drawerOverlay = document.getElementById('drawerOverlay');
 const closeDrawerBtn = document.getElementById('closeDrawer');
+
+// Dev Console Drawer
+const devConsoleDrawer = document.getElementById('devConsoleDrawer');
+const devConsoleToggle = document.getElementById('devConsoleToggle');
+const closeConsoleBtn = document.getElementById('closeConsole');
 // sidebarStatus - KALDIRILDI: Kullanilmiyordu
 
 // NOT: buildTechParts ProfileController'a tasindi
@@ -532,6 +567,12 @@ function closeSettingsDrawer() {
   document.body.style.overflow = '';
 }
 
+function toggleDevConsole() {
+  if (devConsoleDrawer) {
+    devConsoleDrawer.classList.toggle('open');
+  }
+}
+
 // Drawer event listeners
 if (closeDrawerBtn) {
   closeDrawerBtn.addEventListener('click', closeSettingsDrawer);
@@ -540,10 +581,23 @@ if (drawerOverlay) {
   drawerOverlay.addEventListener('click', closeSettingsDrawer);
 }
 
-// ESC ile drawer kapat
+// Dev Console event listeners
+if (devConsoleToggle) {
+  devConsoleToggle.addEventListener('click', toggleDevConsole);
+}
+if (closeConsoleBtn) {
+  closeConsoleBtn.addEventListener('click', toggleDevConsole);
+}
+
+// ESC ile drawer/console kapat
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && settingsDrawer?.classList.contains('open')) {
-    closeSettingsDrawer();
+  if (e.key === 'Escape') {
+    if (settingsDrawer?.classList.contains('open')) {
+      closeSettingsDrawer();
+    }
+    if (devConsoleDrawer?.classList.contains('open')) {
+      toggleDevConsole();
+    }
   }
 });
 
@@ -574,12 +628,9 @@ function updateCustomSettingsPanel(profileId) {
   const editableSettings = profile.editableSettings || [];
   const isCustomProfile = profileId === 'custom' || profile.allowedSettings === 'all';
 
-  // Tum ayarlari listele
-  const allSettingKeys = Object.keys(SETTINGS);
-
   let html = '';
 
-  // Deger formatlama (bitrate icin "64k" gibi)
+  // Deger formatlama (bitrate icin "64k" gibi, pipeline/encoder icin labels)
   const formatEnumValue = (val, key) => {
     if (key === 'bitrate' || key === 'mediaBitrate') {
       return val === 0 ? 'Off' : (val / 1000) + 'k';
@@ -588,12 +639,43 @@ function updateCustomSettingsPanel(profileId) {
       return val.toString();
     }
     if (key === 'timeslice') {
-      return val === 0 ? 'Tek parça' : val + 'ms';
+      return val === 0 ? 'Single chunk' : val + 'ms';
+    }
+    // Config'deki labels objesini kullan (pipeline, encoder icin)
+    const setting = SETTINGS[key];
+    if (setting?.labels?.[val]) {
+      return setting.labels[val];
     }
     return val;
   };
 
-  allSettingKeys.forEach(key => {
+  const categoryLabels = {
+    constraints: 'Audio Processing',
+    loopback: 'WebRTC Loopback',
+    pipeline: 'Audio Pipeline',
+    recording: 'Recording',
+    other: 'Other'
+  };
+  const categoryOrder = ['constraints', 'loopback', 'pipeline', 'recording'];
+  const groupedSettings = {};
+
+  const ensureGroup = (category) => {
+    if (!groupedSettings[category]) {
+      groupedSettings[category] = { booleans: [], enums: [] };
+      if (!categoryOrder.includes(category)) {
+        categoryOrder.push(category);
+      }
+    }
+  };
+
+  const formatCategoryLabel = (category) => {
+    if (categoryLabels[category]) return categoryLabels[category];
+    return category
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b[a-z]/g, (char) => char.toUpperCase());
+  };
+
+  Object.keys(SETTINGS).forEach(key => {
     const setting = SETTINGS[key];
     if (!setting) return;
 
@@ -603,18 +685,46 @@ function updateCustomSettingsPanel(profileId) {
     // Sadece locked veya editable olanlari goster
     if (!isLocked && !isEditable) return;
 
-    const statusClass = isLocked ? 'locked' : 'editable';
-    const currentValue = profile.values?.[key] ?? setting.default;
-    const isBoolean = setting.type === 'boolean';
-    const isEnum = setting.type === 'enum';
+    const settingData = {
+      key,
+      setting,
+      isLocked,
+      currentValue: profile.values?.[key] ?? setting.default
+    };
 
-    html += `<div class="custom-setting-item ${statusClass}">`;
+    const category = setting.category || 'other';
+    ensureGroup(category);
 
-    if (isBoolean) {
-      html += `<input type="checkbox" ${currentValue ? 'checked' : ''} ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
-      html += `<span class="setting-name">${setting.label || key}</span>`;
-    } else if (isEnum) {
-      html += `<span class="setting-name">${setting.label || key}</span>`;
+    if (setting.type === 'boolean') {
+      groupedSettings[category].booleans.push(settingData);
+    } else if (setting.type === 'enum') {
+      groupedSettings[category].enums.push(settingData);
+    }
+  });
+
+  categoryOrder.forEach(category => {
+    const group = groupedSettings[category];
+    if (!group || (group.booleans.length === 0 && group.enums.length === 0)) return;
+
+    html += '<div class="custom-settings-section">';
+    html += `<div class="custom-settings-section-label">${formatCategoryLabel(category)}</div>`;
+    html += '<div class="custom-settings-section-body">';
+
+    if (group.booleans.length > 0) {
+      html += '<div class="custom-settings-checkbox-row">';
+      group.booleans.forEach(({ key, setting, isLocked, currentValue }) => {
+        const statusClass = isLocked ? 'locked' : 'editable';
+        html += `<div class="custom-setting-item ${statusClass}">`;
+        html += `<input type="checkbox" ${currentValue ? 'checked' : ''} ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
+        html += `<span class="setting-name">${setting.label || key}</span>`;
+        html += `</div>`;
+      });
+      html += '</div>';
+    }
+
+    group.enums.forEach(({ key, setting, isLocked, currentValue }) => {
+      const statusClass = isLocked ? 'locked' : 'editable';
+      html += `<div class="custom-setting-item ${statusClass}">`;
       html += `<select ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
       // Profil bazli izin verilen degerler (allowedValues yoksa tum degerler)
       const allowedValues = profile.allowedValues?.[key] || setting.values;
@@ -623,15 +733,16 @@ function updateCustomSettingsPanel(profileId) {
         html += `<option value="${val}" ${selected}>${formatEnumValue(val, key)}</option>`;
       });
       html += `</select>`;
-    } else {
       html += `<span class="setting-name">${setting.label || key}</span>`;
-    }
+      html += `</div>`;
+    });
 
-    html += `</div>`;
+    html += '</div>';
+    html += '</div>';
   });
 
   if (html === '') {
-    html = '<p class="custom-settings-hint">Bu profil icin ozel ayar bulunmuyor.</p>';
+    html = '<p class="custom-settings-hint">No custom settings available for this profile.</p>';
   }
 
   customSettingsGrid.innerHTML = html;
@@ -737,7 +848,8 @@ uiStateManager.init({
   ecCheckbox,
   nsCheckbox,
   agcCheckbox,
-  processingModeContainer,
+  pipelineContainer,
+  encoderContainer,
   timesliceContainer: timesliceContainerEl,
   recordingPlayerCard: recordingPlayerCardEl,
   playBtn: playBtnEl,
@@ -751,7 +863,8 @@ uiStateManager.init({
 });
 
 uiStateManager.setRadioGroups({
-  processingMode: [...processingModeRadios],
+  pipeline: [...pipelineRadios],
+  encoder: [...encoderRadios],
   bitrate: [...bitrateRadios],
   mediaBitrate: [...document.querySelectorAll('input[name="mediaBitrate"]')],
   timeslice: [...timesliceRadios],
@@ -762,7 +875,8 @@ uiStateManager.setStateGetters({
   currentMode: () => currentMode,
   isPreparing: () => isPreparing,
   currentProfileId: () => profileController.getCurrentProfileId(),
-  isWorkletSupported: () => WORKLET_SUPPORTED
+  isWorkletSupported: () => WORKLET_SUPPORTED,
+  isWasmOpusSupported: () => WASM_OPUS_SUPPORTED
 });
 
 uiStateManager.setProfileCollections({
@@ -790,11 +904,35 @@ updateCustomSettingsPanel(initialProfile);
 // NOT: updateCategoryUI zaten applyProfile icinde cagiriliyor
 
 // UI state sync (refresh/persisted checkbox senaryolari icin)
-toggleDisplay(processingModeContainer, isWebAudioEnabled());
+toggleDisplay(pipelineContainer, isWebAudioEnabled());
+toggleDisplay(encoderContainer, true); // Encoder her zaman gorunur
 
 if (!WORKLET_SUPPORTED) {
   eventBus.emit('log:system', {
     message: 'AudioWorklet desteklenmiyor - Worklet secenekleri devre disi',
+    details: {}
+  });
+}
+
+if (!WASM_OPUS_SUPPORTED) {
+  eventBus.emit('log:system', {
+    message: 'WASM Opus desteklenmiyor - WASM Opus secenegi devre disi',
+    details: {}
+  });
+
+  // WASM Opus secenegini devre disi birak
+  const wasmOpusOption = document.querySelector('[data-requires-wasm="true"]');
+  if (wasmOpusOption) {
+    wasmOpusOption.disabled = true;
+    const label = wasmOpusOption.nextElementSibling;
+    if (label) {
+      label.style.opacity = '0.5';
+      label.style.pointerEvents = 'none';
+    }
+  }
+} else {
+  eventBus.emit('log:system', {
+    message: 'WASM Opus destegi aktif',
     details: {}
   });
 }
@@ -805,7 +943,9 @@ loopbackManager.workletSupported = WORKLET_SUPPORTED;
 // Controller'lara bagimliliklari ver
 const controllerDeps = {
   getConstraints,
-  getProcessingMode,
+  getPipeline,
+  getEncoder,
+  getProcessingMode, // Geriye uyumluluk icin (getPipeline alias)
   isLoopbackEnabled,
   isWebAudioEnabled,
   getOpusBitrate,

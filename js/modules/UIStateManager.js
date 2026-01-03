@@ -5,7 +5,7 @@
  */
 
 import { PROFILES, SETTINGS } from './Config.js';
-import { formatTime } from './utils.js';
+import { formatTime, needsBufferSetting } from './utils.js';
 
 /**
  * UIStateManager class - UI durumlarini yonetir
@@ -20,7 +20,8 @@ class UIStateManager {
       ecCheckbox: null,
       nsCheckbox: null,
       agcCheckbox: null,
-      processingModeContainer: null,
+      pipelineContainer: null,
+      encoderContainer: null,
       timesliceContainer: null,
       recordingPlayerCard: null,
       playBtn: null,
@@ -35,7 +36,8 @@ class UIStateManager {
 
     // Radio button koleksiyonlari
     this.radioGroups = {
-      processingMode: [],
+      pipeline: [],
+      encoder: [],
       bitrate: [],
       mediaBitrate: [],
       timeslice: [],
@@ -111,6 +113,7 @@ class UIStateManager {
     const currentMode = this.getState.currentMode();
     const isPreparing = this.getState.isPreparing();
     const WORKLET_SUPPORTED = this.getState.isWorkletSupported();
+    const WASM_OPUS_SUPPORTED = this.getState.isWasmOpusSupported?.() ?? false;
 
     const isIdle = currentMode === null;
     const isRecording = currentMode === 'recording';
@@ -123,7 +126,8 @@ class UIStateManager {
       ecCheckbox,
       nsCheckbox,
       agcCheckbox,
-      processingModeContainer,
+      pipelineContainer,
+      encoderContainer,
       timesliceContainer,
       recordingPlayerCard,
       playBtn,
@@ -149,7 +153,8 @@ class UIStateManager {
 
     // Aktif islem sirasinda kayit tarafini tamamen kilitle (recording VEYA monitoring)
     const disableRecordingUi = isMonitoring || isRecording;
-    processingModeContainer?.classList.toggle('ui-disabled', !isIdle);
+    pipelineContainer?.classList.toggle('ui-disabled', !isIdle);
+    encoderContainer?.classList.toggle('ui-disabled', !isIdle);
     timesliceContainer?.classList.toggle('ui-disabled', disableRecordingUi);
     recordingPlayerCard?.classList.toggle('ui-disabled', disableRecordingUi);
 
@@ -218,10 +223,16 @@ class UIStateManager {
     // Loopback durumu - dinamik kilitleme kurallari icin
     const isLoopbackOn = loopbackToggle?.checked ?? false;
 
-    // Processing mode selector - profil kilidi + aktif session kontrolu
-    this.radioGroups.processingMode.forEach(radio => {
+    // Pipeline selector - profil kilidi + aktif session kontrolu
+    this.radioGroups.pipeline.forEach(radio => {
       const workletUnsupported = radio.value === 'worklet' && !WORKLET_SUPPORTED;
-      radio.disabled = shouldBeDisabled('mode') || workletUnsupported;
+      radio.disabled = shouldBeDisabled('pipeline') || workletUnsupported;
+    });
+
+    // Encoder selector - profil kilidi + WASM destegi kontrolu
+    this.radioGroups.encoder.forEach(radio => {
+      const wasmOpusUnsupported = radio.value === 'wasm-opus' && !WASM_OPUS_SUPPORTED;
+      radio.disabled = shouldBeDisabled('encoder') || wasmOpusUnsupported;
     });
 
     // Bitrate selector - profil kilidi + loopback OFF ise disabled
@@ -233,10 +244,9 @@ class UIStateManager {
     // MediaBitrate selector - profil kilidi + loopback ON ise disabled
     this.radioGroups.mediaBitrate.forEach(r => r.disabled = shouldBeDisabled('mediaBitrate') || isLoopbackOn);
 
-    // Buffer size selector - profil kilidi + AudioWorklet/non-ScriptProcessor modunda disabled
-    const selectedMode = document.querySelector('input[name="processingMode"]:checked')?.value;
-    const isScriptProcessorMode = selectedMode === 'scriptprocessor';
-    this.radioGroups.bufferSize.forEach(r => r.disabled = shouldBeDisabled('buffer') || !isScriptProcessorMode);
+    // Buffer size selector - profil kilidi + non-ScriptProcessor pipeline'da disabled
+    const selectedPipeline = document.querySelector('input[name="pipeline"]:checked')?.value;
+    this.radioGroups.bufferSize.forEach(r => r.disabled = shouldBeDisabled('buffer') || !needsBufferSetting(selectedPipeline));
 
     // Buton text'lerini guncelle
     const recordBtnText = recordToggleBtn?.querySelector('.btn-text');
@@ -244,16 +254,16 @@ class UIStateManager {
 
     if (recordBtnText) {
       if (isPreparing && !isMonitoring) {
-        recordBtnText.textContent = 'Hazırlanıyor...';
+        recordBtnText.textContent = 'Preparing...';
       } else {
-        recordBtnText.textContent = isRecording ? 'Durdur' : 'Kayıt';
+        recordBtnText.textContent = isRecording ? 'Stop' : 'Record';
       }
     }
     if (monitorBtnText) {
       if (isPreparing && !isRecording) {
-        monitorBtnText.textContent = 'Hazırlanıyor...';
+        monitorBtnText.textContent = 'Preparing...';
       } else {
-        monitorBtnText.textContent = isMonitoring ? 'Durdur' : 'Monitor';
+        monitorBtnText.textContent = isMonitoring ? 'Stop' : 'Monitor';
       }
     }
   }

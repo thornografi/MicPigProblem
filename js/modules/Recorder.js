@@ -1,13 +1,13 @@
 /**
  * Recorder - Ses kaydi yonetimi
- * OCP: Farkli kayit modlari eklenebilir (MediaRecorder, WebAudio, etc.)
+ * OCP: Pipeline Strategy Pattern ile farkli kayit modlari eklenebilir
  * WebAudio mode: Stream -> AudioContext -> MediaStreamDestination -> MediaRecorder
  */
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
-import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
-import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder } from './utils.js';
 import { BUFFER, bytesToKB } from './constants.js';
+import { createPipeline, isPipelineSupported } from '../pipelines/PipelineFactory.js';
 
 class Recorder {
   constructor(config) {
@@ -26,10 +26,14 @@ class Recorder {
     this.audioContext = null;
     this.sourceNode = null;
     this.destinationNode = null;
-    this.processorNode = null; // ScriptProcessor (deprecated)
-    this.workletNode = null; // AudioWorkletNode
 
-    this.recordMode = 'direct'; // direct | standard | scriptprocessor | worklet
+    // Pipeline Strategy (OCP: Strategy Pattern)
+    this.pipelineStrategy = null;
+
+    // Pipeline: WebAudio graph tipi (direct | standard | scriptprocessor | worklet)
+    // Encoder: Kayit formati (mediarecorder | wasm-opus)
+    this.pipelineType = 'direct';
+    this.encoder = 'mediarecorder';
     this.startTime = null; // Kayit baslangic zamani (bitrate hesaplama icin)
 
     // Pre-warm state
@@ -69,95 +73,38 @@ class Recorder {
     }
   }
 
-  async start(constraints, recordModeOrUseWebAudio = false, timeslice = 0, bufferSize = BUFFER.DEFAULT_SIZE, mediaBitrate = 0) {
+  async start(constraints, pipelineParam = 'direct', encoderParam = 'mediarecorder', timeslice = 0, bufferSize = BUFFER.DEFAULT_SIZE, mediaBitrate = 0) {
     if (this.isRecording) return;
 
-    const recordMode = typeof recordModeOrUseWebAudio === 'string'
-      ? recordModeOrUseWebAudio
-      : (recordModeOrUseWebAudio ? 'standard' : 'direct');
-
-    const allowedModes = new Set(['direct', 'standard', 'scriptprocessor', 'worklet']);
-    this.recordMode = allowedModes.has(recordMode) ? recordMode : 'direct';
+    // Pipeline ve encoder validasyonu (OCP: PipelineFactory destekli kontrol)
+    const allowedEncoders = new Set(['mediarecorder', 'wasm-opus']);
+    this.pipelineType = isPipelineSupported(pipelineParam) ? pipelineParam : 'direct';
+    this.encoder = allowedEncoders.has(encoderParam) ? encoderParam : 'mediarecorder';
     this.timeslice = timeslice;
-    this.mediaBitrate = mediaBitrate; // MediaRecorder bitrate (sesli mesaj simülasyonu icin)
+    this.mediaBitrate = mediaBitrate; // Hedef bitrate (MediaRecorder veya WASM Opus icin)
 
     try {
       this.stream = await requestStream(constraints);
       this.chunks = [];
-
-      // NOT: recording:started event'i MediaRecorder.start() sonrasina tasindi (semantik tutarlilik)
 
       // Stream event'i gonder (VuMeter dinler)
       eventBus.emit('stream:started', this.stream);
 
       let recordStream = this.stream;
 
-      const needsWebAudio = this.recordMode !== 'direct';
+      // Pipeline ve encoder bazli kontroller (DRY: utils.js helper'lari)
+      const needsWebAudioGraph = usesWebAudio(this.pipelineType);
+      const needsMediaRecorder = usesMediaRecorder(this.encoder);
 
-      // WebAudio-based modes: Stream -> (WebAudio graph) -> Destination -> MediaRecorder
-      if (needsWebAudio) {
+      // WebAudio-based modes: Stream -> (WebAudio graph) -> Destination -> MediaRecorder/WASM
+      if (needsWebAudioGraph) {
         eventBus.emit('log:webaudio', {
           message: 'Kayit pipeline modu aktif',
-          details: { mode: this.recordMode, preWarmed: this.isWarmedUp }
+          details: { pipeline: this.pipelineType, encoder: this.encoder, preWarmed: this.isWarmedUp }
         });
 
-        // Pre-warm yapilmamissa AudioContext olustur
-        if (!this.audioContext) {
-          // DRY: factory + helper kullan - mikrofon sample rate ile olustur
-          const acOptions = getAudioContextOptions(this.stream);
-          this.audioContext = await createAudioContext(acOptions);
-
-          const micSampleRate = acOptions.sampleRate;
-          eventBus.emit('log:webaudio', {
-            message: 'AudioContext olusturuldu (Kayit - cold start)',
-            details: {
-              state: this.audioContext.state,
-              sampleRate: this.audioContext.sampleRate,
-              micSampleRate: micSampleRate || 'N/A',
-              sampleRateMatch: !micSampleRate || micSampleRate === this.audioContext.sampleRate,
-              baseLatency: this.audioContext.baseLatency
-            }
-          });
-        } else {
-          // Pre-warmed context var - sample rate kontrolu yap
-          const track = this.stream.getAudioTracks()[0];
-          const trackSettings = track.getSettings();
-          const micSampleRate = trackSettings.sampleRate;
-
-          // Sample rate uyusmuyorsa pre-warmed context'i kapat, yeni olustur
-          if (micSampleRate && micSampleRate !== this.audioContext.sampleRate) {
-            eventBus.emit('log:webaudio', {
-              message: 'Pre-warmed AudioContext sample rate uyumsuz - yeni context olusturuluyor',
-              details: {
-                preWarmedSampleRate: this.audioContext.sampleRate,
-                micSampleRate: micSampleRate
-              }
-            });
-
-            // Eski context'i kapat
-            await this.audioContext.close();
-            this.destinationNode = null;
-
-            // DRY: factory kullan - yeni context olustur (mikrofon sample rate ile)
-            this.audioContext = await createAudioContext({ sampleRate: micSampleRate });
-            this.isWarmedUp = false; // Artik pre-warmed degil
-          } else {
-            // Sample rate uyumlu - resume et
-            if (this.audioContext.state === 'suspended') {
-              await this.audioContext.resume();
-            }
-          }
-
-          eventBus.emit('log:webaudio', {
-            message: 'AudioContext kullaniliyor' + (this.isWarmedUp ? ' (pre-warmed)' : ' (yeniden olusturuldu)'),
-            details: {
-              state: this.audioContext.state,
-              sampleRate: this.audioContext.sampleRate,
-              micSampleRate: micSampleRate || 'N/A',
-              sampleRateMatch: !micSampleRate || micSampleRate === this.audioContext.sampleRate
-            }
-          });
-        }
+        // AudioContext olustur/hazirla
+        await this._ensureAudioContext();
 
         // Source node - mikrofondan gelen stream
         this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
@@ -182,156 +129,71 @@ class Recorder {
           });
         }
 
-        if (this.recordMode === 'standard') {
-          this.sourceNode.connect(this.destinationNode);
+        // ═══════════════════════════════════════════════════════════════
+        // PIPELINE KURULUMU (OCP: Strategy Pattern)
+        // ═══════════════════════════════════════════════════════════════
+        this.pipelineStrategy = createPipeline(
+          this.pipelineType,
+          this.audioContext,
+          this.sourceNode,
+          this.destinationNode
+        );
 
-          eventBus.emit('log:webaudio', {
-            message: 'Standard grafigi baglandi',
-            details: {
-              graph: 'MicStream -> SourceNode -> DestinationNode -> RecordStream'
-            }
-          });
-        } else if (this.recordMode === 'scriptprocessor') {
-          // bufferSize parametreden gelir (UI'daki buffer selector)
-          this.processorNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
-
-          this.processorNode.onaudioprocess = (e) => {
-            const input = e.inputBuffer.getChannelData(0);
-            const output = e.outputBuffer.getChannelData(0);
-            for (let i = 0; i < input.length; i++) {
-              output[i] = input[i];
-            }
-          };
-
-          this.sourceNode.connect(this.processorNode);
-          this.processorNode.connect(this.destinationNode);
-
-          eventBus.emit('log:webaudio', {
-            message: 'ScriptProcessor grafigi baglandi (Kayit)',
-            details: {
-              graph: `MicStream -> SourceNode -> ScriptProcessor(${bufferSize}) -> DestinationNode -> RecordStream`,
-              warning: 'Deprecated API - sadece test icin'
-            }
-          });
-        } else if (this.recordMode === 'worklet') {
-          await ensurePassthroughWorklet(this.audioContext);
-          this.workletNode = createPassthroughWorkletNode(this.audioContext);
-
-          this.sourceNode.connect(this.workletNode);
-          this.workletNode.connect(this.destinationNode);
-
-          eventBus.emit('log:webaudio', {
-            message: 'AudioWorklet grafigi baglandi (Kayit)',
-            details: {
-              graph: 'MicStream -> SourceNode -> AudioWorklet(passthrough) -> DestinationNode -> RecordStream'
-            }
-          });
-        }
-
-        // MediaRecorder icin WebAudio'dan gelen stream'i kullan
-        recordStream = this.destinationNode.stream;
-      }
-
-      // MediaRecorder olustur - DRY: createMediaRecorder helper kullaniliyor
-      // Sesli mesaj simülasyonu icin bitrate ayarla (0 = varsayilan)
-      const recorderOptions = this.mediaBitrate > 0
-        ? { audioBitsPerSecond: this.mediaBitrate }
-        : {};
-      this.mediaRecorder = createMediaRecorder(recordStream, recorderOptions);
-
-      const bitrateInfo = this.mediaBitrate > 0
-        ? `${(this.mediaBitrate / 1000).toFixed(0)} kbps`
-        : 'varsayilan';
-
-      eventBus.emit('log:recorder', {
-        message: 'MediaRecorder olusturuldu',
-        details: {
-          mimeType: this.mediaRecorder.mimeType,
-          state: this.mediaRecorder.state,
-          recordMode: this.recordMode,
-          useWebAudio: this.recordMode !== 'direct',
-          mediaBitrate: bitrateInfo,
-          streamId: recordStream.id
-        }
-      });
-
-      this.mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size) this.chunks.push(e.data);
-      };
-
-      this.mediaRecorder.onstop = async () => {
-        const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
-        const blob = new Blob(this.chunks, { type: mimeType });
-        const suffix = this.recordMode === 'direct' ? '' : `_${this.recordMode}`;
-        const filename = `kayit${suffix}_${Date.now()}.webm`;
-
-        // Gercek bitrate hesapla
-        const durationMs = Date.now() - this.startTime;
-        const durationSec = durationMs / 1000;
-        const actualBitrate = durationSec > 0 ? Math.round((blob.size * 8) / durationSec) : 0;
-        const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
-
-        // Istenen vs gercek karsilastirmasi
-        const requestedBitrate = this.mediaBitrate || 0;
-        const bitrateComparison = requestedBitrate > 0
-          ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
-          : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
-
-        eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(blob.size).toFixed(1)} KB (${bitrateComparison})`);
-        eventBus.emit('recording:completed', {
-          blob,
-          mimeType,
-          filename,
-          recordMode: this.recordMode,
-          useWebAudio: this.recordMode !== 'direct',
-          durationMs,
-          requestedBitrate,
-          actualBitrate
+        await this.pipelineStrategy.setup({
+          bufferSize,
+          encoder: this.encoder,
+          mediaBitrate
         });
 
-        // WebAudio temizlik
-        if (this.recordMode !== 'direct') {
-          await this.cleanupWebAudio();
+        // MediaRecorder icin WebAudio'dan gelen stream'i kullan
+        if (needsMediaRecorder) {
+          recordStream = this.destinationNode.stream;
         }
-
-        // Temizlik
-        this.mediaRecorder = null;
-      };
-
-      // Timeslice ile veya tek chunk olarak baslat
-      this.startTime = Date.now();
-      if (this.timeslice > 0) {
-        this.mediaRecorder.start(this.timeslice);
-      } else {
-        this.mediaRecorder.start();
       }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ENCODER KURULUMU (MediaRecorder veya WASM Opus)
+      // ═══════════════════════════════════════════════════════════════
+      if (needsMediaRecorder) {
+        await this._setupMediaRecorder(recordStream);
+      } else {
+        // WASM Opus encoder modu - MediaRecorder yok
+        this.startTime = Date.now();
+        const opusWorker = this.pipelineStrategy?.getOpusWorker?.();
+        eventBus.emit('log:recorder', {
+          message: 'WASM Opus encoder aktif (MediaRecorder kullanilmiyor)',
+          details: {
+            pipeline: this.pipelineType,
+            encoder: this.encoder,
+            encoderType: opusWorker?.encoderType || 'unknown'
+          }
+        });
+      }
+
       this.isRecording = true;
 
-      const modeLabelByMode = {
-        direct: 'MediaRecorder (Direct)',
-        standard: 'Standard + MediaRecorder',
-        scriptprocessor: 'ScriptProcessor + MediaRecorder',
-        worklet: 'AudioWorklet + MediaRecorder'
+      // Pipeline + Encoder kombinasyonuna gore label (DRY: Config.js labels kullanilabilir)
+      const pipelineLabels = {
+        direct: 'Direct',
+        standard: 'Standard',
+        scriptprocessor: 'ScriptProcessor',
+        worklet: 'AudioWorklet'
       };
-      const modeText = modeLabelByMode[this.recordMode] || this.recordMode;
+      const encoderLabels = {
+        mediarecorder: 'MediaRecorder',
+        'wasm-opus': 'WASM Opus'
+      };
+      const pipelineLabel = pipelineLabels[this.pipelineType] || this.pipelineType;
+      const encoderLabel = encoderLabels[this.encoder] || this.encoder;
+      const modeText = `${pipelineLabel} + ${encoderLabel}`;
       const timesliceText = this.timeslice > 0 ? `, Timeslice: ${this.timeslice}ms` : '';
       eventBus.emit('log', `KAYIT basladi (${modeText}${timesliceText})`);
       eventBus.emit('recorder:started');
-      // recording:started - MediaRecorder.start() sonrasi (Player.reset icin)
       eventBus.emit('recording:started');
 
     } catch (err) {
       // Spesifik hata mesajlari
-      let userMessage = err.message;
-      if (err.name === 'NotAllowedError') {
-        userMessage = 'Mikrofon izni reddedildi';
-      } else if (err.name === 'NotFoundError') {
-        userMessage = 'Mikrofon bulunamadi';
-      } else if (err.name === 'NotReadableError') {
-        userMessage = 'Mikrofon baska uygulama tarafindan kullaniliyor';
-      } else if (err.name === 'OverconstrainedError') {
-        userMessage = 'Desteklenmeyen mikrofon ayari';
-      }
+      const userMessage = this._getErrorMessage(err);
 
       eventBus.emit('log:error', {
         category: 'recorder',
@@ -346,21 +208,174 @@ class Recorder {
     }
   }
 
+  /**
+   * AudioContext'i hazirla (pre-warm veya yeni olustur)
+   * @private
+   */
+  async _ensureAudioContext() {
+    if (!this.audioContext) {
+      // DRY: factory + helper kullan - mikrofon sample rate ile olustur
+      const acOptions = getAudioContextOptions(this.stream);
+      this.audioContext = await createAudioContext(acOptions);
+
+      const micSampleRate = acOptions.sampleRate;
+      eventBus.emit('log:webaudio', {
+        message: 'AudioContext olusturuldu (Kayit - cold start)',
+        details: {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate,
+          micSampleRate: micSampleRate || 'N/A',
+          sampleRateMatch: !micSampleRate || micSampleRate === this.audioContext.sampleRate,
+          baseLatency: this.audioContext.baseLatency
+        }
+      });
+    } else {
+      // Pre-warmed context var - sample rate kontrolu yap
+      const track = this.stream.getAudioTracks()[0];
+      const trackSettings = track.getSettings();
+      const micSampleRate = trackSettings.sampleRate;
+
+      // Sample rate uyusmuyorsa pre-warmed context'i kapat, yeni olustur
+      if (micSampleRate && micSampleRate !== this.audioContext.sampleRate) {
+        eventBus.emit('log:webaudio', {
+          message: 'Pre-warmed AudioContext sample rate uyumsuz - yeni context olusturuluyor',
+          details: {
+            preWarmedSampleRate: this.audioContext.sampleRate,
+            micSampleRate: micSampleRate
+          }
+        });
+
+        // Eski context'i kapat
+        await this.audioContext.close();
+        this.destinationNode = null;
+
+        // DRY: factory kullan - yeni context olustur (mikrofon sample rate ile)
+        this.audioContext = await createAudioContext({ sampleRate: micSampleRate });
+        this.isWarmedUp = false; // Artik pre-warmed degil
+      } else {
+        // Sample rate uyumlu - resume et
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+      }
+
+      eventBus.emit('log:webaudio', {
+        message: 'AudioContext kullaniliyor' + (this.isWarmedUp ? ' (pre-warmed)' : ' (yeniden olusturuldu)'),
+        details: {
+          state: this.audioContext.state,
+          sampleRate: this.audioContext.sampleRate,
+          micSampleRate: micSampleRate || 'N/A',
+          sampleRateMatch: !micSampleRate || micSampleRate === this.audioContext.sampleRate
+        }
+      });
+    }
+  }
+
+  /**
+   * MediaRecorder kurulumu
+   * @private
+   */
+  async _setupMediaRecorder(recordStream) {
+    // MediaRecorder olustur - DRY: createMediaRecorder helper kullaniliyor
+    const recorderOptions = this.mediaBitrate > 0
+      ? { audioBitsPerSecond: this.mediaBitrate }
+      : {};
+    this.mediaRecorder = createMediaRecorder(recordStream, recorderOptions);
+
+    const bitrateInfo = this.mediaBitrate > 0
+      ? `${(this.mediaBitrate / 1000).toFixed(0)} kbps`
+      : 'varsayilan';
+
+    eventBus.emit('log:recorder', {
+      message: 'MediaRecorder olusturuldu',
+      details: {
+        mimeType: this.mediaRecorder.mimeType,
+        state: this.mediaRecorder.state,
+        pipeline: this.pipelineType,
+        encoder: this.encoder,
+        useWebAudio: usesWebAudio(this.pipelineType),
+        mediaBitrate: bitrateInfo,
+        streamId: recordStream.id
+      }
+    });
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size) this.chunks.push(e.data);
+    };
+
+    this.mediaRecorder.onstop = async () => {
+      const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(this.chunks, { type: mimeType });
+      const suffix = this.pipelineType === 'direct' ? '' : `_${this.pipelineType}`;
+      const filename = `kayit${suffix}_${Date.now()}.webm`;
+
+      // Gercek bitrate hesapla
+      const durationMs = Date.now() - this.startTime;
+      const durationSec = durationMs / 1000;
+      const actualBitrate = durationSec > 0 ? Math.round((blob.size * 8) / durationSec) : 0;
+      const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
+
+      // Istenen vs gercek karsilastirmasi
+      const requestedBitrate = this.mediaBitrate || 0;
+      const bitrateComparison = requestedBitrate > 0
+        ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
+        : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
+
+      eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(blob.size).toFixed(1)} KB (${bitrateComparison})`);
+      eventBus.emit('recording:completed', {
+        blob,
+        mimeType,
+        filename,
+        pipeline: this.pipelineType,
+        encoder: this.encoder,
+        useWebAudio: usesWebAudio(this.pipelineType),
+        durationMs,
+        requestedBitrate,
+        actualBitrate
+      });
+
+      // WebAudio temizlik
+      if (usesWebAudio(this.pipelineType)) {
+        await this.cleanupWebAudio();
+      }
+
+      // Temizlik
+      this.mediaRecorder = null;
+    };
+
+    // Timeslice ile veya tek chunk olarak baslat
+    this.startTime = Date.now();
+    if (this.timeslice > 0) {
+      this.mediaRecorder.start(this.timeslice);
+    } else {
+      this.mediaRecorder.start();
+    }
+  }
+
+  /**
+   * Hata mesajini kullanici dostu formata cevir
+   * @private
+   */
+  _getErrorMessage(err) {
+    const errorMap = {
+      NotAllowedError: 'Mikrofon izni reddedildi',
+      NotFoundError: 'Mikrofon bulunamadi',
+      NotReadableError: 'Mikrofon baska uygulama tarafindan kullaniliyor',
+      OverconstrainedError: 'Desteklenmeyen mikrofon ayari'
+    };
+    return errorMap[err.name] || err.message;
+  }
+
   async cleanupWebAudio(forceClose = false) {
+    // Pipeline strategy temizligi (OCP: Strategy kendini temizler)
+    if (this.pipelineStrategy) {
+      await this.pipelineStrategy.cleanup();
+      this.pipelineStrategy = null;
+    }
+
     if (this.sourceNode) {
       this.sourceNode.disconnect();
       this.sourceNode = null;
-    }
-
-    if (this.processorNode) {
-      this.processorNode.disconnect();
-      this.processorNode.onaudioprocess = null;
-      this.processorNode = null;
-    }
-
-    if (this.workletNode) {
-      this.workletNode.disconnect();
-      this.workletNode = null;
     }
 
     // Pre-warmed ise context ve destination'i koru (tekrar hizli baslatma icin)
@@ -391,10 +406,50 @@ class Recorder {
     this.isWarmedUp = false;
   }
 
-  stop() {
+  async stop() {
     if (!this.isRecording) return;
 
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+    // WASM Opus encoder modu icin Opus Worker'i bitir (OCP: Strategy'den al)
+    if (usesWasmOpus(this.encoder) && this.pipelineStrategy?.getOpusWorker?.()) {
+      try {
+        eventBus.emit('log', 'Opus encoding tamamlaniyor...');
+
+        // Strategy'den final blob'u al
+        const result = await this.pipelineStrategy.finishOpusEncoding();
+
+        const durationMs = Date.now() - this.startTime;
+        const durationSec = durationMs / 1000;
+        const actualBitrate = durationSec > 0 ? Math.round((result.blob.size * 8) / durationSec) : 0;
+        const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
+
+        eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(result.blob.size).toFixed(1)} KB (Gercek: ~${actualBitrateKbps} kbps, ${result.pageCount} page)`);
+        eventBus.emit('recording:completed', {
+          blob: result.blob,
+          mimeType: 'audio/ogg; codecs=opus',
+          filename: `kayit_wasm_opus_${Date.now()}.ogg`,
+          pipeline: this.pipelineType,
+          encoder: this.encoder,
+          useWebAudio: true,
+          durationMs,
+          requestedBitrate: this.mediaBitrate || 16000,
+          actualBitrate,
+          pageCount: result.pageCount,
+          encoderType: result.encoderType
+        });
+
+        // WebAudio temizlik (strategy cleanup dahil)
+        await this.cleanupWebAudio();
+
+      } catch (error) {
+        eventBus.emit('log:error', {
+          message: 'Opus encoding hatasi',
+          details: { error: error.message }
+        });
+
+        await this.cleanupWebAudio();
+      }
+    } else if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      // MediaRecorder modu
       this.mediaRecorder.stop();
     }
 
@@ -415,6 +470,11 @@ class Recorder {
 
   getIsRecording() {
     return this.isRecording;
+  }
+
+  // Geriye uyumluluk icin pipeline property (string olarak)
+  get pipeline() {
+    return this.pipelineType;
   }
 }
 
