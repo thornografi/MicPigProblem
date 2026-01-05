@@ -57,30 +57,7 @@ export const SIGNAL = {
   RMS_THRESHOLD: 0.001            // Sinyal algilama RMS esigi
 };
 
-// === LOOPBACK ===
-export const LOOPBACK = {
-  ICE_WAIT_MS: 3000               // ICE baglanti bekleme suresi
-};
-
-// === OPUS (WASM Encoder) ===
-export const OPUS = {
-  FRAME_SIZE: 960,                // 20ms @ 48kHz (standart Opus frame)
-  MIN_BITRATE: 6000,              // Minimum Opus bitrate (bps)
-  MAX_BITRATE: 510000,            // Maximum Opus bitrate (bps)
-  WHATSAPP_BITRATE: 16000,        // WhatsApp sesli mesaj tipik bitrate
-  WHATSAPP_BUFFER: 4096,          // WhatsApp ScriptProcessor buffer boyutu
-  CHANNELS: 1,                    // Mono (voice)
-  PRE_SKIP: 312                   // Encoder delay (~3.75ms @ 48kHz)
-};
-
 // === HELPER FUNCTIONS ===
-
-/**
- * Bitrate'i kbps'e cevir
- * @param {number} bps - Bits per second
- * @returns {number} Kilobits per second
- */
-export const bitrateToKbps = (bps) => bps / 1000;
 
 /**
  * Byte'i KB'a cevir
@@ -97,28 +74,3 @@ export const bytesToKB = (bytes) => bytes / BYTES.PER_KB;
  */
 export const calculateLatencyMs = (bufferSize, sampleRate = AUDIO.DEFAULT_SAMPLE_RATE) =>
   (bufferSize / sampleRate) * 1000;
-
-/**
- * Timeslice'dan saniyede chunk sayisi hesapla
- * @param {number} timeslice - Chunk suresi (ms)
- * @returns {number} Chunks per second
- */
-export const getChunksPerSecond = (timeslice) => 1000 / timeslice;
-
-/**
- * dB hesapla (RMS'den)
- * @param {number} rms - RMS degeri
- * @param {number} minDb - Minimum dB (varsayilan VU_METER.MIN_DB)
- * @returns {number} dB degeri
- */
-export const rmsToDb = (rms, minDb = VU_METER.MIN_DB) =>
-  rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : minDb;
-
-/**
- * dB'yi yuzdeye cevir (VU meter icin)
- * @param {number} dB - dB degeri
- * @param {number} minDb - Minimum dB (0% noktasi)
- * @returns {number} Yuzde (0-100)
- */
-export const dbToPercent = (dB, minDb = VU_METER.MIN_DB) =>
-  Math.max(0, Math.min(100, (dB - minDb) / -minDb * 100));

@@ -14,6 +14,7 @@ class ProfileUIManager {
       scenarioCards: [],
       navItems: [],
       pageTitle: null,
+      pageTitleIcon: null,
       pageSubtitle: null,
       scenarioBadge: null,
       scenarioTech: null,
@@ -84,7 +85,7 @@ class ProfileUIManager {
     // Aktif islem VEYA preparing varken profil degisikligine izin verme
     if (currentMode !== null || isPreparing) {
       eventBus.emit('log:ui', {
-        message: 'Profil degistirmek icin once mevcut islemi durdurun'
+        message: 'Stop current operation before changing profile'
       });
       return;
     }
@@ -132,10 +133,6 @@ class ProfileUIManager {
 
     scenarioBadge.textContent = profile.label;
 
-    // Badge rengini sifirla (CSS'e birak)
-    scenarioBadge.style.background = '';
-    scenarioBadge.style.color = '';
-
     // DRY: ProfileController'daki buildTechParts kullan
     scenarioTech.textContent = profileController.getTechString(profileId);
   }
@@ -145,17 +142,35 @@ class ProfileUIManager {
    * @param {string} profileId - Aktif profil ID'si
    */
   updateNavItemSelection(profileId) {
-    const { navItems, pageTitle } = this.elements;
+    const { navItems, pageTitle, pageTitleIcon } = this.elements;
+    let activeItem = null;
 
     navItems.forEach(item => {
       const itemProfile = item.dataset.profile;
-      item.classList.toggle('active', itemProfile === profileId);
+      const isActive = itemProfile === profileId;
+      item.classList.toggle('active', isActive);
+      if (isActive) {
+        activeItem = item;
+      }
     });
 
     // Page header'i guncelle
     const profile = PROFILES[profileId];
     if (profile && pageTitle) {
       pageTitle.textContent = profile.label + ' Test';
+    }
+    if (pageTitleIcon) {
+      const useEl = activeItem?.querySelector('use');
+      const iconHref = useEl?.getAttribute('href') || useEl?.getAttribute('xlink:href');
+      const targetUse = pageTitleIcon.querySelector('use');
+
+      if (iconHref && targetUse) {
+        targetUse.setAttribute('href', iconHref);
+        targetUse.setAttribute('xlink:href', iconHref);
+        pageTitleIcon.classList.remove('hidden');
+      } else {
+        pageTitleIcon.classList.add('hidden');
+      }
     }
 
     // Tech info'yu subtitle olarak goster

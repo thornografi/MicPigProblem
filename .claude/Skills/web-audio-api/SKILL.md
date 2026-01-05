@@ -1,6 +1,6 @@
 ---
 name: web-audio-api
-description: "Web Audio API, mikrofon, ses kaydi, VU meter, WASM Opus encoding. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource, WASM Opus, OggOpusWriter, opus-encoder-worker"
+description: "Web Audio API, mikrofon, kayit, VU meter, WASM Opus. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource, OggOpusWriter, opus-encoder-worker"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "web-audio-api SKILL.md okunuyor..." yaz.
@@ -58,6 +58,22 @@ const node = new AudioWorkletNode(ac, 'passthrough-processor');
 ```
 - Detay: `modules/WorkletHelper.js`, `worklets/passthrough-processor.js`
 - ScriptProcessor deprecated - worklet tercih et
+
+## Pipeline Strategy Pattern (OCP)
+
+Recorder modulu pipeline kurulumu icin Strategy Pattern kullanir:
+
+```javascript
+import { createPipeline } from '../pipelines/PipelineFactory.js';
+
+const strategy = createPipeline('worklet', audioContext, sourceNode, destNode);
+await strategy.setup({ bufferSize, encoder, mediaBitrate });
+```
+
+**Dosyalar:** `js/pipelines/` klasoru
+- `BasePipeline.js` - Abstract base class
+- `PipelineFactory.js` - Factory Method
+- `DirectPipeline.js`, `StandardPipeline.js`, `ScriptProcessorPipeline.js`, `WorkletPipeline.js`
 
 ## WASM Opus Encoding (WhatsApp Web Pattern)
 

@@ -5,8 +5,8 @@
  */
 
 import eventBus from './EventBus.js';
-import { PROFILES, SETTINGS } from './Config.js';
-import { toggleDisplay, needsBufferSetting, usesWasmOpus } from './utils.js';
+import { PROFILES, SETTINGS, PROFILE_TIPS, PROFILE_THEMES } from './Config.js';
+import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder } from './utils.js';
 
 /**
  * ProfileController class - Profil islemlerini yonetir
@@ -41,6 +41,7 @@ class ProfileController {
       updateCategoryUI: () => {},
       getRadioValue: () => 'standard',
       setSettingDisabled: () => {},
+      setOptionDisabled: () => {},
       getSettingElements: () => []
     };
 
@@ -88,6 +89,7 @@ class ProfileController {
 
     // Mevcut profil ID'sini guncelle
     this.currentProfileId = profileId;
+    this.applyProfileTheme(profileId);
 
     const values = profile.values;
     const lockedSettings = profile.lockedSettings || [];
@@ -163,6 +165,9 @@ class ProfileController {
     // Kategori bazli UI guncelle (call vs record)
     this.callbacks.updateCategoryUI(profileId);
 
+    // Tips alanini profil bazli guncelle
+    this.updateTips(profileId);
+
     // Buton ve ayar durumlarini senkronize et
     this.callbacks.updateButtonStates();
 
@@ -179,6 +184,25 @@ class ProfileController {
       } else if (previousMode === 'recording') {
         await this.callbacks.startRecording();
       }
+    }
+  }
+
+  /**
+   * Profil tema token'larini uygula (UI accent renkleri)
+   */
+  applyProfileTheme(profileId) {
+    if (typeof document === 'undefined') return;
+    const theme = {
+      ...(PROFILE_THEMES.default || {}),
+      ...(PROFILE_THEMES[profileId] || {})
+    };
+
+    const root = document.documentElement;
+    if (theme.accent) {
+      root.style.setProperty('--profile-accent', theme.accent);
+    }
+    if (theme.accentGlow) {
+      root.style.setProperty('--profile-accent-glow', theme.accentGlow);
     }
   }
 
@@ -224,6 +248,23 @@ class ProfileController {
     // Kural 4: loopback ON -> timeslice kilitle (WebRTC monitoring modunda chunk anlamsiz)
     this.callbacks.setSettingDisabled('timeslice', loopback);
 
+    // Kural 5: wasm-opus encoder sadece ScriptProcessor pipeline'da kullanilabilir
+    // Diger pipeline'larda PCM data erisilemiyor, WASM Opus calismaz
+    const wasmOpusDisabled = !supportsWasmOpusEncoder(pipeline);
+    this.callbacks.setOptionDisabled('encoder', 'wasm-opus', wasmOpusDisabled);
+
+    // Eger wasm-opus seciliyken pipeline degistiyse, encoder'i mediarecorder'a cevir
+    const currentEncoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
+    if (wasmOpusDisabled && currentEncoder === 'wasm-opus') {
+      const mediaRecorderRadio = document.querySelector('input[name="encoder"][value="mediarecorder"]');
+      if (mediaRecorderRadio) {
+        mediaRecorderRadio.checked = true;
+        eventBus.emit('log:ui', {
+          message: 'Encoder otomatik olarak MediaRecorder\'a degistirildi (WASM Opus bu pipeline\'da desteklenmiyor)'
+        });
+      }
+    }
+
     // Ozel Ayarlar panelini de guncelle
     this.updateCustomSettingsPanelDynamicState();
   }
@@ -254,6 +295,20 @@ class ProfileController {
         }
       }
     });
+
+    // Encoder select icin wasm-opus option'ini disable et (ScriptProcessor degilse)
+    const encoderSelect = customSettingsGrid.querySelector('[data-setting="encoder"]');
+    if (encoderSelect && encoderSelect.tagName === 'SELECT') {
+      const wasmOpusOption = encoderSelect.querySelector('option[value="wasm-opus"]');
+      if (wasmOpusOption) {
+        const wasmOpusDisabled = !supportsWasmOpusEncoder(pipeline);
+        wasmOpusOption.disabled = wasmOpusDisabled;
+        // Eger wasm-opus seciliyse ve artik desteklenmiyorsa, mediarecorder'a gec
+        if (wasmOpusDisabled && encoderSelect.value === 'wasm-opus') {
+          encoderSelect.value = 'mediarecorder';
+        }
+      }
+    }
   }
 
   /**
@@ -273,19 +328,19 @@ class ProfileController {
       if (!container) return;
 
       if (isAll) {
-        container.style.display = '';
+        container.classList.remove('hidden');
         container.classList.remove('setting-locked');
         this.callbacks.setSettingDisabled(settingKey, false);
       } else if (lockedSettings.includes(settingKey)) {
-        container.style.display = '';
+        container.classList.remove('hidden');
         container.classList.add('setting-locked');
         this.callbacks.setSettingDisabled(settingKey, true);
       } else if (editableSettings.includes(settingKey)) {
-        container.style.display = '';
+        container.classList.remove('hidden');
         container.classList.remove('setting-locked');
         this.callbacks.setSettingDisabled(settingKey, false);
       } else {
-        container.style.display = 'none';
+        container.classList.add('hidden');
         container.classList.remove('setting-locked');
       }
     });
@@ -299,7 +354,7 @@ class ProfileController {
   updateSectionVisibility() {
     const isVisible = (key) => {
       const el = this.settingContainers[key];
-      return el && el.style.display !== 'none';
+      return el && !el.classList.contains('hidden');
     };
 
     const { pipelineSection, webrtcSection, developerSection } = this.elements;
@@ -370,6 +425,25 @@ class ProfileController {
   getTechString(profileId = null) {
     const profile = profileId ? PROFILES[profileId] : this.getCurrentProfile();
     return this.buildTechParts(profile).join(' + ');
+  }
+
+  /**
+   * Tips alanini profil bazli guncelle
+   * @param {string} profileId - Profil ID'si
+   */
+  updateTips(profileId = null) {
+    const id = profileId || this.currentProfileId;
+    const tips = PROFILE_TIPS[id] || PROFILE_TIPS['default'];
+    const container = document.querySelector('.unified-tips');
+
+    if (!container || !tips) return;
+
+    // Tips HTML'i olustur
+    const html = tips.map(tip =>
+      `<span class="utip"><em>${tip.step}</em><span class="utip-text">${tip.text}</span></span>`
+    ).join('');
+
+    container.innerHTML = html;
   }
 }
 

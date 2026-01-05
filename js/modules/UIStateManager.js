@@ -163,7 +163,7 @@ class UIStateManager {
     }
 
     if (progressBar) {
-      progressBar.style.pointerEvents = disableRecordingUi ? 'none' : '';
+      progressBar.classList.toggle('no-pointer-events', disableRecordingUi);
     }
 
     if (downloadBtn) {
@@ -295,7 +295,7 @@ class UIStateManager {
 
     this.timerStartTime = Date.now();
     timerEl.textContent = '0:00';
-    timerEl.style.display = 'block';
+    timerEl.classList.add('visible');
 
     this.timerInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - this.timerStartTime) / 1000);
@@ -313,7 +313,7 @@ class UIStateManager {
     }
     const { timerEl } = this.elements;
     if (timerEl) {
-      timerEl.style.display = 'none';
+      timerEl.classList.remove('visible');
     }
   }
 

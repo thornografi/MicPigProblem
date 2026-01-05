@@ -358,10 +358,10 @@ class Recorder {
    */
   _getErrorMessage(err) {
     const errorMap = {
-      NotAllowedError: 'Mikrofon izni reddedildi',
-      NotFoundError: 'Mikrofon bulunamadi',
-      NotReadableError: 'Mikrofon baska uygulama tarafindan kullaniliyor',
-      OverconstrainedError: 'Desteklenmeyen mikrofon ayari'
+      NotAllowedError: 'Microphone permission denied',
+      NotFoundError: 'Microphone not found',
+      NotReadableError: 'Microphone is being used by another application',
+      OverconstrainedError: 'Unsupported microphone setting'
     };
     return errorMap[err.name] || err.message;
   }

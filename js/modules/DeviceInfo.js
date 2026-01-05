@@ -160,9 +160,9 @@ class DeviceInfo {
       const option = document.createElement('option');
       option.value = mic.deviceId;
 
-      let label = mic.label || `Mikrofon ${index + 1}`;
+      let label = mic.label || `Microphone ${index + 1}`;
       if (mic.deviceId === defaultRealDeviceId) {
-        label += ' (varsayilan)';
+        label += ' (default)';
       }
       option.textContent = label;
 
@@ -227,10 +227,10 @@ class DeviceInfo {
       if (hasLabels) {
         this.buildMicrophoneDropdown(allMics, { logWarnings: false });
       } else {
-        this.micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
+        this.micSelector.innerHTML = '<option value="" disabled>🎤 Click to allow microphone access</option>';
       }
     } catch (err) {
-      this.micSelector.innerHTML = '<option value="" disabled>🎤 Mikrofon erisimi icin tiklayin</option>';
+      this.micSelector.innerHTML = '<option value="" disabled>🎤 Click to allow microphone access</option>';
     }
   }
 

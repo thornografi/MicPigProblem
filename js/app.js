@@ -29,6 +29,8 @@ import recordingController from './controllers/RecordingController.js';
 import monitoringController from './controllers/MonitoringController.js';
 import debugConsole from './ui/DebugConsole.js';
 import profileUIManager from './ui/ProfileUIManager.js';
+import customSettingsPanelHandler from './ui/CustomSettingsPanelHandler.js';
+import { RadioGroupHandler } from './ui/RadioGroupHandler.js';
 
 // ============================================
 // ERKEN TANIMLANAN SABITLER (applyProfile oncesi gerekli)
@@ -212,6 +214,20 @@ function setSettingDisabled(settingKey, disabled) {
   });
 }
 
+// Belirli bir secenek (radio/option) enable/disable et
+// Ornek: setOptionDisabled('encoder', 'wasm-opus', true) -> sadece wasm-opus secenegi disabled
+function setOptionDisabled(settingKey, optionValue, disabled) {
+  const elements = getSettingElements(settingKey);
+  const targetEl = elements.find(el => el.value === optionValue);
+  if (targetEl) {
+    targetEl.disabled = disabled;
+    const label = targetEl.closest('label');
+    if (label) {
+      label.classList.toggle('option-disabled', disabled);
+    }
+  }
+}
+
 // NOT: applyProfile, applyProfileConstraints, updateDynamicLocks, updateCustomSettingsPanelDynamicState
 // fonksiyonlari ProfileController modülüne taşındı
 
@@ -269,16 +285,7 @@ function getRadioValue(name, defaultValue, parseAsInt = false) {
   return parseAsInt ? parseInt(selected.value, 10) : selected.value;
 }
 
-// Checkbox logger factory - checkbox degisikliklerini logla
-function attachCheckboxLogger(checkbox, settingName, displayName) {
-  if (!checkbox) return;
-  checkbox.addEventListener('change', (e) => {
-    eventBus.emit('log:stream', {
-      message: `${displayName}: ${e.target.checked ? 'ACIK' : 'KAPALI'}`,
-      details: { setting: settingName, value: e.target.checked }
-    });
-  });
-}
+// NOT: attachCheckboxLogger fonksiyonu RadioGroupHandler modülüne taşındı
 
 // ============================================
 // AYAR OKUMA FONKSIYONLARI
@@ -394,9 +401,9 @@ function updateTimesliceInfo(value) {
 // ============================================
 // AYAR DEGISIKLIK LOGLARI
 // ============================================
-attachCheckboxLogger(ecCheckbox, 'echoCancellation', 'Echo Cancellation');
-attachCheckboxLogger(nsCheckbox, 'noiseSuppression', 'Noise Suppression');
-attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
+RadioGroupHandler.attachCheckboxLogger(ecCheckbox, 'echoCancellation', 'Echo Cancellation');
+RadioGroupHandler.attachCheckboxLogger(nsCheckbox, 'noiseSuppression', 'Noise Suppression');
+RadioGroupHandler.attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
 
 // NOT: webaudioToggle kaldirildi - artik mode secimi WebAudio durumunu belirliyor
 // Mode degisikliginde loglama asagida yapiliyor
@@ -546,6 +553,7 @@ const scenarioTech = document.getElementById('scenarioTech');
 
 // Sidebar elementleri
 const pageTitle = document.getElementById('pageTitle');
+const pageTitleIcon = document.getElementById('pageTitleIcon');
 const pageSubtitle = document.getElementById('pageSubtitle');
 const settingsDrawer = document.getElementById('settingsDrawer');
 const drawerOverlay = document.getElementById('drawerOverlay');
@@ -603,193 +611,10 @@ document.addEventListener('keydown', (e) => {
 
 // NOT: handleProfileSelect ve scenarioCards/navItems event listener'lari ProfileUIManager modülüne tasindi
 
-// Ozel Ayarlar Panel Toggle ve Dinamik Icerik
-if (customSettingsToggle && customSettingsContent) {
-  customSettingsToggle.addEventListener('click', () => {
-    const isCollapsed = customSettingsContent.classList.contains('collapsed');
+// NOT: Ozel Ayarlar Panel Toggle CustomSettingsPanelHandler modülüne taşındı
 
-    customSettingsContent.classList.toggle('collapsed');
-    customSettingsToggle.classList.toggle('expanded');
-
-    eventBus.emit('log:ui', {
-      message: isCollapsed ? 'Ozel ayarlar acildi' : 'Ozel ayarlar kapatildi'
-    });
-  });
-}
-
-// Profil bazli ozel ayarlar icerigi olustur
-function updateCustomSettingsPanel(profileId) {
-  if (!customSettingsGrid) return;
-
-  const profile = PROFILES[profileId];
-  if (!profile) return;
-
-  const lockedSettings = profile.lockedSettings || [];
-  const editableSettings = profile.editableSettings || [];
-  const isCustomProfile = profileId === 'custom' || profile.allowedSettings === 'all';
-
-  let html = '';
-
-  // Deger formatlama (bitrate icin "64k" gibi, pipeline/encoder icin labels)
-  const formatEnumValue = (val, key) => {
-    if (key === 'bitrate' || key === 'mediaBitrate') {
-      return val === 0 ? 'Off' : (val / 1000) + 'k';
-    }
-    if (key === 'buffer') {
-      return val.toString();
-    }
-    if (key === 'timeslice') {
-      return val === 0 ? 'Single chunk' : val + 'ms';
-    }
-    // Config'deki labels objesini kullan (pipeline, encoder icin)
-    const setting = SETTINGS[key];
-    if (setting?.labels?.[val]) {
-      return setting.labels[val];
-    }
-    return val;
-  };
-
-  const categoryLabels = {
-    constraints: 'Audio Processing',
-    loopback: 'WebRTC Loopback',
-    pipeline: 'Audio Pipeline',
-    recording: 'Recording',
-    other: 'Other'
-  };
-  const categoryOrder = ['constraints', 'loopback', 'pipeline', 'recording'];
-  const groupedSettings = {};
-
-  const ensureGroup = (category) => {
-    if (!groupedSettings[category]) {
-      groupedSettings[category] = { booleans: [], enums: [] };
-      if (!categoryOrder.includes(category)) {
-        categoryOrder.push(category);
-      }
-    }
-  };
-
-  const formatCategoryLabel = (category) => {
-    if (categoryLabels[category]) return categoryLabels[category];
-    return category
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b[a-z]/g, (char) => char.toUpperCase());
-  };
-
-  Object.keys(SETTINGS).forEach(key => {
-    const setting = SETTINGS[key];
-    if (!setting) return;
-
-    const isLocked = lockedSettings.includes(key);
-    const isEditable = isCustomProfile || editableSettings.includes(key);
-
-    // Sadece locked veya editable olanlari goster
-    if (!isLocked && !isEditable) return;
-
-    const settingData = {
-      key,
-      setting,
-      isLocked,
-      currentValue: profile.values?.[key] ?? setting.default
-    };
-
-    const category = setting.category || 'other';
-    ensureGroup(category);
-
-    if (setting.type === 'boolean') {
-      groupedSettings[category].booleans.push(settingData);
-    } else if (setting.type === 'enum') {
-      groupedSettings[category].enums.push(settingData);
-    }
-  });
-
-  categoryOrder.forEach(category => {
-    const group = groupedSettings[category];
-    if (!group || (group.booleans.length === 0 && group.enums.length === 0)) return;
-
-    html += '<div class="custom-settings-section">';
-    html += `<div class="custom-settings-section-label">${formatCategoryLabel(category)}</div>`;
-    html += '<div class="custom-settings-section-body">';
-
-    if (group.booleans.length > 0) {
-      html += '<div class="custom-settings-checkbox-row">';
-      group.booleans.forEach(({ key, setting, isLocked, currentValue }) => {
-        const statusClass = isLocked ? 'locked' : 'editable';
-        html += `<div class="custom-setting-item ${statusClass}">`;
-        html += `<input type="checkbox" ${currentValue ? 'checked' : ''} ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
-        html += `<span class="setting-name">${setting.label || key}</span>`;
-        html += `</div>`;
-      });
-      html += '</div>';
-    }
-
-    group.enums.forEach(({ key, setting, isLocked, currentValue }) => {
-      const statusClass = isLocked ? 'locked' : 'editable';
-      html += `<div class="custom-setting-item ${statusClass}">`;
-      html += `<select ${isLocked ? 'disabled' : ''} data-setting="${key}">`;
-      // Profil bazli izin verilen degerler (allowedValues yoksa tum degerler)
-      const allowedValues = profile.allowedValues?.[key] || setting.values;
-      allowedValues.forEach(val => {
-        const selected = val === currentValue ? 'selected' : '';
-        html += `<option value="${val}" ${selected}>${formatEnumValue(val, key)}</option>`;
-      });
-      html += `</select>`;
-      html += `<span class="setting-name">${setting.label || key}</span>`;
-      html += `</div>`;
-    });
-
-    html += '</div>';
-    html += '</div>';
-  });
-
-  if (html === '') {
-    html = '<p class="custom-settings-hint">No custom settings available for this profile.</p>';
-  }
-
-  customSettingsGrid.innerHTML = html;
-
-  // Dinamik kilitleri uygula (mode -> buffer, loopback -> timeslice vb.)
-  profileController.updateCustomSettingsPanelDynamicState();
-}
-
-// Ozel Ayarlar panelindeki degisiklikleri dinle
-if (customSettingsGrid) {
-  customSettingsGrid.addEventListener('change', (e) => {
-    const target = e.target;
-    const key = target.dataset.setting;
-    if (!key) return;
-
-    let value;
-    if (target.type === 'checkbox') {
-      value = target.checked;
-    } else if (target.tagName === 'SELECT') {
-      // Enum degerler - sayi ise number'a cevir
-      value = isNaN(target.value) ? target.value : Number(target.value);
-    } else {
-      return;
-    }
-
-    // OCP: Drawer'daki ilgili kontrolu dinamik olarak guncelle
-    const setting = SETTINGS[key];
-    if (setting?.ui) {
-      const elements = getSettingElements(key);
-      if (setting.type === 'boolean') {
-        // Checkbox veya Toggle
-        elements.forEach(el => el.checked = value);
-      } else if (setting.type === 'enum') {
-        // Radio grubu - degere gore sec
-        const radio = elements.find(el => el.value == value);
-        if (radio) radio.checked = true;
-      }
-    }
-
-    // Dinamik bagimliliklari guncelle (mode -> buffer, loopback -> timeslice vb.)
-    profileController.updateCustomSettingsPanelDynamicState();
-
-    eventBus.emit('log:ui', {
-      message: `Ayar degistirildi: ${key} = ${value}`
-    });
-  });
-}
+// NOT: updateCustomSettingsPanel fonksiyonu ve customSettingsGrid event listener'i
+// CustomSettingsPanelHandler modülüne taşındı
 
 // Baslangic profil ID'si (initialization icin)
 const initialProfile = profileSelector?.value || 'discord';
@@ -833,6 +658,7 @@ profileController.setCallbacks({
   updateCategoryUI,
   getRadioValue,
   setSettingDisabled,
+  setOptionDisabled,
   getSettingElements
 });
 
@@ -886,6 +712,22 @@ uiStateManager.setProfileCollections({
 
 uiStateManager.setProfileController(profileController);
 
+// CustomSettingsPanelHandler init
+customSettingsPanelHandler.init({
+  customSettingsToggle,
+  customSettingsContent,
+  customSettingsGrid
+});
+
+customSettingsPanelHandler.setCallbacks({
+  getSettingElements,
+  setSettingDisabled
+});
+
+customSettingsPanelHandler.setDependencies({
+  profileController
+});
+
 // DeviceInfo init - mikrofon secici
 deviceInfo.initMicSelector({
   micSelector,
@@ -900,7 +742,7 @@ profileController.applyProfile(initialProfile);
 
 // Baslangic profil UI guncellemeleri (applyProfile sonrasi)
 profileUIManager.updateAll(initialProfile);
-updateCustomSettingsPanel(initialProfile);
+customSettingsPanelHandler.updatePanel(initialProfile);
 // NOT: updateCategoryUI zaten applyProfile icinde cagiriliyor
 
 // UI state sync (refresh/persisted checkbox senaryolari icin)
@@ -926,8 +768,7 @@ if (!WASM_OPUS_SUPPORTED) {
     wasmOpusOption.disabled = true;
     const label = wasmOpusOption.nextElementSibling;
     if (label) {
-      label.style.opacity = '0.5';
-      label.style.pointerEvents = 'none';
+      label.classList.add('option-disabled');
     }
   }
 } else {
@@ -981,6 +822,7 @@ profileUIManager.init({
   scenarioCards,
   navItems,
   pageTitle,
+  pageTitleIcon,
   pageSubtitle,
   scenarioBadge,
   scenarioTech,
@@ -991,7 +833,7 @@ profileUIManager.setStateGetters({
   isPreparing: () => isPreparing
 });
 profileUIManager.setCallbacks({
-  updateCustomSettingsPanel
+  updateCustomSettingsPanel: (profileId) => customSettingsPanelHandler.updatePanel(profileId)
 });
 
 // ============================================

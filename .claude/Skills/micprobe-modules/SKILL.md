@@ -1,6 +1,6 @@
 ---
 name: micprobe-modules
-description: "MicProbe proje modulleri ve Config referansi. Anahtar kelimeler: AudioEngine, Config, PROFILES, SETTINGS, VuMeter, Recorder, Monitor, Player, EventBus, DeviceInfo, RecordingController, MonitoringController, ProfileUIManager, modul, module, profil kategorileri, call, record"
+description: "MicProbe modulleri ve Config referansi. Anahtar kelimeler: Config, PROFILES, SETTINGS, AudioEngine, Recorder, Monitor, Player, EventBus, ProfileController, UIStateManager, LoopbackManager, LogManager, Logger, profil kategorileri, call, record"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." yaz.
@@ -31,12 +31,22 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." 
 
 ```
 js/
-├── app.js                       # Orchestrator, event wiring (~940)
+├── app.js                       # Orchestrator, event wiring (~907)
 ├── controllers/
 │   ├── RecordingController.js   # Normal kayit wrapper (~120)
 │   └── MonitoringController.js  # Loopback monitor + sinyal bekleme (~310)
+├── pipelines/                   # Pipeline Strategy Pattern (OCP)
+│   ├── index.js                 # Export barrel
+│   ├── BasePipeline.js          # Abstract base class
+│   ├── PipelineFactory.js       # Factory Method Pattern
+│   ├── DirectPipeline.js        # WebAudio bypass
+│   ├── StandardPipeline.js      # Source -> Destination
+│   ├── ScriptProcessorPipeline.js # ScriptProcessor + WASM Opus
+│   └── WorkletPipeline.js       # AudioWorkletNode
 ├── ui/
-│   ├── ProfileUIManager.js      # Profil UI, settings panel (~190)
+│   ├── ProfileUIManager.js      # Profil UI, scenario cards (~184)
+│   ├── CustomSettingsPanelHandler.js # Ozel ayarlar paneli (~280)
+│   ├── RadioGroupHandler.js     # Radio/checkbox event handler (~141)
 │   └── DebugConsole.js          # Debug fonksiyonlari (~145)
 ├── lib/opus/
 │   ├── encoderWorker.min.js     # opus-recorder WASM encoder (376KB)
@@ -44,18 +54,25 @@ js/
 ├── worklets/
 │   └── passthrough-processor.js # AudioWorklet processor
 └── modules/
-    ├── Config.js                # PROFILES, SETTINGS
-    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL, OPUS
+    ├── Config.js                # PROFILES, SETTINGS, getProfileValue
+    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL, OPUS sabitleri
     ├── EventBus.js              # Pub/Sub singleton
     ├── ProfileController.js     # applyProfile, constraint logic
-    ├── UIStateManager.js        # Buton state yonetimi
+    ├── UIStateManager.js        # Buton state yonetimi, updateButtonStates
+    ├── StatusManager.js         # Durum yonetimi (recording, monitoring states)
     ├── LoopbackManager.js       # WebRTC loopback setup
-    ├── Recorder.js              # MediaRecorder + WASM Opus wrapper
+    ├── Recorder.js              # MediaRecorder + Pipeline Strategy
     ├── OpusWorkerHelper.js      # WASM Opus worker yonetimi
-    ├── Monitor.js               # Modlar: direct, standard, worklet, codec-simulated; scriptprocessor sadece record/legacy icin
+    ├── Monitor.js               # Modlar: direct, standard, worklet, codec-simulated
     ├── Player.js                # Blob oynatma
     ├── VuMeter.js               # dB gostergesi
-    └── ...
+    ├── AudioEngine.js           # Ses motoru, AudioContext yonetimi
+    ├── DeviceInfo.js            # Mikrofon/cihaz bilgileri
+    ├── StreamHelper.js          # MediaStream yardimci islemleri
+    ├── WorkletHelper.js         # AudioWorklet yardimci islemleri
+    ├── Logger.js                # UI log paneli gosterimi
+    ├── LogManager.js            # IndexedDB log yonetimi
+    └── utils.js                 # Genel yardimci fonksiyonlar
 ```
 
 ## Kategori & Profiller
@@ -63,7 +80,7 @@ js/
 | Kategori | Yetenek | Profiller |
 |----------|---------|-----------|
 | `call` | Monitoring only | discord, zoom, whatsapp-call, telegram-call |
-| `record` | Recording + Playback | whatsapp-voice, telegram-voice, legacy, mictest |
+| `record` | Recording + Playback | whatsapp-voice, telegram-voice, legacy, raw |
 
 Profil detaylari: `Config.js` → `PROFILES`
 
@@ -126,10 +143,16 @@ const recorder = new Recorder({ constraints });
 await recorder.start(constraints, pipeline, encoder, timeslice, bufferSize, mediaBitrate);
 recorder.stop();
 ```
-**Pipeline (Web Audio Graph):**
+
+**Pipeline Strategy Pattern (OCP):**
+Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline eklemek icin:
+1. `js/pipelines/NewPipeline.js` olustur (BasePipeline extend)
+2. `PipelineFactory.js`'e ekle
+
+**Mevcut Pipeline'lar:**
 - `direct` → Web Audio yok, dogrudan MediaRecorder
 - `standard` → AudioContext → MediaRecorder
-- `scriptprocessor` → ScriptProcessorNode → MediaRecorder
+- `scriptprocessor` → ScriptProcessorNode → MediaRecorder/WASM Opus
 - `worklet` → AudioWorkletNode → MediaRecorder
 
 **Encoder (Kayit Formati):**
@@ -154,7 +177,7 @@ if (isWasmOpusSupported()) {
 Modlar:
 - `worklet` → Call kategorisi (WebRTC Loopback + AudioWorklet)
 - `direct`, `standard` → Record kategorisi veya non-loopback monitoring
-- `scriptprocessor` → **SADECE record kategorisi** (legacy profili, mictest secenebilir). Call/arama modunda YASAK!
+- `scriptprocessor` → **SADECE record kategorisi** (legacy profili, raw secenebilir). Call/arama modunda YASAK!
 - `codec-simulated` → Loopback monitoring icin (dahili mod)
 
 **Codec-Simulated:** Mic → MediaRecorder → MediaSource → Audio → DelayNode(1.7s) → Speaker
@@ -189,7 +212,7 @@ Monitoring (call):
 
 **Yeni ayar eklemek:**
 1. `Config.js` → SETTINGS'e ekle
-2. `mic_probe.html` → HTML kontrol ekle
+2. `index.html` → HTML kontrol ekle (Settings Drawer icinde)
 3. `ProfileUIManager.js` otomatik isle
 
 **Yeni profil eklemek:**

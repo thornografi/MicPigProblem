@@ -85,5 +85,6 @@ Sabitler: `constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_
 | `SIGNAL.MAX_WAIT_MS` | 2000 | Sinyal bekleme timeout |
 | `SIGNAL.POLL_INTERVAL_MS` | 50 | Polling araligi |
 | `SIGNAL.RMS_THRESHOLD` | 0.001 | Sinyal algilama esigi |
-| `LOOPBACK.ICE_WAIT_MS` | 3000 | ICE baglanti timeout |
+
+**Not:** ICE baglanti timeout 10sn olarak `LoopbackManager.js` icinde hardcoded.
 

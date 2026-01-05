@@ -7,6 +7,11 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-ui-state SKILL.md okunuyor..."
 
 # MicProbe — UI State & Davranis Kurallari
 
+## UI Dil ve Olcek Tutarliligi
+
+- Log console haric tum sayfa/arayuz metinleri Ingilizce olmalidir.
+- Tasarimlarda farkli inch/ekran olcekleri birlikte dusunulmeli; tum boyutlarda birbirine benzer gorunum ve oranlar korunmalidir.
+
 ## Kategori Bazli UI Davranisi
 
 ### Sidebar Yapisi
@@ -22,7 +27,7 @@ UI, profil yeteneklerini (`canMonitor`, `canRecord`) okuyarak butonlari gosterir
 | call | true | false | Sadece Monitor |
 | record | false | true | Sadece Kayıt + Player |
 
-Not: Tüm `record` kategorisi profilleri (mictest dahil) `canMonitor=false`.
+Not: Tüm `record` kategorisi profilleri (raw dahil) `canMonitor=false`.
 
 ### Temel Kural
 
@@ -36,7 +41,7 @@ Not: Tüm `record` kategorisi profilleri (mictest dahil) `canMonitor=false`.
 - Her profilde gorunur, profil bazli locked/editable ayarlar dinamik olarak listelenir.
 - **allowedValues:** Dropdown'lar sadece profilin izin verdigi degerleri gosterir.
 - Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
-- Kontrol: `app.js` → `updateCustomSettingsPanel()` fonksiyonu
+- Kontrol: `ui/CustomSettingsPanelHandler.js` → `updatePanel()` metodu
 
 ## Sayaç (Timer)
 
@@ -82,4 +87,3 @@ Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 - Timer: `modules/UIStateManager.js` → `startTimer()/stopTimer()`
 - Player: `modules/Player.js`
 - Stil: `css/style.css`
-

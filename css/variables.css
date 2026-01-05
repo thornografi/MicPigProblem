@@ -13,36 +13,163 @@
   --color-purple-light: #c084fc;
   --color-coral: #e85d3b;
   --color-pink: #d946a8;
+  --brand-icon-color: var(--color-purple);
+  --brand-text-color: var(--color-orange);
+
+  /* RGB values - rgba() icinde kullanmak icin */
+  --color-orange-rgb: 255, 107, 53;
+  --color-purple-rgb: 168, 85, 247;
+  --color-coral-rgb: 232, 93, 59;
+  --color-pink-rgb: 217, 70, 168;
+  --color-white-rgb: 255, 255, 255;
+  --color-black-rgb: 0, 0, 0;
+
+  /* Active profile color - gradient ortasi */
+  --color-accent-mid: #e36a78;
+  --color-accent-mid-rgb: 227, 106, 120;
+  --profile-accent: var(--color-accent-mid);
+  --profile-accent-glow: rgba(var(--color-accent-mid-rgb), 0.55);
 
   /* Background - Dark theme */
   --bg-primary: #0a0a0f;
   --bg-secondary: #12121a;
   --bg-tertiary: #1a1028;
-  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card: rgba(var(--color-white-rgb), 0.03);
   --bg-card-solid: #1a1a24;
-  --bg-card-hover: rgba(255, 255, 255, 0.05);
-  --bg-input: rgba(255, 255, 255, 0.05);
-  --bg-elevated: rgba(255, 255, 255, 0.08);
+  --bg-card-hover: rgba(var(--color-white-rgb), 0.05);
+  --bg-input: rgba(var(--color-white-rgb), 0.05);
+  --bg-elevated: rgba(var(--color-white-rgb), 0.08);
 
   /* Gradient backgrounds - Landing VE App icin */
-  --gradient-bg: linear-gradient(135deg, #0a0a0f 0%, #12121a 40%, #1a1028 70%, #2d1b4e 100%);
-  --gradient-bg-app: linear-gradient(145deg, #0a0a0f 0%, #0f0f18 30%, #151520 60%, #1a1028 100%);
-  --gradient-hero: radial-gradient(ellipse at 50% 100%, rgba(168, 85, 247, 0.15) 0%, transparent 60%);
-  --gradient-subtle: radial-gradient(ellipse at 80% 20%, rgba(255, 107, 53, 0.08) 0%, transparent 50%),
-                     radial-gradient(ellipse at 20% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+  --gradient-bg: linear-gradient(135deg,
+    #0a0a0f 0%,
+    #0a0a0f 14%,
+    #0f0f18 20%,
+    #12121a 24%,
+    #1a1028 30%,
+    #0f0f18 36%,
+    #151520 40%,
+    #0f0f18 46%,
+    #12121a 50%,
+    #0f0f18 56%,
+    #1a1028 62%,
+    #0f0f18 68%,
+    #12121a 72%,
+    #1a1028 78%,
+    #0f0f18 84%,
+    #2d1b4e 92%,
+    #2d1b4e 100%);
+  --gradient-bg-app: linear-gradient(145deg,
+    #0a0a0f 0%,
+    #0a0a0f 14%,
+    #0f0f18 20%,
+    #12121a 24%,
+    #151520 30%,
+    #0f0f18 36%,
+    #151520 40%,
+    #0f0f18 46%,
+    #12121a 50%,
+    #0f0f18 56%,
+    #151520 62%,
+    #0f0f18 68%,
+    #12121a 72%,
+    #151520 78%,
+    #0f0f18 84%,
+    #2d1b4e 92%,
+    #2d1b4e 100%);
+  --gradient-hero: radial-gradient(ellipse at 50% 100%, rgba(var(--color-purple-rgb), 0.15) 0%, transparent 60%);
+  --gradient-subtle: radial-gradient(ellipse at 82% 18%,
+    rgba(var(--color-orange-rgb), 0.1) 0%,
+    rgba(var(--color-orange-rgb), 0.08) 26%,
+    rgba(var(--color-orange-rgb), 0.03) 44%,
+    transparent 58%,
+    rgba(var(--color-orange-rgb), 0.04) 74%,
+    transparent 90%),
+                     radial-gradient(ellipse at 18% 82%,
+    rgba(var(--color-purple-rgb), 0.08) 0%,
+    rgba(var(--color-purple-rgb), 0.06) 28%,
+    rgba(var(--color-purple-rgb), 0.025) 46%,
+    transparent 60%,
+    rgba(var(--color-purple-rgb), 0.035) 76%,
+    transparent 92%);
+
+  /* Accent gradient opacity tokens (DRY) */
+  --accent-grad-soft-alpha: 0.9;
+  --accent-grad-muted-orange-alpha: 0.15;
+  --accent-grad-muted-purple-alpha: 0.1;
+  --accent-grad-subtle-orange-alpha: 0.05;
+  --accent-grad-subtle-purple-alpha: 0.03;
+  --accent-grad-faint-orange-alpha: 0.03;
+  --accent-grad-faint-purple-alpha: 0.02;
+  --accent-grad-hover-orange-alpha: 0.1;
+  --accent-grad-hover-purple-alpha: 0.06;
+  --accent-grad-strong-orange-alpha: 0.2;
+  --accent-grad-strong-purple-alpha: 0.15;
+  --accent-grad-mid-orange-alpha: 0.12;
+  --accent-grad-mid-purple-alpha: 0.08;
+  --shine-alpha: 0.1;
+  --shine-strong-alpha: 0.15;
 
   /* Primary accent gradient - HER YERDE KULLANILIR */
   --gradient-accent: linear-gradient(135deg, var(--color-orange) 0%, var(--color-purple) 100%);
   --gradient-accent-warm: linear-gradient(135deg, var(--color-coral) 0%, var(--color-pink) 50%, var(--color-purple-light) 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(255, 107, 53, 0.9), rgba(168, 85, 247, 0.9));
+  --gradient-accent-soft: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-soft-alpha)),
+    rgba(var(--color-purple-rgb), var(--accent-grad-soft-alpha)));
+
+  /* Brand text gradient - ikonun bittigi yerden baslar (pink -> purple-light) */
+  --gradient-brand: linear-gradient(135deg, var(--color-pink) 0%, var(--color-purple-light) 100%);
+  --gradient-brand-hover: linear-gradient(135deg, var(--color-purple-light) 0%, var(--color-purple) 100%);
+  --glow-brand: 0 0 20px rgba(var(--color-orange-rgb), 0.4), 0 0 40px rgba(var(--color-purple-rgb), 0.3);
+  --glow-brand-hover: 0 0 25px rgba(var(--color-orange-rgb), 0.5), 0 0 50px rgba(var(--color-purple-rgb), 0.4);
 
   /* Muted accent gradients for backgrounds - DRY */
-  --gradient-accent-muted: linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(168, 85, 247, 0.1) 100%);
-  --gradient-accent-subtle: linear-gradient(135deg, rgba(255, 107, 53, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%);
-  --gradient-accent-faint: linear-gradient(135deg, rgba(255, 107, 53, 0.03) 0%, rgba(168, 85, 247, 0.02) 100%);
-  --gradient-accent-hover: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(168, 85, 247, 0.06) 100%);
-  --gradient-accent-strong: linear-gradient(135deg, rgba(255, 107, 53, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%);
-  --gradient-accent-mid: linear-gradient(135deg, rgba(255, 107, 53, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+  --gradient-accent-muted: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-muted-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-muted-purple-alpha)) 100%);
+
+  /* Glass shine overlay - button ::before icin */
+  --gradient-shine: linear-gradient(135deg, rgba(var(--color-white-rgb), var(--shine-alpha)), transparent);
+  --gradient-shine-strong: linear-gradient(135deg, rgba(var(--color-white-rgb), var(--shine-strong-alpha)), transparent);
+  --gradient-accent-subtle: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-subtle-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-subtle-purple-alpha)) 100%);
+  --gradient-accent-faint: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-faint-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-faint-purple-alpha)) 100%);
+  --gradient-accent-hover: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-hover-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-hover-purple-alpha)) 100%);
+  --gradient-accent-strong: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-strong-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-strong-purple-alpha)) 100%);
+  --gradient-accent-mid: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), var(--accent-grad-mid-orange-alpha)) 0%,
+    rgba(var(--color-purple-rgb), var(--accent-grad-mid-purple-alpha)) 100%);
+
+  /* ========== GLOW & SHADOW SYSTEM ========== */
+  /* Shared accent glow colors - DRY */
+  --glow-accent-orange-50: rgba(var(--color-orange-rgb), 0.5);
+  --glow-accent-orange-60: rgba(var(--color-orange-rgb), 0.6);
+  --glow-accent-orange-80: rgba(var(--color-orange-rgb), 0.8);
+  --glow-accent-purple-30: rgba(var(--color-purple-rgb), 0.3);
+  --glow-accent-purple-40: rgba(var(--color-purple-rgb), 0.4);
+  --shadow-accent-orange-40: rgba(var(--color-orange-rgb), 0.4);
+  --shadow-accent-orange-80: rgba(var(--color-orange-rgb), 0.8);
+
+  /* Drop-shadow filters - icon/svg icin */
+  --glow-accent-xs: drop-shadow(0 0 4px var(--glow-accent-orange-50));
+  --glow-accent-sm: drop-shadow(0 0 6px var(--glow-accent-orange-50));
+  --glow-accent-md: drop-shadow(0 0 8px var(--glow-accent-orange-60)) drop-shadow(0 0 16px var(--glow-accent-purple-30));
+  --glow-accent-lg: drop-shadow(0 0 12px var(--glow-accent-orange-60)) drop-shadow(0 0 20px var(--glow-accent-purple-30));
+  --glow-accent-xl: drop-shadow(0 0 16px var(--glow-accent-orange-80)) drop-shadow(0 0 24px var(--glow-accent-purple-40));
+
+  /* Box-shadow - container/card icin */
+  --shadow-accent-sm: 0 0 8px var(--shadow-accent-orange-40);
+  --shadow-accent-md: 0 0 12px var(--shadow-accent-orange-40);
+  --shadow-accent-lg: 0 0 15px var(--shadow-accent-orange-40);
+  --shadow-accent-glow: 0 0 12px var(--shadow-accent-orange-80), 0 0 20px var(--shadow-accent-orange-40);
+  --shadow-purple-glow: 0 0 12px rgba(var(--color-purple-rgb), 0.8), 0 0 20px rgba(var(--color-purple-rgb), 0.4);
 
   /* Accent colors - Unified */
   --accent-primary: var(--color-coral);
@@ -65,16 +192,22 @@
   --text-muted: #727272;
 
   /* Border colors */
-  --border-primary: rgba(255, 255, 255, 0.1);
-  --border-secondary: rgba(255, 255, 255, 0.05);
-  --border-glow: rgba(168, 85, 247, 0.3);
-  --border-glow-orange: rgba(255, 107, 53, 0.3);
+  --border-primary: rgba(var(--color-white-rgb), 0.1);
+  --border-secondary: rgba(var(--color-white-rgb), 0.05);
+  --border-glow: rgba(var(--color-purple-rgb), 0.3);
+  --border-glow-orange: rgba(var(--color-orange-rgb), 0.3);
 
   /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-bg-hover: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(var(--color-white-rgb), 0.03);
+  --glass-bg-hover: rgba(var(--color-white-rgb), 0.06);
+  --glass-border: rgba(var(--color-white-rgb), 0.08);
   --backdrop-blur: 12px;
+
+  /* Panel ortak stiller (header ve content panel icin) */
+  --panel-gradient: linear-gradient(145deg, rgba(var(--color-white-rgb), 0.04) 0%, rgba(var(--color-white-rgb), 0.01) 100%);
+  --panel-blur: 16px;
+  --panel-shadow: 0 8px 32px rgba(var(--color-black-rgb), 0.15);
+  --panel-body-bg: rgba(18, 18, 26, 0.6);
 
   /* ========== SPACING ========== */
   --space-xs: 4px;
@@ -95,15 +228,17 @@
   --radius-full: 9999px;
 
   /* ========== TRANSITIONS ========== */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
-  --transition-slow: 0.3s ease;
+  --transition-fast: 0.12s ease;
+  --transition-normal: 0.16s ease;
+  --transition-slow: 0.24s ease;
 
   /* ========== TYPOGRAPHY ========== */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ui-accent: 'Rubik', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
 
-  /* Font sizes */
+  /* Font sizes - rem (relative) */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -115,17 +250,27 @@
   --text-5xl: 3rem;
   --text-6xl: 3.75rem;
 
+  /* Font sizes - px (fixed scale for UI components) */
+  --fs-2xs: 10px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+
   /* ========== SHADOWS ========== */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 2px rgba(var(--color-black-rgb), 0.3);
+  --shadow-md: 0 4px 6px rgba(var(--color-black-rgb), 0.4);
+  --shadow-lg: 0 10px 15px rgba(var(--color-black-rgb), 0.5);
+  --shadow-xl: 0 20px 25px rgba(var(--color-black-rgb), 0.6);
 
   /* Glow effects - tutarli accent renkleri */
   --glow-accent: 0 0 25px rgba(232, 93, 59, 0.3);
   --glow-accent-strong: 0 0 40px rgba(232, 93, 59, 0.5);
   --glow-purple: 0 0 25px rgba(192, 132, 252, 0.3);
-  --glow-purple-strong: 0 0 40px rgba(168, 85, 247, 0.4);
+  --glow-purple-strong: 0 0 40px rgba(var(--color-purple-rgb), 0.4);
   --glow-danger: 0 0 20px rgba(229, 57, 53, 0.4);
 
   /* Legacy aliases (eski kod uyumlulugu) */
@@ -141,11 +286,43 @@
   /* ========== LAYOUT ========== */
   --sidebar-width: 282px;
   --navbar-height: 72px;
-  --max-width: 1200px;
   --sidebar-nav-top: 30px;
+
+  /* Fluid Layout - ekran boyutuna göre ölçeklenir */
+  --max-width: clamp(800px, 92vw, 1600px);
+  --gap-fluid: clamp(20px, 3vw, 48px);
+  --padding-fluid: clamp(20px, 3vw, 40px);
+
+  /* Breakpoints (reference tokens) */
+  --bp-lg: 1200px;
+  --bp-md: 900px;
+  --bp-sm: 768px;
 
   /* ========== UI STATES ========== */
   --opacity-disabled: 0.55;
+}
+
+/* ========== SHARED HERO OVERLAY ========== */
+#landing-view::before,
+#app-view::before,
+.app-shell::after {
+  content: '';
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--gradient-hero);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#landing-view::before {
+  position: absolute;
+}
+
+#app-view::before,
+.app-shell::after {
+  position: fixed;
 }
 
 /* ========== RESET ========== */
@@ -206,6 +383,10 @@ body {
   display: none !important;
 }
 
+.no-pointer-events {
+  pointer-events: none;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -216,4 +397,178 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ========== BRAND WORDMARK ========== */
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.18em;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.brand-word {
+  display: inline-block;
+  line-height: 1;
+}
+
+.brand-word--mic {
+  font-weight: 700;
+  color: var(--color-coral);
+  text-shadow: 0 0 12px rgba(var(--color-orange-rgb), 0.25);
+}
+
+.brand-word--probe {
+  font-weight: 600;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ========== SITE FOOTER (Ortak - Tüm Sayfalar) ========== */
+/* Landing page footer baz alındı - ortalanmış dikey düzen */
+.site-footer {
+  padding: var(--space-2xl) var(--space-xl);
+  border-top: 1px solid var(--border-secondary);
+  background: transparent;
+  text-align: center;
+  margin-top: auto;
+}
+
+.site-footer-content {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.site-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 6px 12px 6px 6px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+}
+
+.site-footer-brand svg {
+  width: 22px;
+  height: 22px;
+  color: var(--brand-icon-color);
+  fill: currentColor;
+  filter: drop-shadow(0 0 8px rgba(var(--color-orange-rgb), 0.3)), drop-shadow(0 0 16px rgba(var(--color-purple-rgb), 0.2));
+  transition: transform var(--transition-normal), filter var(--transition-normal);
+}
+
+.site-footer-brand .brand-wordmark {
+  color: inherit;
+}
+
+.site-footer-brand:hover {
+  background: var(--gradient-accent-subtle);
+}
+
+.site-footer-brand:hover svg {
+  transform: scale(1.15);
+  filter: drop-shadow(var(--glow-brand));
+}
+
+.site-footer-brand:hover .brand-word--mic {
+  color: var(--color-orange-light);
+}
+
+.site-footer-brand:hover .brand-word--probe {
+  background: var(--gradient-brand-hover);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.site-footer-links {
+  display: flex;
+  gap: var(--space-xl);
+}
+
+.site-footer-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  transition: color var(--transition-fast);
+}
+
+.site-footer-links a:hover {
+  color: var(--text-primary);
+}
+
+.site-footer-meta {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* ========== SHARED BUTTONS (Ortak - Tüm Sayfalar) ========== */
+/* Base button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Primary variant - gradient accent */
+.btn--primary {
+  background: var(--gradient-accent);
+  color: white;
+}
+
+.btn--primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow-orange);
+}
+
+/* Secondary variant - ghost/outline */
+.btn--secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: rgba(var(--color-white-rgb), 0.05);
+  border-color: var(--text-muted);
+}
+
+/* ========== GLASS SURFACE (Ortak Utility) ========== */
+.glass-surface {
+  background: linear-gradient(145deg, rgba(var(--color-white-rgb), 0.05) 0%, rgba(var(--color-white-rgb), 0.02) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(var(--color-white-rgb), 0.1);
+  border-radius: var(--radius-xl);
 }

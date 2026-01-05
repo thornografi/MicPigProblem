@@ -17,6 +17,16 @@ class StatusManager {
       loopback: { class: 'status-loopback', text: 'WebRTC Loopback' }
     };
 
+    // Inline CSS vars allow new status colors without touching CSS.
+    this.statusVarKeys = [
+      '--status-bg',
+      '--status-border',
+      '--status-color',
+      '--status-shadow',
+      '--status-dot',
+      '--status-dot-shadow'
+    ];
+
     // Event dinle
     eventBus.on('recorder:started', () => this.setStatus('recording'));
     eventBus.on('recorder:stopped', () => this.setStatus('idle'));
@@ -39,7 +49,14 @@ class StatusManager {
     this.currentStatus = status;
 
     if (this.el) {
-      this.el.className = `status ${config.class}`;
+      this.el.className = `status ${config.class || ''}`.trim();
+      this.el.dataset.status = status;
+      this.statusVarKeys.forEach((key) => this.el.style.removeProperty(key));
+      if (config.vars) {
+        Object.entries(config.vars).forEach(([key, value]) => {
+          this.el.style.setProperty(key, value);
+        });
+      }
       this.el.innerHTML = `<span class="status-dot"></span>${config.text}`;
     }
 

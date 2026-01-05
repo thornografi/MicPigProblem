@@ -201,8 +201,8 @@ export const PROFILES = {
   // Call profilleri: EC/NS/AGC platformlar tarafindan kesinlikle kullaniliyor
   'discord': createProfile('discord', 'Discord', 'Discord, Guilded - Krisp noise suppression, AudioWorklet',
     'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'pipeline', 'encoder', 'sampleRate', 'ec', 'ns', 'agc'],
-      editable: ['bitrate', 'channelCount'],
+    { locked: ['loopback', 'pipeline', 'encoder', 'sampleRate', 'channelCount', 'ec', 'ns', 'agc'],
+      editable: ['bitrate'],
       allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] } }),
 
   'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - AudioWorklet pipeline',
@@ -242,13 +242,22 @@ export const PROFILES = {
 
   'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + MediaRecorder - legacy web recording sites',
     'history', 'record', { pipeline: 'scriptprocessor', encoder: 'mediarecorder', buffer: 1024, timeslice: 1000, loopback: false },
-    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice'] }),
+    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice', 'mediaBitrate'] }),
     // allowedValues yok = tum degerler izinli
 
-  'mictest': createProfile('mictest', 'Raw Recording', 'All recording settings unlocked - for testing',
+  'raw': createProfile('raw', 'Raw Recording', 'All filters off, all settings unlocked - for testing and comparison',
     'mic', 'record', { ec: false, ns: false, agc: false, pipeline: 'direct', encoder: 'mediarecorder', loopback: false },
     { locked: [], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'pipeline', 'encoder', 'buffer', 'mediaBitrate', 'timeslice'] })
     // allowedValues yok = tum degerler izinli (test profili)
+};
+
+// Profil tema token'lari (UI accent renkleri)
+// Yeni profil rengi eklemek icin bu map'e giris eklemek yeterli.
+export const PROFILE_THEMES = {
+  default: {
+    accent: 'var(--color-accent-mid)',
+    accentGlow: 'rgba(var(--color-accent-mid-rgb), 0.55)'
+  }
 };
 
 // Kategori tanimlari (UI siralama icin)
@@ -270,6 +279,61 @@ export const PROFILE_CATEGORIES = {
   }
 };
 
+// Profil bazli Tips mesajlari
+// Her profil icin 3 adimlik rehber (tek satir)
+export const PROFILE_TIPS = {
+  // === CALL Category ===
+  'discord': [
+    { step: 1, text: 'Click <strong>Monitor</strong> to hear yourself' },
+    { step: 2, text: 'Test Nitro quality with <strong>Bitrate</strong>' },
+    { step: 3, text: 'Check audio levels with VU meter' }
+  ],
+  'zoom': [
+    { step: 1, text: 'Test meeting audio with <strong>Monitor</strong>' },
+    { step: 2, text: 'Try <strong>Sample Rate</strong> compatibility' },
+    { step: 3, text: 'Adjust levels with VU meter' }
+  ],
+  'whatsapp-call': [
+    { step: 1, text: 'Hear call quality with <strong>Monitor</strong>' },
+    { step: 2, text: 'Test <strong>Bitrate</strong> options' },
+    { step: 3, text: 'Watch audio levels on VU meter' }
+  ],
+  'telegram-call': [
+    { step: 1, text: 'Test call audio with <strong>Monitor</strong>' },
+    { step: 2, text: 'Adjust quality with <strong>Bitrate</strong>' },
+    { step: 3, text: 'Check levels on VU meter' }
+  ],
+
+  // === RECORD Category ===
+  'whatsapp-voice': [
+    { step: 1, text: 'Record voice message with <strong>Record</strong>' },
+    { step: 2, text: 'Play back and hear WASM Opus quality' },
+    { step: 3, text: 'Adjust quality with <strong>Bitrate</strong>' }
+  ],
+  'telegram-voice': [
+    { step: 1, text: 'Make audio recording with <strong>Record</strong>' },
+    { step: 2, text: 'Play back and compare quality' },
+    { step: 3, text: 'Try different <strong>Timeslice</strong> values' }
+  ],
+  'legacy': [
+    { step: 1, text: 'Record with legacy API using <strong>Record</strong>' },
+    { step: 2, text: 'Play back and test compatibility' },
+    { step: 3, text: 'Adjust <strong>Buffer</strong> size' }
+  ],
+  'raw': [
+    { step: 1, text: 'Make raw recording with <strong>Record</strong>' },
+    { step: 2, text: 'Compare with other profiles' },
+    { step: 3, text: 'Freely adjust all settings' }
+  ],
+
+  // Default (fallback)
+  'default': [
+    { step: 1, text: 'Select a profile from the sidebar' },
+    { step: 2, text: 'Use <strong>Monitor</strong> or <strong>Record</strong>' },
+    { step: 3, text: 'Customize settings as needed' }
+  ]
+};
+
 /**
  * Profil degerini al
  * @param {string} profileId - Profil ID
@@ -284,92 +348,10 @@ export function getProfileValue(profileId, settingKey) {
   return profile.values[settingKey] ?? SETTINGS[settingKey]?.default;
 }
 
-/**
- * Ayar degerini dogrula
- * @param {string} settingKey - Ayar anahtari
- * @param {*} value - Deger
- * @returns {boolean} Gecerli mi
- */
-export function validateSetting(settingKey, value) {
-  const setting = SETTINGS[settingKey];
-  if (!setting) return false;
-
-  switch (setting.type) {
-    case 'boolean':
-      return typeof value === 'boolean';
-    case 'enum':
-      return setting.values.includes(value);
-    case 'number':
-      return typeof value === 'number' &&
-             value >= setting.min &&
-             value <= setting.max;
-    default:
-      return true;
-  }
-}
-
-/**
- * Profil listesini al (UI icin)
- * @returns {Array} Profil listesi
- */
-export function getProfileList() {
-  return Object.values(PROFILES).map(p => ({
-    id: p.id,
-    label: p.label,
-    desc: p.desc,
-    icon: p.icon,
-    category: p.category
-  }));
-}
-
-/**
- * Kategoriye gore profilleri al
- * @param {string} categoryId - Kategori ID
- * @returns {Array} Profil listesi
- */
-export function getProfilesByCategory(categoryId) {
-  return Object.values(PROFILES)
-    .filter(p => p.category === categoryId)
-    .map(p => ({
-      id: p.id,
-      label: p.label,
-      desc: p.desc,
-      icon: p.icon,
-      category: p.category
-    }));
-}
-
-/**
- * Tum kategorileri sirali olarak al
- * @returns {Array} Kategori listesi
- */
-export function getCategoryList() {
-  return Object.values(PROFILE_CATEGORIES)
-    .sort((a, b) => a.order - b.order);
-}
-
-/**
- * Kategori bazli ayarlari al
- * @param {string} category - Kategori
- * @returns {Object} Ayarlar
- */
-export function getSettingsByCategory(category) {
-  return Object.entries(SETTINGS)
-    .filter(([_, s]) => s.category === category)
-    .reduce((acc, [key, setting]) => {
-      acc[key] = setting;
-      return acc;
-    }, {});
-}
-
 export default {
   SETTINGS,
   PROFILES,
   PROFILE_CATEGORIES,
-  getProfileValue,
-  validateSetting,
-  getProfileList,
-  getProfilesByCategory,
-  getCategoryList,
-  getSettingsByCategory
+  PROFILE_TIPS,
+  getProfileValue
 };
