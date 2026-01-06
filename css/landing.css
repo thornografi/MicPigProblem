@@ -221,7 +221,7 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: clamp(1200px, 220vw, 3200px);
+  width: 100vw;
   height: clamp(100px, 14vw, 180px);
   pointer-events: none;
   z-index: 0;
@@ -232,18 +232,6 @@
 .wave-line {
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* Hafif yüzen animasyon - her dalga farklı hızda */
-.wave-1 { animation: wave-float 8s ease-in-out infinite; }
-.wave-2 { animation: wave-float 9s ease-in-out infinite 0.5s; }
-.wave-3 { animation: wave-float 7s ease-in-out infinite 1s; }
-.wave-4 { animation: wave-float 10s ease-in-out infinite 1.5s; }
-.wave-5 { animation: wave-float 8.5s ease-in-out infinite 2s; }
-
-@keyframes wave-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
 }
 
 .hero-mic-icon {
