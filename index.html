@@ -818,21 +818,26 @@
         // Cubuk boyutlari
         barWidth: 2.5,
         barGap: 3,
-        minBarHeight: 8,
-        maxBarHeight: 100,
+        minBarHeight: 6,
+        maxBarHeight: 180, // %20 daha yuksek
 
-        // Wave frekans (statik dalga formu)
-        waveFrequency: 2.5,
-        secondaryFrequency: 5.5,
-        tertiaryFrequency: 11,
+        // Wave frekans (dogal ses sinyali icin)
+        waveFrequency: 1.8,
+        secondaryFrequency: 4.3,
+        tertiaryFrequency: 7.1,
+        quaternaryFrequency: 11.7, // 4. harmonic
 
         // Merkez bosluk (mikrofon ikonu)
         centerGap: 0.10,
         centerFadeZone: 0.06,
 
         // Kenar fade - yavas gecis
-        edgeFadeStart: 0.35, // kenara 35 birim kala opacity azalmaya baslar
-        edgeFadeEnd: 0.05    // kenara 5 birim kala tamamen seffaf
+        edgeFadeStart: 0.35,
+        edgeFadeEnd: 0.05,
+
+        // Merkez dugum efekti - kenarlarda yuksek, merkeze dogru azalan
+        centerHeightMin: 0.15,   // Merkezde yukseklik %15'e duser
+        centerHeightEasing: 0.5
       });
     });
   </script>

@@ -25,10 +25,11 @@ class WaveAnimator {
       minBarHeight: config.minBarHeight || 6,
       maxBarHeight: config.maxBarHeight || 120,
 
-      // Wave parametreleri (statik dalga icin)
-      waveFrequency: config.waveFrequency || 3,
-      secondaryFrequency: config.secondaryFrequency || 7,
-      tertiaryFrequency: config.tertiaryFrequency || 13,
+      // Wave parametreleri (dogal ses sinyali icin)
+      waveFrequency: config.waveFrequency || 1.8,
+      secondaryFrequency: config.secondaryFrequency || 4.3,
+      tertiaryFrequency: config.tertiaryFrequency || 7.1,
+      quaternaryFrequency: config.quaternaryFrequency || 11.7,
 
       // Merkez bosluk (mikrofon ikonu icin)
       centerGap: config.centerGap || 0.12, // Merkezin %12'si bos
@@ -37,6 +38,10 @@ class WaveAnimator {
       // Kenar fade - yeni sistem
       edgeFadeStart: config.edgeFadeStart || 0.30, // Opacity azalmaya baslar
       edgeFadeEnd: config.edgeFadeEnd || 0.10,     // Tamamen seffaf
+
+      // Merkez yukseklik azaltma (dugum efekti)
+      centerHeightMin: config.centerHeightMin || 0.35, // Merkezde min yukseklik orani
+      centerHeightEasing: config.centerHeightEasing || 0.6, // Gecis yumusakligi
     };
 
     this.bars = [];
@@ -77,8 +82,8 @@ class WaveAnimator {
       // Cok dusuk opacity'li bar'lari atla (performans)
       if (opacity < 0.02) continue;
 
-      // Yukseklik hesapla
-      const height = this.calculateBarHeight(normalizedX);
+      // Yukseklik hesapla (barIndex ile asimetrik pattern)
+      const height = this.calculateBarHeight(normalizedX, i);
       const y = centerY - height / 2;
 
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -146,24 +151,63 @@ class WaveAnimator {
   }
 
   /**
-   * Statik dalga yuksekligi hesapla
+   * Merkez yukseklik multiplier - kenarlarda yuksek, merkeze dogru azalan
+   * Mikrofon ikonunda "dugum" efekti yaratir
    */
-  calculateBarHeight(normalizedX) {
-    const { waveFrequency, secondaryFrequency, tertiaryFrequency,
+  centerHeightMultiplier(normalizedX) {
+    const { centerHeightMin, centerHeightEasing } = this.config;
+
+    // Merkezden uzaklik (0 = merkez, 1 = kenarlar)
+    const distFromCenter = Math.abs(normalizedX - 0.5) * 2;
+
+    // Yumusak gecis icin easing uygula
+    const eased = Math.pow(distFromCenter, centerHeightEasing);
+
+    // Kenarlarda 1.0, merkezde centerHeightMin
+    return centerHeightMin + (1 - centerHeightMin) * eased;
+  }
+
+  /**
+   * Pseudo-random noise (deterministic, seed-based)
+   * Farkli seed'ler farkli pattern uretir
+   */
+  noise(x, seed = 0) {
+    const n = Math.sin((x + seed) * 127.1 + 311.7) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  /**
+   * Statik dalga yuksekligi hesapla - dogal ses sinyali
+   * Sol ve sag taraf asimetrik (farkli pattern)
+   */
+  calculateBarHeight(normalizedX, barIndex) {
+    const { waveFrequency, secondaryFrequency, tertiaryFrequency, quaternaryFrequency,
             minBarHeight, maxBarHeight } = this.config;
 
-    // Birden fazla sine wave kombinasyonu (gercekci ses dalgasi)
-    const primary = Math.sin(normalizedX * waveFrequency * Math.PI * 2) * 0.5;
-    const secondary = Math.sin(normalizedX * secondaryFrequency * Math.PI * 2 + 0.5) * 0.3;
-    const tertiary = Math.sin(normalizedX * tertiaryFrequency * Math.PI * 2 + 1.2) * 0.2;
+    // Sol/sag asimetri icin farkli phase offset
+    const isRightSide = normalizedX > 0.5;
+    const asymmetryOffset = isRightSide ? 1.7 : 0;
+
+    // Coklu harmonik kombinasyonu (dogal ses sinyali)
+    const primary = Math.sin(normalizedX * waveFrequency * Math.PI * 2 + asymmetryOffset) * 0.35;
+    const secondary = Math.sin(normalizedX * secondaryFrequency * Math.PI * 2 + 0.7 + asymmetryOffset * 0.5) * 0.25;
+    const tertiary = Math.sin(normalizedX * tertiaryFrequency * Math.PI * 2 + 1.4 + asymmetryOffset * 0.3) * 0.2;
+    const quaternary = Math.sin(normalizedX * quaternaryFrequency * Math.PI * 2 + 2.1) * 0.12;
+
+    // Her bar icin benzersiz noise (barIndex kullanarak)
+    const noiseVal1 = (this.noise(normalizedX * 50, barIndex * 0.1) - 0.5) * 0.18;
+    const noiseVal2 = (this.noise(barIndex * 7.3 + normalizedX * 30) - 0.5) * 0.12;
 
     // Kombine ve normalize (0-1)
-    const combined = (primary + secondary + tertiary + 1) / 2;
-    const normalizedHeight = Math.max(0, Math.min(1, combined));
+    const combined = primary + secondary + tertiary + quaternary + noiseVal1 + noiseVal2;
+    const normalizedHeight = Math.max(0.1, Math.min(1, (combined + 1) / 2));
 
-    // Yukseklik
+    // Merkez dugum efekti - kenarlarda yuksek, merkeze dogru azalan
+    const heightMult = this.centerHeightMultiplier(normalizedX);
+
+    // Yukseklik (wave + merkez envelope)
     const heightRange = maxBarHeight - minBarHeight;
-    return minBarHeight + normalizedHeight * heightRange;
+    return minBarHeight + (normalizedHeight * heightRange * heightMult);
   }
 
   // Animasyon metodlari (artik kullanilmiyor ama API uyumlulugu icin)
