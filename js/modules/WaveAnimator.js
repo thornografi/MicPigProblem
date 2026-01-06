@@ -178,21 +178,32 @@ class WaveAnimator {
 
   /**
    * Statik dalga yuksekligi hesapla - dogal ses sinyali
-   * Sol ve sag taraf asimetrik (farkli pattern)
+   * Sol ve sag taraf BAGIMSIZ hesaplanir (ayni karmasiklik, farkli pattern)
    */
   calculateBarHeight(normalizedX, barIndex) {
     const { waveFrequency, secondaryFrequency, tertiaryFrequency, quaternaryFrequency,
             minBarHeight, maxBarHeight } = this.config;
 
-    // Sol/sag asimetri icin farkli phase offset
     const isRightSide = normalizedX > 0.5;
-    const asymmetryOffset = isRightSide ? 1.7 : 0;
 
-    // Coklu harmonik kombinasyonu (dogal ses sinyali)
-    const primary = Math.sin(normalizedX * waveFrequency * Math.PI * 2 + asymmetryOffset) * 0.35;
-    const secondary = Math.sin(normalizedX * secondaryFrequency * Math.PI * 2 + 0.7 + asymmetryOffset * 0.5) * 0.25;
-    const tertiary = Math.sin(normalizedX * tertiaryFrequency * Math.PI * 2 + 1.4 + asymmetryOffset * 0.3) * 0.2;
-    const quaternary = Math.sin(normalizedX * quaternaryFrequency * Math.PI * 2 + 2.1) * 0.12;
+    // Sol ve sag taraf icin TAMAMEN FARKLI frekanslar
+    // Ayni karmasiklik seviyesinde ama farkli pattern
+    let primary, secondary, tertiary, quaternary;
+
+    if (!isRightSide) {
+      // SOL TARAF - orijinal frekanslar
+      primary = Math.sin(normalizedX * waveFrequency * Math.PI * 2) * 0.35;
+      secondary = Math.sin(normalizedX * secondaryFrequency * Math.PI * 2 + 0.7) * 0.25;
+      tertiary = Math.sin(normalizedX * tertiaryFrequency * Math.PI * 2 + 1.4) * 0.2;
+      quaternary = Math.sin(normalizedX * quaternaryFrequency * Math.PI * 2 + 2.1) * 0.12;
+    } else {
+      // SAG TARAF - farkli frekanslar ve phase (ayni karmasiklik)
+      const rx = normalizedX - 0.5; // Sag taraf icin normalize (0-0.5)
+      primary = Math.sin(rx * 2.3 * Math.PI * 2 + 0.8) * 0.35;
+      secondary = Math.sin(rx * 5.1 * Math.PI * 2 + 2.1) * 0.25;
+      tertiary = Math.sin(rx * 8.7 * Math.PI * 2 + 0.3) * 0.2;
+      quaternary = Math.sin(rx * 13.2 * Math.PI * 2 + 1.5) * 0.12;
+    }
 
     // Her bar icin benzersiz noise (barIndex kullanarak)
     const noiseVal1 = (this.noise(normalizedX * 50, barIndex * 0.1) - 0.5) * 0.18;

@@ -121,55 +121,18 @@ profileUIManager.handleProfileSelect(profileId);
 ### RadioGroupHandler (DRY Pattern)
 ```javascript
 import { RadioGroupHandler } from './ui/RadioGroupHandler.js';
-
-// Tek radio grubu
-RadioGroupHandler.attachGroup('Pipeline', pipelineRadios, {
-  labels: { direct: 'Direct', standard: 'Standard', scriptprocessor: 'ScriptProcessor' },
-  logCategory: 'log:webaudio',
-  onChange: (value) => { /* custom logic */ }
-});
-
-// Toplu kayit (tercih edilen)
-RadioGroupHandler.attachGroups({
-  Pipeline: { radios: pipelineRadios, labels: {...}, logCategory: 'log:webaudio', onChange: ... },
-  Encoder: { radios: encoderRadios, labels: {...}, logCategory: 'log:webaudio' },
-  'Buffer Size': { radios: bufferSizeRadios, logCategory: 'log:webaudio', formatValue: (v) => `${v} samples` },
-  'Opus Bitrate': { radios: bitrateRadios, logCategory: 'log:stream', formatValue: (v) => `${v/1000} kbps` },
-  Timeslice: { radios: timesliceRadios, logCategory: 'log:recorder', formatValue: (v) => `${v} ms` }
-});
-
-// Toggle/Checkbox
-RadioGroupHandler.attachToggle(toggleEl, 'AutoGain', {
-  logCategory: 'log:stream',
-  onLabel: 'AKTIF',
-  offLabel: 'PASIF',
-  onChange: (value) => { /* ... */ }
-});
+RadioGroupHandler.attachGroup('Pipeline', radios, { labels, logCategory, onChange });
+RadioGroupHandler.attachGroups({ Pipeline: {...}, Encoder: {...} }); // Toplu kayit
+RadioGroupHandler.attachToggle(toggleEl, 'AutoGain', { logCategory, onChange });
 ```
-**Emits:** `setting:<name>:changed` (generic event for listeners)
+**Emits:** `setting:<name>:changed`
 
 ### DrawerController Factory (DRY Pattern)
 ```javascript
-// app.js icerisinde
-function createDrawerController(drawerEl, options = {}) {
-  const { overlay = null, lockBody = false } = options;
-  return {
-    isOpen: () => drawerEl?.classList.contains('open'),
-    open() { drawerEl?.classList.add('open'); overlay?.classList.add('active'); if(lockBody) document.body.style.overflow='hidden'; },
-    close() { drawerEl?.classList.remove('open'); overlay?.classList.remove('active'); if(lockBody) document.body.style.overflow=''; },
-    toggle() { this.isOpen() ? this.close() : this.open(); },
-    bindButtons(...btns) { btns.flat().filter(Boolean).forEach(b => b.addEventListener('click', () => this.toggle())); },
-    bindCloseButtons(...btns) { btns.flat().filter(Boolean).forEach(b => b.addEventListener('click', () => this.close())); }
-  };
-}
-
-// Kullanim
-const settingsDrawer = createDrawerController(settingsDrawerEl, { overlay: overlayEl });
-const devConsole = createDrawerController(devConsoleEl);
-
-settingsDrawer.bindButtons(settingsBtn);
-settingsDrawer.bindCloseButtons(closeBtn, overlayEl);
-devConsole.bindButtons(devConsoleBtn);
+// app.js - createDrawerController(drawerEl, { overlay, lockBody })
+const drawer = createDrawerController(el, { overlay });
+drawer.open(); drawer.close(); drawer.toggle();
+drawer.bindButtons(btn1, btn2); drawer.bindCloseButtons(closeBtn);
 ```
 
 ## Core Modules
@@ -218,14 +181,10 @@ Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline ekleme
 ### OpusWorkerHelper (WASM Opus icin)
 ```javascript
 import { isWasmOpusSupported, createOpusWorker } from './OpusWorkerHelper.js';
-
-if (isWasmOpusSupported()) {
-  const worker = await createOpusWorker({ sampleRate: 48000, channels: 1, bitrate: 16000 });
-  worker.encode(pcmData);
-  const result = await worker.finish(); // { blob, duration, frameCount }
-}
+const worker = await createOpusWorker({ sampleRate, channels, bitrate });
+worker.encode(pcmData); const result = await worker.finish();
 ```
-**WhatsApp Web Pattern:** `ScriptProcessorNode(4096, 1, 1) + WASM Opus`
+**Pattern:** `ScriptProcessorNode(4096, 1, 1) + WASM Opus` (WhatsApp Web)
 
 ### Monitor (MonitoringController uzerinden)
 Modlar:
