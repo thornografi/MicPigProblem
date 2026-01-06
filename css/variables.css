@@ -7,28 +7,33 @@
 :root {
   /* ========== CORE COLORS ========== */
   /* Base palette - her iki view icin ortak */
-  --color-orange: #ff6b35;
-  --color-orange-light: #ff8555;
+  /* NOT: orange artik accent-text ile ayni (tema tutarliligi icin) */
+  --color-orange: #C03FA4;
+  --color-orange-light: #d946a8;
   --color-purple: #a855f7;
   --color-purple-light: #c084fc;
-  --color-coral: #e85d3b;
+  --color-coral: #C03FA4; /* tema ile uyumlu */
   --color-pink: #d946a8;
+  --color-rose: #fb7185;
+  --color-magenta: #c026d3;
   --brand-icon-color: var(--color-purple);
   --brand-text-color: var(--color-orange);
 
   /* RGB values - rgba() icinde kullanmak icin */
-  --color-orange-rgb: 255, 107, 53;
+  --color-orange-rgb: 192, 63, 164;
   --color-purple-rgb: 168, 85, 247;
-  --color-coral-rgb: 232, 93, 59;
+  --color-coral-rgb: 192, 63, 164;
   --color-pink-rgb: 217, 70, 168;
+  --color-rose-rgb: 251, 113, 133;
+  --color-magenta-rgb: 192, 38, 211;
   --color-white-rgb: 255, 255, 255;
   --color-black-rgb: 0, 0, 0;
 
-  /* Active profile color - gradient ortasi */
-  --color-accent-mid: #e36a78;
-  --color-accent-mid-rgb: 227, 106, 120;
-  --profile-accent: var(--color-accent-mid);
-  --profile-accent-glow: rgba(var(--color-accent-mid-rgb), 0.55);
+  /* Active profile color - ortak accent text rengi (Real-World, sidebar, baslik) */
+  --color-accent-text: #C03FA4;
+  --color-accent-text-rgb: 192, 63, 164;
+  --profile-accent: var(--color-accent-text);
+  --profile-accent-glow: rgba(var(--color-accent-text-rgb), 0.55);
 
   /* Background - Dark theme */
   --bg-primary: #0a0a0f;
@@ -111,11 +116,17 @@
   --shine-strong-alpha: 0.15;
 
   /* Primary accent gradient - HER YERDE KULLANILIR */
-  --gradient-accent: linear-gradient(135deg, var(--color-orange) 0%, var(--color-purple) 100%);
+  --gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   --gradient-accent-warm: linear-gradient(135deg, var(--color-coral) 0%, var(--color-pink) 50%, var(--color-purple-light) 100%);
   --gradient-accent-soft: linear-gradient(135deg,
     rgba(var(--color-orange-rgb), var(--accent-grad-soft-alpha)),
     rgba(var(--color-purple-rgb), var(--accent-grad-soft-alpha)));
+
+  /* Neon circle gradient - mikrofon dairesi ve step numaralari icin ortak */
+  --gradient-neon-circle: linear-gradient(160deg,
+    rgba(var(--color-pink-rgb), 0.92) 0%,
+    rgba(var(--color-purple-rgb), 0.92) 65%,
+    rgba(59, 130, 246, 0.88) 100%);
 
   /* Brand text gradient - ikonun bittigi yerden baslar (pink -> purple-light) */
   --gradient-brand: linear-gradient(135deg, var(--color-pink) 0%, var(--color-purple-light) 100%);
@@ -287,8 +298,8 @@
   --shadow-xl: 0 20px 25px rgba(var(--color-black-rgb), 0.6);
 
   /* Glow effects - tutarli accent renkleri */
-  --glow-accent: 0 0 25px rgba(232, 93, 59, 0.3);
-  --glow-accent-strong: 0 0 40px rgba(232, 93, 59, 0.5);
+  --glow-accent: 0 0 25px rgba(192, 38, 211, 0.35);
+  --glow-accent-strong: 0 0 40px rgba(192, 38, 211, 0.55);
   --glow-purple: 0 0 25px rgba(192, 132, 252, 0.3);
   --glow-purple-strong: 0 0 40px rgba(var(--color-purple-rgb), 0.4);
   --glow-danger: 0 0 20px rgba(229, 57, 53, 0.4);
@@ -440,8 +451,11 @@ body {
 
 .brand-word--mic {
   font-weight: 700;
-  color: var(--color-coral);
-  text-shadow: 0 0 12px rgba(var(--color-orange-rgb), 0.25);
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .brand-word--probe {
@@ -565,15 +579,18 @@ body {
   transform: scale(0.98);
 }
 
-/* Primary variant - gradient accent */
+/* Primary variant - neon circle gradient with glow */
 .btn--primary {
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   color: white;
+  box-shadow: 0 0 20px rgba(var(--color-pink-rgb), 0.4),
+              0 0 40px rgba(var(--color-purple-rgb), 0.25);
 }
 
 .btn--primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-glow-orange);
+  box-shadow: 0 0 25px rgba(var(--color-pink-rgb), 0.6),
+              0 0 50px rgba(var(--color-purple-rgb), 0.35);
 }
 
 /* Secondary variant - ghost/outline */

@@ -72,7 +72,7 @@
 
 .navbar-cta {
   padding: var(--space-sm) var(--space-lg);
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   color: white;
   border: none;
   border-radius: var(--radius-full);
@@ -82,11 +82,14 @@
   letter-spacing: 0.01em;
   cursor: pointer;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: 0 0 15px rgba(var(--color-pink-rgb), 0.3),
+              0 0 30px rgba(var(--color-purple-rgb), 0.2);
 }
 
 .navbar-cta:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-glow-orange);
+  box-shadow: 0 0 20px rgba(var(--color-pink-rgb), 0.5),
+              0 0 40px rgba(var(--color-purple-rgb), 0.3);
 }
 
 /* Mobile menu button */
@@ -150,10 +153,7 @@
 }
 
 .hero-title .gradient-text {
-  background: var(--gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #818cf8; /* Indigo - lacivert tonunda, parlak */
 }
 
 .hero-subtitle {
@@ -257,12 +257,12 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(160deg, rgba(var(--color-pink-rgb), 0.92) 0%, rgba(var(--color-purple-rgb), 0.92) 65%, rgba(59, 130, 246, 0.88) 100%);
+  background: var(--gradient-neon-circle);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: 0 0 20px rgba(var(--color-purple-rgb), 0.3), 0 0 40px rgba(var(--color-orange-rgb), 0.15);
+  box-shadow: 0 0 20px rgba(var(--color-purple-rgb), 0.3), 0 0 40px rgba(var(--color-pink-rgb), 0.15);
   transition: box-shadow 0.3s ease;
 }
 
@@ -308,11 +308,11 @@
   border: 2.55px solid;
   border-radius: 50%;
   opacity: 0;
-  animation: wave-expand 5.21s ease-out infinite;
+  animation: wave-expand 6.25s ease-out infinite;
 }
 
 .hero-wave:nth-child(1) {
-  border-color: rgba(var(--color-orange-rgb), 0.85);
+  border-color: rgba(var(--color-rose-rgb), 0.85);
   animation-delay: 0s;
 }
 
@@ -322,7 +322,7 @@
 }
 
 .hero-wave:nth-child(3) {
-  border-color: rgba(var(--color-orange-rgb), 0.65);
+  border-color: rgba(59, 130, 246, 0.65);
   animation-delay: 2s;
 }
 
@@ -330,11 +330,11 @@
   0% {
     width: 90px;
     height: 90px;
-    opacity: 0.95;
+    opacity: 0.71;
   }
   100% {
-    width: 320px;
-    height: 320px;
+    width: 274px;
+    height: 274px;
     opacity: 0;
   }
 }
@@ -473,7 +473,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -482,6 +482,7 @@
   color: white;
   margin-bottom: var(--space-lg);
   border: none;
+  box-shadow: 0 0 15px rgba(var(--color-purple-rgb), 0.3);
 }
 
 .step-title {

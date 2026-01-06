@@ -255,8 +255,8 @@ export const PROFILES = {
 // Yeni profil rengi eklemek icin bu map'e giris eklemek yeterli.
 export const PROFILE_THEMES = {
   default: {
-    accent: 'var(--color-accent-mid)',
-    accentGlow: 'rgba(var(--color-accent-mid-rgb), 0.55)'
+    accent: 'var(--color-accent-text)',
+    accentGlow: 'rgba(var(--color-accent-text-rgb), 0.55)'
   }
 };
 

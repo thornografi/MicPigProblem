@@ -258,7 +258,7 @@
 }
 
 .nav-item.active {
-  background: rgba(var(--color-accent-mid-rgb), 0.08);
+  background: rgba(var(--color-accent-text-rgb), 0.08);
   border-left: 2px solid var(--profile-accent);
   position: relative;
   opacity: 1;
@@ -275,7 +275,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(var(--color-accent-mid-rgb), 0.05), transparent);
+  background: linear-gradient(90deg, rgba(var(--color-accent-text-rgb), 0.05), transparent);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -633,7 +633,7 @@
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   border-radius: 50%;
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -688,11 +688,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums; /* Rakamlar hizali */
   letter-spacing: 0;
-}
-
-/* Mikrofon adi - daha kucuk font */
-#infoMicName {
-  font-size: var(--fs-2xs);
 }
 
 /* VU Row */
@@ -998,7 +993,7 @@
   min-width: 140px;
   /* Sabit yükseklik - ikon boyutundan bağımsız tutarlılık */
   min-height: var(--btn-action-height);
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   color: white;
   position: relative;
   overflow: hidden;
@@ -1031,9 +1026,10 @@
 }
 
 .btn-action.active {
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   color: white;
-  box-shadow: var(--glow-accent-strong);
+  box-shadow: 0 0 25px rgba(var(--color-pink-rgb), 0.5),
+              0 0 45px rgba(var(--color-purple-rgb), 0.35);
 }
 
 /* ========== RECORD BUTTON (Variant) ========== */
@@ -2792,7 +2788,7 @@ label.option-disabled::after {
   justify-content: center;
   width: 20px;
   height: 20px;
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   border-radius: 50%;
   font-size: var(--fs-xs);
   font-weight: 700;
