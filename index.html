@@ -92,105 +92,21 @@
 
       <!-- Animated Microphone Visual -->
       <div class="hero-visual">
-        <!-- Sound Wave Lines SVG - Harmonic sine ribbon (smooth, parallel, non-intersecting) -->
-        <svg class="hero-soundwave" viewBox="0 0 1600 120" preserveAspectRatio="none" aria-hidden="true">
+        <!-- Sound Wave Bars SVG - Statik dikey cubuklar (JS-driven) -->
+        <svg class="hero-soundwave" viewBox="0 0 1600 260" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <defs>
-            <!-- Shared harmonic wave geometry (phase-aligned sine family + gentle center envelope) -->
-            <path id="hero-wave-ribbon" d="M0.00,50.86 C3.33,50.77 13.33,50.49 20.00,50.30 C26.67,50.12 33.33,49.93 40.00,49.75 C46.67,49.56 53.33,49.38 60.00,49.20 C66.67,49.01 73.33,48.83 80.00,48.64 C86.67,48.46 93.33,48.27 100.00,48.09 C106.67,47.90 113.33,47.72 120.00,47.53 C126.67,47.35 133.33,47.17 140.00,46.99 C146.67,46.81 153.33,46.63 160.00,46.45 C166.67,46.28 173.33,46.10 180.00,45.94 C186.67,45.77 193.33,45.61 200.00,45.45 C206.67,45.30 213.33,45.15 220.00,45.02 C226.67,44.88 233.33,44.75 240.00,44.64 C246.67,44.52 253.33,44.42 260.00,44.33 C266.67,44.24 273.33,44.17 280.00,44.11 C286.67,44.06 293.33,44.02 300.00,44.00 C306.67,43.98 313.33,43.98 320.00,44.00 C326.67,44.02 333.33,44.07 340.00,44.13 C346.67,44.20 353.33,44.29 360.00,44.41 C366.67,44.53 373.33,44.67 380.00,44.83 C386.67,45.00 393.33,45.20 400.00,45.42 C406.67,45.64 413.33,45.88 420.00,46.15 C426.67,46.43 433.33,46.73 440.00,47.05 C446.67,47.37 453.33,47.72 460.00,48.09 C466.67,48.46 473.33,48.86 480.00,49.28 C486.67,49.69 493.33,50.13 500.00,50.58 C506.67,51.04 513.33,51.51 520.00,52.00 C526.67,52.49 533.33,52.99 540.00,53.50 C546.67,54.01 553.33,54.54 560.00,55.06 C566.67,55.59 573.33,56.12 580.00,56.65 C586.67,57.19 593.33,57.72 600.00,58.25 C606.67,58.78 613.33,59.31 620.00,59.82 C626.67,60.33 633.33,60.84 640.00,61.33 C646.67,61.82 653.33,62.29 660.00,62.75 C666.67,63.20 673.33,63.64 680.00,64.05 C686.67,64.45 693.33,64.84 700.00,65.20 C706.67,65.55 713.33,65.88 720.00,66.18 C726.67,66.47 733.33,66.73 740.00,66.96 C746.67,67.19 753.33,67.38 760.00,67.53 C766.67,67.69 773.33,67.80 780.00,67.88 C786.67,67.96 793.33,68.00 800.00,68.00 C806.67,68.00 813.33,67.96 820.00,67.88 C826.67,67.80 833.33,67.69 840.00,67.53 C846.67,67.38 853.33,67.19 860.00,66.96 C866.67,66.73 873.33,66.47 880.00,66.18 C886.67,65.88 893.33,65.55 900.00,65.20 C906.67,64.84 913.33,64.45 920.00,64.05 C926.67,63.64 933.33,63.20 940.00,62.75 C946.67,62.29 953.33,61.82 960.00,61.33 C966.67,60.84 973.33,60.33 980.00,59.82 C986.67,59.31 993.33,58.78 1000.00,58.25 C1006.67,57.72 1013.33,57.19 1020.00,56.65 C1026.67,56.12 1033.33,55.59 1040.00,55.06 C1046.67,54.54 1053.33,54.01 1060.00,53.50 C1066.67,52.99 1073.33,52.49 1080.00,52.00 C1086.67,51.51 1093.33,51.04 1100.00,50.58 C1106.67,50.13 1113.33,49.69 1120.00,49.28 C1126.67,48.86 1133.33,48.46 1140.00,48.09 C1146.67,47.72 1153.33,47.37 1160.00,47.05 C1166.67,46.73 1173.33,46.43 1180.00,46.15 C1186.67,45.88 1193.33,45.64 1200.00,45.42 C1206.67,45.20 1213.33,45.00 1220.00,44.83 C1226.67,44.67 1233.33,44.53 1240.00,44.41 C1246.67,44.29 1253.33,44.20 1260.00,44.13 C1266.67,44.07 1273.33,44.02 1280.00,44.00 C1286.67,43.98 1293.33,43.98 1300.00,44.00 C1306.67,44.02 1313.33,44.06 1320.00,44.11 C1326.67,44.17 1333.33,44.24 1340.00,44.33 C1346.67,44.42 1353.33,44.52 1360.00,44.64 C1366.67,44.75 1373.33,44.88 1380.00,45.02 C1386.67,45.15 1393.33,45.30 1400.00,45.45 C1406.67,45.61 1413.33,45.77 1420.00,45.94 C1426.67,46.10 1433.33,46.28 1440.00,46.45 C1446.67,46.63 1453.33,46.81 1460.00,46.99 C1466.67,47.17 1473.33,47.35 1480.00,47.53 C1486.67,47.72 1493.33,47.90 1500.00,48.09 C1506.67,48.27 1513.33,48.46 1520.00,48.64 C1526.67,48.83 1533.33,49.01 1540.00,49.20 C1546.67,49.38 1553.33,49.56 1560.00,49.75 C1566.67,49.93 1573.33,50.12 1580.00,50.30 C1586.67,50.49 1596.67,50.77 1600.00,50.86"/>
-
-            <!-- Coordinated horizontal edge fade (shared for all waves) -->
-            <linearGradient id="hero-wave-edge-fade" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="white" stop-opacity="0"/>
-              <stop offset="14%" stop-color="white" stop-opacity="1"/>
-              <stop offset="50%" stop-color="white" stop-opacity="1"/>
-              <stop offset="86%" stop-color="white" stop-opacity="1"/>
-              <stop offset="100%" stop-color="white" stop-opacity="0"/>
-            </linearGradient>
-            <mask id="hero-wave-mask">
-              <rect x="0" y="0" width="1600" height="120" fill="url(#hero-wave-edge-fade)"/>
-            </mask>
-
-            <!-- Subtle glow (stronger on primary waves) -->
-            <filter id="hero-wave-glow-soft" x="-20%" y="-60%" width="140%" height="220%" color-interpolation-filters="sRGB">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur"/>
-              <feComponentTransfer in="blur" result="blurAlpha">
-                <feFuncA type="linear" slope="0.45"/>
-              </feComponentTransfer>
-              <feMerge>
-                <feMergeNode in="blurAlpha"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-            <filter id="hero-wave-glow-strong" x="-24%" y="-70%" width="148%" height="240%" color-interpolation-filters="sRGB">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3.4" result="blur"/>
-              <feComponentTransfer in="blur" result="blurAlpha">
-                <feFuncA type="linear" slope="0.60"/>
-              </feComponentTransfer>
-              <feMerge>
-                <feMergeNode in="blurAlpha"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-
-            <!-- Rainbow ribbon gradients (warm -> magenta/purple -> cool), slightly varied per wave -->
-            <linearGradient id="hero-wave-grad-1" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
+            <!-- Bar gradient - yatay rainbow -->
+            <linearGradient id="hero-bar-gradient" gradientUnits="userSpaceOnUse" x1="0" x2="1600">
               <stop offset="0%" stop-color="#f59e0b"/>
-              <stop offset="22%" stop-color="#fb7185"/>
-              <stop offset="48%" stop-color="#c026d3"/>
-              <stop offset="62%" stop-color="#7c3aed"/>
-              <stop offset="82%" stop-color="#2563eb"/>
-              <stop offset="100%" stop-color="#60a5fa"/>
-            </linearGradient>
-            <linearGradient id="hero-wave-grad-2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
-              <stop offset="0%" stop-color="#fb923c"/>
-              <stop offset="22%" stop-color="#f472b6"/>
-              <stop offset="48%" stop-color="#d946ef"/>
-              <stop offset="62%" stop-color="#8b5cf6"/>
-              <stop offset="82%" stop-color="#3b82f6"/>
-              <stop offset="100%" stop-color="#60a5fa"/>
-            </linearGradient>
-            <linearGradient id="hero-wave-grad-3" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
-              <stop offset="0%" stop-color="#fbbf24"/>
-              <stop offset="22%" stop-color="#fb7185"/>
-              <stop offset="48%" stop-color="#d946ef"/>
-              <stop offset="62%" stop-color="#8b5cf6"/>
-              <stop offset="82%" stop-color="#2563eb"/>
-              <stop offset="100%" stop-color="#60a5fa"/>
-            </linearGradient>
-            <linearGradient id="hero-wave-grad-4" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
-              <stop offset="0%" stop-color="#f59e0b"/>
-              <stop offset="22%" stop-color="#fb7185"/>
-              <stop offset="48%" stop-color="#e879f9"/>
-              <stop offset="62%" stop-color="#a78bfa"/>
-              <stop offset="82%" stop-color="#3b82f6"/>
-              <stop offset="100%" stop-color="#93c5fd"/>
-            </linearGradient>
-            <linearGradient id="hero-wave-grad-5" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
-              <stop offset="0%" stop-color="#fb923c"/>
-              <stop offset="22%" stop-color="#f472b6"/>
-              <stop offset="48%" stop-color="#c026d3"/>
-              <stop offset="62%" stop-color="#7c3aed"/>
-              <stop offset="82%" stop-color="#1d4ed8"/>
-              <stop offset="100%" stop-color="#60a5fa"/>
-            </linearGradient>
-            <linearGradient id="hero-wave-grad-6" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
-              <stop offset="0%" stop-color="#fbbf24"/>
-              <stop offset="22%" stop-color="#fb7185"/>
-              <stop offset="48%" stop-color="#d946ef"/>
-              <stop offset="62%" stop-color="#8b5cf6"/>
-              <stop offset="82%" stop-color="#3b82f6"/>
-              <stop offset="100%" stop-color="#60a5fa"/>
+              <stop offset="15%" stop-color="#fb7185"/>
+              <stop offset="35%" stop-color="#ec4899"/>
+              <stop offset="50%" stop-color="#c026d3"/>
+              <stop offset="65%" stop-color="#8b5cf6"/>
+              <stop offset="80%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#3b82f6"/>
             </linearGradient>
           </defs>
-
-          <g mask="url(#hero-wave-mask)" fill="none">
-            <use href="#hero-wave-ribbon" class="wave-line wave-1" transform="translate(0 -20)" stroke="url(#hero-wave-grad-1)" stroke-width="1.25" opacity="0.18" filter="url(#hero-wave-glow-soft)"/>
-            <use href="#hero-wave-ribbon" class="wave-line wave-2" transform="translate(0 -12)" stroke="url(#hero-wave-grad-2)" stroke-width="1.5" opacity="0.28" filter="url(#hero-wave-glow-soft)"/>
-            <use href="#hero-wave-ribbon" class="wave-line wave-3" transform="translate(0 -4)" stroke="url(#hero-wave-grad-3)" stroke-width="2" opacity="0.58" filter="url(#hero-wave-glow-strong)"/>
-            <use href="#hero-wave-ribbon" class="wave-line wave-4" transform="translate(0 4)" stroke="url(#hero-wave-grad-4)" stroke-width="2.25" opacity="0.72" filter="url(#hero-wave-glow-strong)"/>
-            <use href="#hero-wave-ribbon" class="wave-line wave-5" transform="translate(0 12)" stroke="url(#hero-wave-grad-5)" stroke-width="1.5" opacity="0.28" filter="url(#hero-wave-glow-soft)"/>
-            <use href="#hero-wave-ribbon" class="wave-line wave-6" transform="translate(0 20)" stroke="url(#hero-wave-grad-6)" stroke-width="1.25" opacity="0.18" filter="url(#hero-wave-glow-soft)"/>
-          </g>
+          <!-- Bars will be added by WaveAnimator.js -->
         </svg>
         <!-- Circular Ripples -->
         <div class="hero-waves">
@@ -883,6 +799,42 @@
         countEl.classList.toggle('has-logs', count > 0);
       }
     };
+  </script>
+
+  <!-- Wave Animator (Landing Page) -->
+  <script type="module">
+    import { initWaveAnimator } from './js/modules/WaveAnimator.js';
+
+    // Initialize wave animation on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+      initWaveAnimator('.hero-soundwave', {
+        // Bar sayisi - ekrani kaplamak icin
+        barCount: 280,
+
+        // ViewBox dimensions
+        width: 1600,
+        height: 260,
+
+        // Cubuk boyutlari
+        barWidth: 2.5,
+        barGap: 3,
+        minBarHeight: 8,
+        maxBarHeight: 100,
+
+        // Wave frekans (statik dalga formu)
+        waveFrequency: 2.5,
+        secondaryFrequency: 5.5,
+        tertiaryFrequency: 11,
+
+        // Merkez bosluk (mikrofon ikonu)
+        centerGap: 0.10,
+        centerFadeZone: 0.06,
+
+        // Kenar fade - yavas gecis
+        edgeFadeStart: 0.35, // kenara 35 birim kala opacity azalmaya baslar
+        edgeFadeEnd: 0.05    // kenara 5 birim kala tamamen seffaf
+      });
+    });
   </script>
 
   <!-- App Script -->

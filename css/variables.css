@@ -221,8 +221,12 @@
   --panel-body-bg: rgba(18, 18, 26, 0.6);
 
   /* ========== SPACING ========== */
+  --space-2xs: 2px;
   --space-xs: 4px;
+  --space-xs-plus: 6px;
   --space-sm: 8px;
+  --space-sm-plus: 10px;
+  --space-md-minus: 12px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
@@ -268,8 +272,13 @@
   --fs-base: 14px;
   --fs-md: 15px;
   --fs-lg: 16px;
+  --fs-btn: 18px;    /* Action butonları için */
   --fs-xl: 20px;
   --fs-2xl: 24px;
+  --fs-3xl: 30px;
+
+  /* Button sizes */
+  --btn-action-height: 48px;
 
   /* ========== SHADOWS ========== */
   --shadow-sm: 0 1px 2px rgba(var(--color-black-rgb), 0.3);
@@ -348,12 +357,16 @@ html {
 }
 
 html, body {
-  height: 100%;
+  min-height: 100%;
+}
+
+html {
+  background: var(--gradient-bg);
 }
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-primary);
+  background: transparent;
   color: var(--text-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

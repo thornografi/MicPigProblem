@@ -4,10 +4,10 @@
    Bu dosya sadece app-specific layout ve component stilleri icerir.
 */
 
-/* App view - gradient arka plan (landing ile AYNI) */
+/* App view - arka plan body'den miras */
 /* #app-view (index.html#app) icin tasarlanmistir */
 #app-view {
-  background: var(--gradient-bg);
+  /* background body'den miras - DRY */
   position: relative;
   min-height: 100vh;
 }
@@ -18,7 +18,7 @@
   flex-direction: column;
   min-height: 100vh;
   position: relative;
-  background: var(--gradient-bg);
+  /* background body'den miras - DRY */
 }
 
 /* App layout container */
@@ -225,7 +225,7 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: 10px var(--space-md);
+  padding: var(--space-sm-plus) var(--space-md);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -233,7 +233,7 @@
   font-size: var(--fs-base);
   font-weight: 450;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-normal);
   text-align: left;
   letter-spacing: 0.2px;
   opacity: 0.85;
@@ -411,7 +411,7 @@
 }
 
 .header-left h1 {
-  font-size: var(--text-3xl);
+  font-size: var(--fs-3xl);
   font-weight: 700;
   color: var(--profile-accent);
   font-family: var(--font-ui-accent);
@@ -431,8 +431,8 @@
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
+  gap: var(--space-xs-plus);
+  padding: var(--space-xs) var(--space-md-minus);
   border-radius: var(--radius-full);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -610,7 +610,7 @@
 .unified-tips {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-sm-plus);
   padding-left: var(--space-lg);
   border-left: 1px solid var(--glass-border);
   /* Grid ile esit bolunecek - sabit genislik yok */
@@ -623,7 +623,7 @@
   font-size: var(--fs-base);
   color: var(--text-secondary);
   line-height: 1.5;
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
 }
 
 .unified-tips .utip em {
@@ -651,7 +651,7 @@
 .unified-status {
   display: flex;
   flex-direction: column;
-  gap: 4px; /* Satirlari yakinlastir */
+  gap: var(--space-xs); /* Satirlari yakinlastir */
   padding-left: var(--space-lg);
   border-left: 1px solid var(--glass-border);
   position: relative;
@@ -791,11 +791,11 @@
   .unified-tips {
     flex: 1 1 auto;
     max-width: none;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
   .unified-tips .utip {
-    padding: 2px 0;
+    padding: var(--space-2xs) 0;
   }
 
   .unified-status {
@@ -969,7 +969,7 @@
   flex: 1;
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
-  font-size: calc(var(--fs-lg) + 2px);
+  font-size: var(--fs-btn);
   font-family: var(--font-ui-accent);
   font-weight: 700;
   letter-spacing: 0.012em;
@@ -992,14 +992,29 @@
 
 /* ========== ACTION BUTTONS (Base Class) ========== */
 /* Record ve Monitor butonları için ortak base class - DRY prensibi */
+/* .btn'den miras: display, align-items, justify-content, gap */
 .btn-action {
   flex: 1;
   min-width: 140px;
+  /* Sabit yükseklik - ikon boyutundan bağımsız tutarlılık */
+  min-height: var(--btn-action-height);
   background: var(--gradient-accent);
-  border: none;
   color: white;
   position: relative;
   overflow: hidden;
+}
+
+/* Action butonları için ikon boyutu - 1.5x */
+.btn-action svg {
+  width: calc(var(--fs-lg) * 1.5);
+  height: calc(var(--fs-lg) * 1.5);
+}
+
+/* Record butonu indicator ikonları - küçük kalmalı */
+.btn-action .icon-circle,
+.btn-action .icon-square {
+  width: var(--fs-lg);
+  height: var(--fs-lg);
 }
 
 .btn-action::before {
@@ -1042,6 +1057,7 @@
 .btn-monitor .icon-stop { display: none; }
 .btn-monitor.active .icon-play { display: none; }
 .btn-monitor.active .icon-stop { display: block; }
+
 
 /* ========== RECORDING TIMER ========== */
 .recording-timer {
@@ -1220,14 +1236,15 @@
   );
 }
 
-.remote-dot {
-  background: var(--color-purple-light) !important;
+/* Remote dot - #remoteVuContainer context ile specificity artırıldı */
+#remoteVuContainer .remote-dot {
+  background: var(--color-purple-light);
   opacity: 0.6;
 }
 
-.remote-dot.active {
-  background: var(--color-purple-light) !important;
-  box-shadow: var(--shadow-purple-glow) !important;
+#remoteVuContainer .remote-dot.active {
+  background: var(--color-purple-light);
+  box-shadow: var(--shadow-purple-glow);
   animation: pulse-glow-purple 1.2s ease-in-out infinite;
   opacity: 1;
 }
@@ -1260,14 +1277,14 @@
 }
 
 .profile-info-name {
-  font-size: var(--text-xl);
+  font-size: var(--fs-xl);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-xs);
 }
 
 .profile-info-category {
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   color: var(--text-muted);
   margin-bottom: var(--space-md);
 }
@@ -1282,7 +1299,7 @@
 .profile-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 14px;
+  padding: var(--space-xs-plus) 14px;
   background: var(--gradient-accent-mid);
   border: 1px solid rgba(var(--color-orange-rgb), 0.25);
   border-radius: var(--radius-full);
@@ -1329,14 +1346,14 @@
 .audio-status-grid {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .audio-status-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
 }
 
 .audio-status-label {
@@ -1597,7 +1614,7 @@
 }
 
 .dev-console-drawer-header .log-count {
-  padding: 2px 8px;
+  padding: var(--space-2xs) var(--space-sm);
   background: var(--glass-bg);
   border-radius: var(--radius-full);
   font-size: var(--fs-xs);
@@ -1676,7 +1693,7 @@
   border-radius: 12px 0 0 12px;
   color: var(--color-orange);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-slow);
 }
 
 .dev-console-toggle-btn:hover {
@@ -1747,7 +1764,7 @@ body.production .dev-console-toggle-btn {
 
 /* ========== LOG LINES ========== */
 .log-line {
-  padding: 2px 0;
+  padding: var(--space-2xs) 0;
 }
 
 .log-line.log-error {
@@ -1773,13 +1790,13 @@ body.production .dev-console-toggle-btn {
 .filter-buttons,
 .export-buttons {
   display: flex;
-  gap: 4px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
 }
 
 .btn-filter,
 .btn-export-small {
-  padding: 4px 10px;
+  padding: var(--space-xs) var(--space-sm-plus);
   font-size: var(--fs-xs);
   font-weight: 500;
   background: var(--glass-bg);
@@ -1810,7 +1827,7 @@ body.production .dev-console-toggle-btn {
 }
 
 .btn-clear {
-  padding: 4px 12px;
+  padding: var(--space-xs) var(--space-md-minus);
   font-size: var(--fs-xs);
   font-weight: 500;
   background: transparent;
@@ -1831,7 +1848,7 @@ body.production .dev-console-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
+  padding: var(--space-xs) var(--space-sm);
   font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--text-muted);
@@ -2162,7 +2179,7 @@ body.production .dev-console-toggle-btn {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 3px;
-  gap: 2px;
+  gap: var(--space-2xs);
   width: 100%;
 }
 
@@ -2172,7 +2189,7 @@ body.production .dev-console-toggle-btn {
 
 .segment-btn {
   flex: 1;
-  padding: 6px 8px;
+  padding: var(--space-xs-plus) var(--space-sm);
   text-align: center;
   font-size: var(--fs-base);
   font-weight: 500;
@@ -2294,7 +2311,7 @@ label.option-disabled::after {
   }
 
   .app-header {
-    --app-header-height: calc(64px * 1.95);
+    --app-header-height: calc(var(--navbar-height) * 1.95);
   }
 
   .app-header-content {
@@ -2328,7 +2345,7 @@ label.option-disabled::after {
   }
 
   .header-left h1 {
-    font-size: var(--text-2xl);
+    font-size: var(--fs-2xl);
   }
 
   .button-row {
@@ -2361,7 +2378,7 @@ label.option-disabled::after {
 
 .panel-custom-settings .panel-header {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-normal);
 }
 
 .panel-custom-settings .panel-header:hover {
@@ -2378,7 +2395,7 @@ label.option-disabled::after {
 }
 
 .custom-settings-content {
-  transition: all 0.2s ease;
+  transition: all var(--transition-normal);
 }
 
 .custom-settings-content.collapsed {
@@ -2484,7 +2501,7 @@ label.option-disabled::after {
 }
 
 .custom-setting-item select {
-  padding: 6px 12px;
+  padding: var(--space-xs-plus) var(--space-md-minus);
   background: var(--bg-input);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);

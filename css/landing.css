@@ -3,7 +3,7 @@
 /* ========== LANDING VIEW ========== */
 #landing-view {
   min-height: 100vh;
-  background: var(--gradient-bg);
+  /* background body'den miras - DRY */
   position: relative;
   overflow-x: hidden;
 }
@@ -215,23 +215,17 @@
   isolation: isolate;
 }
 
-/* Ses dalgasi SVG - inline SVG element */
+/* Ses dalgasi SVG - vertical bars visualizer */
 .hero-soundwave {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   width: 100vw;
-  height: clamp(100px, 14vw, 180px);
+  height: clamp(200px, 25vw, 320px);
   pointer-events: none;
   z-index: 0;
   overflow: visible;
-}
-
-/* Dalga çizgileri - yumuşak, yuvarlak uçlar */
-.wave-line {
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .hero-mic-icon {
@@ -443,7 +437,7 @@
 /* ========== HOW IT WORKS SECTION ========== */
 .how-it-works {
   padding: var(--space-4xl) var(--space-xl);
-  background: rgba(0, 0, 0, 0.3);
+  background: transparent;
 }
 
 .steps-container {
