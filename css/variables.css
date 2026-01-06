@@ -206,11 +206,17 @@
   --glass-bg: rgba(var(--color-white-rgb), 0.03);
   --glass-bg-hover: rgba(var(--color-white-rgb), 0.06);
   --glass-border: rgba(var(--color-white-rgb), 0.08);
-  --backdrop-blur: 12px;
+
+  /* Blur tokens - DRY (tum blur degerleri tek yerde) */
+  --blur-xs: 4px;
+  --blur-sm: 12px;
+  --blur-md: 16px;
+  --blur-lg: 20px;
+  --backdrop-blur: var(--blur-sm);
 
   /* Panel ortak stiller (header ve content panel icin) */
   --panel-gradient: linear-gradient(145deg, rgba(var(--color-white-rgb), 0.04) 0%, rgba(var(--color-white-rgb), 0.01) 100%);
-  --panel-blur: 16px;
+  --panel-blur: var(--blur-md);
   --panel-shadow: 0 8px 32px rgba(var(--color-black-rgb), 0.15);
   --panel-body-bg: rgba(18, 18, 26, 0.6);
 
@@ -572,8 +578,8 @@ body {
 /* ========== GLASS SURFACE (Ortak Utility) ========== */
 .glass-surface {
   background: linear-gradient(145deg, rgba(var(--color-white-rgb), 0.05) 0%, rgba(var(--color-white-rgb), 0.02) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   border: 1px solid rgba(var(--color-white-rgb), 0.1);
   border-radius: var(--radius-xl);
 }

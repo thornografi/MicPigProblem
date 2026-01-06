@@ -1,6 +1,6 @@
 ---
 name: micprobe-modules
-description: "MicProbe modulleri ve Config referansi. Anahtar kelimeler: Config, PROFILES, SETTINGS, AudioEngine, Recorder, Monitor, Player, EventBus, ProfileController, UIStateManager, LoopbackManager, LogManager, Logger, profil kategorileri, call, record"
+description: "MicProbe modulleri ve Config referansi. Anahtar kelimeler: Config, PROFILES, SETTINGS, AudioEngine, Recorder, Monitor, Player, EventBus, ProfileController, UIStateManager, LoopbackManager, LogManager, Logger, profil kategorileri, call, record, RadioGroupHandler, attachGroups, DrawerController, createDrawerController"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." yaz.
@@ -116,6 +116,60 @@ import profileUIManager from './ui/ProfileUIManager.js';
 profileUIManager.init(scenarioCards, navItems);
 profileUIManager.updateSettingsPanel(profileId);
 profileUIManager.handleProfileSelect(profileId);
+```
+
+### RadioGroupHandler (DRY Pattern)
+```javascript
+import { RadioGroupHandler } from './ui/RadioGroupHandler.js';
+
+// Tek radio grubu
+RadioGroupHandler.attachGroup('Pipeline', pipelineRadios, {
+  labels: { direct: 'Direct', standard: 'Standard', scriptprocessor: 'ScriptProcessor' },
+  logCategory: 'log:webaudio',
+  onChange: (value) => { /* custom logic */ }
+});
+
+// Toplu kayit (tercih edilen)
+RadioGroupHandler.attachGroups({
+  Pipeline: { radios: pipelineRadios, labels: {...}, logCategory: 'log:webaudio', onChange: ... },
+  Encoder: { radios: encoderRadios, labels: {...}, logCategory: 'log:webaudio' },
+  'Buffer Size': { radios: bufferSizeRadios, logCategory: 'log:webaudio', formatValue: (v) => `${v} samples` },
+  'Opus Bitrate': { radios: bitrateRadios, logCategory: 'log:stream', formatValue: (v) => `${v/1000} kbps` },
+  Timeslice: { radios: timesliceRadios, logCategory: 'log:recorder', formatValue: (v) => `${v} ms` }
+});
+
+// Toggle/Checkbox
+RadioGroupHandler.attachToggle(toggleEl, 'AutoGain', {
+  logCategory: 'log:stream',
+  onLabel: 'AKTIF',
+  offLabel: 'PASIF',
+  onChange: (value) => { /* ... */ }
+});
+```
+**Emits:** `setting:<name>:changed` (generic event for listeners)
+
+### DrawerController Factory (DRY Pattern)
+```javascript
+// app.js icerisinde
+function createDrawerController(drawerEl, options = {}) {
+  const { overlay = null, lockBody = false } = options;
+  return {
+    isOpen: () => drawerEl?.classList.contains('open'),
+    open() { drawerEl?.classList.add('open'); overlay?.classList.add('active'); if(lockBody) document.body.style.overflow='hidden'; },
+    close() { drawerEl?.classList.remove('open'); overlay?.classList.remove('active'); if(lockBody) document.body.style.overflow=''; },
+    toggle() { this.isOpen() ? this.close() : this.open(); },
+    bindButtons(...btns) { btns.flat().filter(Boolean).forEach(b => b.addEventListener('click', () => this.toggle())); },
+    bindCloseButtons(...btns) { btns.flat().filter(Boolean).forEach(b => b.addEventListener('click', () => this.close())); }
+  };
+}
+
+// Kullanim
+const settingsDrawer = createDrawerController(settingsDrawerEl, { overlay: overlayEl });
+const devConsole = createDrawerController(devConsoleEl);
+
+settingsDrawer.bindButtons(settingsBtn);
+settingsDrawer.bindCloseButtons(closeBtn, overlayEl);
+devConsole.bindButtons(devConsoleBtn);
 ```
 
 ## Core Modules

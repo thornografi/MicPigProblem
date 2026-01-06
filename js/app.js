@@ -399,140 +399,93 @@ function updateTimesliceInfo(value) {
 }
 
 // ============================================
-// AYAR DEGISIKLIK LOGLARI
+// AYAR DEGISIKLIK LOGLARI (DRY - RadioGroupHandler ile)
 // ============================================
+
+// Checkbox'lar icin logger
 RadioGroupHandler.attachCheckboxLogger(ecCheckbox, 'echoCancellation', 'Echo Cancellation');
 RadioGroupHandler.attachCheckboxLogger(nsCheckbox, 'noiseSuppression', 'Noise Suppression');
 RadioGroupHandler.attachCheckboxLogger(agcCheckbox, 'autoGainControl', 'Auto Gain Control');
 
-// NOT: webaudioToggle kaldirildi - artik mode secimi WebAudio durumunu belirliyor
-// Mode degisikliginde loglama asagida yapiliyor
-
-// Pipeline degisikligi loglama
-pipelineRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const pipeline = e.target.value;
-    const labelByPipeline = {
-      direct: 'Direct',
-      standard: 'Standard',
-      scriptprocessor: 'ScriptProcessor',
-      worklet: 'AudioWorklet'
-    };
-
-    // Buffer size gorunurlugu: profil ayarlarina veya pipeline'a bagli
-    // - Profilde buffer locked/editable ise: updateSettingVisibility halleder
-    // - Profilde buffer yoksa: sadece ScriptProcessor pipeline'inda goster
-    const profile = profileController.getCurrentProfile();
-    const bufferInProfile = profile?.lockedSettings?.includes('buffer') ||
-                            profile?.editableSettings?.includes('buffer') ||
-                            profile?.allowedSettings === 'all';
-    if (!bufferInProfile) {
-      toggleDisplay(bufferSizeContainer, needsBufferSetting(pipeline));
-    }
-
-    // Dinamik kilitleme guncelle (buffer icin)
-    profileController.updateDynamicLocks();
-    uiStateManager.updateButtonStates();
-
-    eventBus.emit('log:webaudio', {
-      message: `Pipeline: ${labelByPipeline[pipeline] || pipeline}`,
-      details: { setting: 'pipeline', value: pipeline }
-    });
-  });
-});
-
-// Encoder degisikligi loglama
-encoderRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const encoder = e.target.value;
-    const labelByEncoder = {
-      mediarecorder: 'MediaRecorder',
-      'wasm-opus': 'WASM Opus'
-    };
-
-    eventBus.emit('log:webaudio', {
-      message: `Encoder: ${labelByEncoder[encoder] || encoder}`,
-      details: { setting: 'encoder', value: encoder }
-    });
-  });
-});
-
-// Buffer size degisikligi loglama
-bufferSizeRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const bufferSize = parseInt(e.target.value, 10);
-    updateBufferInfo(bufferSize);
-
-    eventBus.emit('log:webaudio', {
-      message: `Buffer Size: ${bufferSize} samples`,
-      details: {
-        setting: 'bufferSize',
-        value: bufferSize,
-        latencyMs: calculateLatencyMs(bufferSize).toFixed(1)
-      }
-    });
-  });
-});
-
-loopbackToggle.addEventListener('change', (e) => {
-  // Bitrate seciciyi goster/gizle
-  toggleDisplay(opusBitrateContainer, e.target.checked);
-
-  // Dinamik kilitleme guncelle (bitrate/mediaBitrate/timeslice icin)
+// Helper: State guncelleme (tekrar eden pattern)
+function updateAllStates() {
   profileController.updateDynamicLocks();
   uiStateManager.updateButtonStates();
+}
 
-  // DeviceInfo panelini guncelle (Hedef Bitrate degisir)
-  // Mevcut UI degerlerini al (profile.values yerine - dinamik degisebilir)
-  const profile = profileController.getCurrentProfile();
-  if (profile) {
-    const currentBitrate = parseInt(document.querySelector('input[name="bitrate"]:checked')?.value || '0', 10);
-    const currentMediaBitrate = parseInt(document.querySelector('input[name="mediaBitrate"]:checked')?.value || '0', 10);
-    const currentValues = {
-      ...profile.values,
-      loopback: e.target.checked,
-      bitrate: currentBitrate,
-      mediaBitrate: currentMediaBitrate
-    };
-    eventBus.emit('profile:changed', {
-      profile: profileController.getCurrentProfileId(),
-      values: currentValues,
-      category: profile.category
-    });
-  }
-
-  eventBus.emit('log:stream', {
-    message: `WebRTC Loopback: ${e.target.checked ? 'AKTIF' : 'PASIF'}`,
-    details: { setting: 'loopbackEnabled', value: e.target.checked }
-  });
-});
-
-// Bitrate degisikligi loglama
-bitrateRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const bitrate = parseInt(e.target.value, 10);
-    eventBus.emit('log:stream', {
-      message: `Opus Bitrate: ${bitrate / 1000} kbps`,
-      details: { setting: 'opusBitrate', value: bitrate }
-    });
-  });
-});
-
-// Timeslice degisikligi loglama
-timesliceRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const timeslice = parseInt(e.target.value, 10);
-    updateTimesliceInfo(timeslice);
-
-    eventBus.emit('log:recorder', {
-      message: `Timeslice: ${timeslice === 0 ? 'OFF' : timeslice + 'ms'}`,
-      details: {
-        setting: 'timeslice',
-        value: timeslice,
-        chunksPerSec: timeslice > 0 ? (1000 / timeslice).toFixed(1) : 'N/A'
+// Radio gruplari toplu kayit - DRY prensibi
+RadioGroupHandler.attachGroups({
+  // Pipeline
+  Pipeline: {
+    radios: pipelineRadios,
+    labels: { direct: 'Direct', standard: 'Standard', scriptprocessor: 'ScriptProcessor', worklet: 'AudioWorklet' },
+    logCategory: 'log:webaudio',
+    onChange: (pipeline) => {
+      // Buffer size gorunurlugu: profil ayarlarina veya pipeline'a bagli
+      const profile = profileController.getCurrentProfile();
+      const bufferInProfile = profile?.lockedSettings?.includes('buffer') ||
+                              profile?.editableSettings?.includes('buffer') ||
+                              profile?.allowedSettings === 'all';
+      if (!bufferInProfile) {
+        toggleDisplay(bufferSizeContainer, needsBufferSetting(pipeline));
       }
-    });
-  });
+      updateAllStates();
+    }
+  },
+
+  // Encoder
+  Encoder: {
+    radios: encoderRadios,
+    labels: { mediarecorder: 'MediaRecorder', 'wasm-opus': 'WASM Opus' },
+    logCategory: 'log:webaudio'
+  },
+
+  // Buffer Size
+  'Buffer Size': {
+    radios: bufferSizeRadios,
+    logCategory: 'log:webaudio',
+    formatValue: (v) => `${v} samples`,
+    onChange: (bufferSize) => updateBufferInfo(bufferSize)
+  },
+
+  // Opus Bitrate
+  'Opus Bitrate': {
+    radios: bitrateRadios,
+    logCategory: 'log:stream',
+    formatValue: (v) => `${v / 1000} kbps`
+  },
+
+  // Timeslice
+  Timeslice: {
+    radios: timesliceRadios,
+    logCategory: 'log:recorder',
+    formatValue: (v) => v === 0 ? 'OFF' : `${v}ms`,
+    onChange: (timeslice) => updateTimesliceInfo(timeslice)
+  }
+});
+
+// Loopback Toggle - ozel mantik iceriyor, ayri kalmali
+RadioGroupHandler.attachToggle(loopbackToggle, 'WebRTC Loopback', {
+  logCategory: 'log:stream',
+  onLabel: 'AKTIF',
+  offLabel: 'PASIF',
+  onChange: (enabled) => {
+    // Bitrate seciciyi goster/gizle
+    toggleDisplay(opusBitrateContainer, enabled);
+    updateAllStates();
+
+    // DeviceInfo panelini guncelle
+    const profile = profileController.getCurrentProfile();
+    if (profile) {
+      const currentBitrate = parseInt(document.querySelector('input[name="bitrate"]:checked')?.value || '0', 10);
+      const currentMediaBitrate = parseInt(document.querySelector('input[name="mediaBitrate"]:checked')?.value || '0', 10);
+      eventBus.emit('profile:changed', {
+        profile: profileController.getCurrentProfileId(),
+        values: { ...profile.values, loopback: enabled, bitrate: currentBitrate, mediaBitrate: currentMediaBitrate },
+        category: profile.category
+      });
+    }
+  }
 });
 
 // Profil degisikligi (hidden select - backward compatibility)
@@ -569,43 +522,50 @@ const closeConsoleBtn = document.getElementById('closeConsole');
 // NOT: updateScenarioTechInfo, updateScenarioCardSelection, updateNavItemSelection, updatePageSubtitle
 //      ProfileUIManager modülüne tasindi
 
-function closeSettingsDrawer() {
-  if (settingsDrawer) settingsDrawer.classList.remove('open');
-  if (drawerOverlay) drawerOverlay.classList.remove('open');
-  document.body.style.overflow = '';
+// ============================================
+// DRAWER CONTROLLER FACTORY (DRY)
+// ============================================
+function createDrawerController(drawerEl, options = {}) {
+  const { overlay = null, lockBody = false } = options;
+
+  return {
+    isOpen: () => drawerEl?.classList.contains('open'),
+    open() {
+      drawerEl?.classList.add('open');
+      overlay?.classList.add('open');
+      if (lockBody) document.body.style.overflow = 'hidden';
+    },
+    close() {
+      drawerEl?.classList.remove('open');
+      overlay?.classList.remove('open');
+      if (lockBody) document.body.style.overflow = '';
+    },
+    toggle() {
+      this.isOpen() ? this.close() : this.open();
+    },
+    bindButtons(...buttons) {
+      buttons.filter(Boolean).forEach(btn => btn.addEventListener('click', () => this.toggle()));
+    },
+    bindCloseButtons(...buttons) {
+      buttons.filter(Boolean).forEach(btn => btn.addEventListener('click', () => this.close()));
+    }
+  };
 }
 
-function toggleDevConsole() {
-  if (devConsoleDrawer) {
-    devConsoleDrawer.classList.toggle('open');
-  }
-}
+// Drawer controller'lar olustur
+const settingsDrawerCtrl = createDrawerController(settingsDrawer, { overlay: drawerOverlay, lockBody: true });
+const devConsoleCtrl = createDrawerController(devConsoleDrawer);
 
-// Drawer event listeners
-if (closeDrawerBtn) {
-  closeDrawerBtn.addEventListener('click', closeSettingsDrawer);
-}
-if (drawerOverlay) {
-  drawerOverlay.addEventListener('click', closeSettingsDrawer);
-}
-
-// Dev Console event listeners
-if (devConsoleToggle) {
-  devConsoleToggle.addEventListener('click', toggleDevConsole);
-}
-if (closeConsoleBtn) {
-  closeConsoleBtn.addEventListener('click', toggleDevConsole);
-}
+// Event listener'lari bagla
+settingsDrawerCtrl.bindCloseButtons(closeDrawerBtn, drawerOverlay);
+devConsoleCtrl.bindButtons(devConsoleToggle);
+devConsoleCtrl.bindCloseButtons(closeConsoleBtn);
 
 // ESC ile drawer/console kapat
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (settingsDrawer?.classList.contains('open')) {
-      closeSettingsDrawer();
-    }
-    if (devConsoleDrawer?.classList.contains('open')) {
-      toggleDevConsole();
-    }
+    settingsDrawerCtrl.close();
+    devConsoleCtrl.close();
   }
 });
 

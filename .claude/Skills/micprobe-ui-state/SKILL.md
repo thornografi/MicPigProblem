@@ -41,7 +41,7 @@ Not: Tüm `record` kategorisi profilleri (raw dahil) `canMonitor=false`.
 - Her profilde gorunur, profil bazli locked/editable ayarlar dinamik olarak listelenir.
 - **allowedValues:** Dropdown'lar sadece profilin izin verdigi degerleri gosterir.
 - Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
-- Kontrol: `ui/CustomSettingsPanelHandler.js` → `updatePanel()` metodu
+- Kontrol: `js/ui/CustomSettingsPanelHandler.js` → `updatePanel()` metodu
 
 ## Sayaç (Timer)
 
@@ -81,9 +81,9 @@ Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 
 ## Dosya Referanslari
 
-- UI state: `modules/UIStateManager.js` → `updateButtonStates()`
-- Profil UI: `ui/ProfileUIManager.js` → `handleProfileSelect()`
-- Profil logic: `modules/ProfileController.js` → `applyProfile()`
-- Timer: `modules/UIStateManager.js` → `startTimer()/stopTimer()`
-- Player: `modules/Player.js`
+- UI state: `js/modules/UIStateManager.js` → `updateButtonStates()`
+- Profil UI: `js/ui/ProfileUIManager.js` → `handleProfileSelect()`
+- Profil logic: `js/modules/ProfileController.js` → `applyProfile()`
+- Timer: `js/modules/UIStateManager.js` → `startTimer()/stopTimer()`
+- Player: `js/modules/Player.js`
 - Stil: `css/style.css`

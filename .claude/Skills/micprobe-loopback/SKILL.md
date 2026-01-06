@@ -7,7 +7,7 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-loopback SKILL.md okunuyor..."
 
 # MicProbe — WebRTC Loopback
 
-**Ana dosya:** `LoopbackManager.js`
+**Ana dosya:** `js/modules/LoopbackManager.js`
 
 ## Loopback Nedir?
 
@@ -48,24 +48,24 @@ remote stream -> Source -> [Worklet] -> DelayNode(1.7s) -> speaker
 
 Modlar: `direct`, `standard`, `worklet` (ScriptProcessor loopback'te YASAK)
 
-Deger: `constants.js` → `DELAY.DEFAULT_SECONDS` (1.7s), `DELAY.MAX_SECONDS` (3.0s)
+Deger: `js/modules/constants.js` → `DELAY.DEFAULT_SECONDS` (1.7s), `DELAY.MAX_SECONDS` (3.0s)
 
 ## Opus Bitrate
 
-SDP'de `maxaveragebitrate` ile set edilir. Detay: `LoopbackManager.js:setOpusBitrate()`
+SDP'de `maxaveragebitrate` ile set edilir. Detay: `js/modules/LoopbackManager.js:setOpusBitrate()`
 
 Bitrate degisimleri encoder init'i etkiler; loglarda gecikmeler gorulebilir.
 
 ## Dinamik Sinyal Bekleme (UI Senkronizasyonu)
 
 WebRTC codec hazir olana kadar UI "Monitoring" durumuna gecmez.
-Detay: `MonitoringController.js:_waitForSignal()`
+Detay: `js/controllers/MonitoringController.js:_waitForSignal()`
 
 ```
 Setup → [Sinyal bekle max 2sn] → UI "Monitoring" → Ses hemen gelir
 ```
 
-Sabitler: `constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_MS` (50), `SIGNAL.RMS_THRESHOLD` (0.001)
+Sabitler: `js/modules/constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_MS` (50), `SIGNAL.RMS_THRESHOLD` (0.001)
 
 **Not:** Loopback recording kaldirildi. Loopback sadece monitoring (call kategorisi) icin kullanilir.
 
@@ -76,7 +76,7 @@ Sabitler: `constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_
 - Remote track `muted`/`readyState` ne?
 - Monitor graph log'u delay'i gosteriyor mu (`delaySeconds: DELAY.DEFAULT_SECONDS`)?
 
-## Tum Sabitler (constants.js)
+## Tum Sabitler (js/modules/constants.js)
 
 | Sabit | Deger | Aciklama |
 |-------|-------|----------|
@@ -86,5 +86,5 @@ Sabitler: `constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POLL_INTERVAL_
 | `SIGNAL.POLL_INTERVAL_MS` | 50 | Polling araligi |
 | `SIGNAL.RMS_THRESHOLD` | 0.001 | Sinyal algilama esigi |
 
-**Not:** ICE baglanti timeout 10sn olarak `LoopbackManager.js` icinde hardcoded.
+**Not:** ICE baglanti timeout 10sn olarak `js/modules/LoopbackManager.js` icinde hardcoded.
 

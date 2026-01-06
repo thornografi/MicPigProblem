@@ -92,52 +92,57 @@
 
       <!-- Animated Microphone Visual -->
       <div class="hero-visual">
-        <!-- Sound Wave Lines SVG - Gerçek sinüs dalgası -->
-        <svg class="hero-soundwave" viewBox="0 0 1000 200" preserveAspectRatio="none">
+        <!-- Sound Wave Lines SVG - Yumuşak harmonik sinüs dalgaları (gökkuşağı efekti) -->
+        <svg class="hero-soundwave" viewBox="0 0 1600 120" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <linearGradient id="wg1" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#f97316" stop-opacity="0"/>
-              <stop offset="8%" stop-color="#f97316" stop-opacity="0.4"/>
-              <stop offset="25%" stop-color="#fb923c" stop-opacity="0.5"/>
-              <stop offset="42%" stop-color="#f472b6" stop-opacity="0.45"/>
-              <stop offset="58%" stop-color="#a78bfa" stop-opacity="0.45"/>
-              <stop offset="75%" stop-color="#60a5fa" stop-opacity="0.5"/>
-              <stop offset="92%" stop-color="#3b82f6" stop-opacity="0.4"/>
-              <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
-            </linearGradient>
-            <linearGradient id="wg2" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#fb923c" stop-opacity="0"/>
-              <stop offset="10%" stop-color="#fb923c" stop-opacity="0.35"/>
-              <stop offset="30%" stop-color="#f9a8d4" stop-opacity="0.4"/>
-              <stop offset="50%" stop-color="#c4b5fd" stop-opacity="0.38"/>
-              <stop offset="70%" stop-color="#93c5fd" stop-opacity="0.4"/>
-              <stop offset="90%" stop-color="#60a5fa" stop-opacity="0.35"/>
+            <!-- Her dalga için ayrı gradient - agresif kenar fade -->
+            <linearGradient id="wave-blue" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#60a5fa" stop-opacity="0"/>
+              <stop offset="20%" stop-color="#3b82f6" stop-opacity="0.7"/>
+              <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.85"/>
+              <stop offset="80%" stop-color="#3b82f6" stop-opacity="0.7"/>
               <stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/>
             </linearGradient>
-            <linearGradient id="wg3" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#fdba74" stop-opacity="0"/>
-              <stop offset="10%" stop-color="#fdba74" stop-opacity="0.32"/>
-              <stop offset="35%" stop-color="#f9a8d4" stop-opacity="0.35"/>
-              <stop offset="65%" stop-color="#a5b4fc" stop-opacity="0.35"/>
-              <stop offset="90%" stop-color="#7dd3fc" stop-opacity="0.32"/>
-              <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0"/>
+            <linearGradient id="wave-indigo" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#818cf8" stop-opacity="0"/>
+              <stop offset="20%" stop-color="#6366f1" stop-opacity="0.6"/>
+              <stop offset="50%" stop-color="#6366f1" stop-opacity="0.75"/>
+              <stop offset="80%" stop-color="#6366f1" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
             </linearGradient>
-            <linearGradient id="wg4" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stop-color="#ea580c" stop-opacity="0"/>
-              <stop offset="8%" stop-color="#ea580c" stop-opacity="0.38"/>
-              <stop offset="28%" stop-color="#ec4899" stop-opacity="0.45"/>
-              <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.38"/>
-              <stop offset="72%" stop-color="#6366f1" stop-opacity="0.45"/>
-              <stop offset="92%" stop-color="#2563eb" stop-opacity="0.38"/>
-              <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
+            <linearGradient id="wave-purple" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#a78bfa" stop-opacity="0"/>
+              <stop offset="20%" stop-color="#8b5cf6" stop-opacity="0.65"/>
+              <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.8"/>
+              <stop offset="80%" stop-color="#8b5cf6" stop-opacity="0.65"/>
+              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="wave-pink" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#f472b6" stop-opacity="0"/>
+              <stop offset="20%" stop-color="#ec4899" stop-opacity="0.6"/>
+              <stop offset="50%" stop-color="#ec4899" stop-opacity="0.75"/>
+              <stop offset="80%" stop-color="#ec4899" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#f472b6" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="wave-coral" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#fb923c" stop-opacity="0"/>
+              <stop offset="20%" stop-color="#f97316" stop-opacity="0.55"/>
+              <stop offset="50%" stop-color="#f97316" stop-opacity="0.7"/>
+              <stop offset="80%" stop-color="#f97316" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#fb923c" stop-opacity="0"/>
             </linearGradient>
           </defs>
-          <!-- Üst dalga grubu - sin(x) yaklaşımı ile bezier -->
-          <path d="M0,60 C55,60 80,25 125,25 C170,25 195,60 250,60 C305,60 330,95 375,95 C420,95 445,60 500,60 C555,60 580,25 625,25 C670,25 695,60 750,60 C805,60 830,95 875,95 C920,95 945,60 1000,60" stroke="url(#wg1)" stroke-width="2" fill="none"/>
-          <path d="M0,75 C55,75 80,45 125,45 C170,45 195,75 250,75 C305,75 330,105 375,105 C420,105 445,75 500,75 C555,75 580,45 625,45 C670,45 695,75 750,75 C805,75 830,105 875,105 C920,105 945,75 1000,75" stroke="url(#wg2)" stroke-width="1.6" fill="none"/>
-          <!-- Alt dalga grubu - ters fazlı sin(x) -->
-          <path d="M0,125 C55,125 80,155 125,155 C170,155 195,125 250,125 C305,125 330,95 375,95 C420,95 445,125 500,125 C555,125 580,155 625,155 C670,155 695,125 750,125 C805,125 830,95 875,95 C920,95 945,125 1000,125" stroke="url(#wg3)" stroke-width="1.6" fill="none"/>
-          <path d="M0,140 C55,140 80,175 125,175 C170,175 195,140 250,140 C305,140 330,105 375,105 C420,105 445,140 500,140 C555,140 580,175 625,175 C670,175 695,140 750,140 C805,140 830,105 875,105 C920,105 945,140 1000,140" stroke="url(#wg4)" stroke-width="2" fill="none"/>
+          <!-- Paralel sinüs dalgaları - geniş dalga boyu, düşük amplitüd, sık aralık -->
+          <!-- Dalga 1 - Mavi (en üst) -->
+          <path class="wave-line wave-1" d="M0,48 Q400,32 800,48 T1600,48" stroke="url(#wave-blue)" stroke-width="2" fill="none"/>
+          <!-- Dalga 2 - İndigo -->
+          <path class="wave-line wave-2" d="M0,54 Q400,38 800,54 T1600,54" stroke="url(#wave-indigo)" stroke-width="1.5" fill="none"/>
+          <!-- Dalga 3 - Mor (orta) -->
+          <path class="wave-line wave-3" d="M0,60 Q400,44 800,60 T1600,60" stroke="url(#wave-purple)" stroke-width="2.2" fill="none"/>
+          <!-- Dalga 4 - Pembe -->
+          <path class="wave-line wave-4" d="M0,66 Q400,50 800,66 T1600,66" stroke="url(#wave-pink)" stroke-width="1.6" fill="none"/>
+          <!-- Dalga 5 - Coral/Turuncu (en alt) -->
+          <path class="wave-line wave-5" d="M0,72 Q400,56 800,72 T1600,72" stroke="url(#wave-coral)" stroke-width="1.3" fill="none"/>
         </svg>
         <!-- Circular Ripples -->
         <div class="hero-waves">
@@ -351,12 +356,12 @@
                   </div>
 
                   <div class="button-row">
-                    <button id="recordToggle" class="btn btn-record">
+                    <button id="recordToggle" class="btn btn-action btn-record">
                       <svg class="icon-circle" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
                       <svg class="icon-square" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                       <span class="btn-text">Record</span>
                     </button>
-                    <button id="monitorToggle" class="btn btn-monitor">
+                    <button id="monitorToggle" class="btn btn-action btn-monitor">
                       <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
                       <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                       <span class="btn-text">Monitor</span>

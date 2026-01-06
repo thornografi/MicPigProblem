@@ -9,8 +9,8 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-logging SKILL.md okunuyor..." 
 
 ## Log Kaynaklari
 
-- UI log paneli: `modules/Logger.js` (gosterim/filtre)
-- Kalici log: `modules/LogManager.js` (IndexedDB + kategori)
+- UI log paneli: `js/modules/Logger.js` (gosterim/filtre)
+- Kalici log: `js/modules/LogManager.js` (IndexedDB + kategori)
 
 ## Kategoriler
 
@@ -28,7 +28,7 @@ Her kategori icin `log:<category>` event'i dinlenir.
 
 ## Console Komutlari (F12)
 
-`ui/DebugConsole.js` uzerinden global'e expose edilir:
+`js/ui/DebugConsole.js` uzerinden global'e expose edilir:
 - `exportLogs()` → tum loglari JSON indir
 - `getLogStats()` → kategori sayilari
 - `runSanityChecks()` → log akisinda mantik kontrolu

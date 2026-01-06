@@ -25,7 +25,7 @@ rec.ondataavailable = e => chunks.push(e.data);
 rec.onstop = () => { /* TEMIZLIK BURADA */ };
 ```
 - `rec.stop()` asenkron - temizlik `onstop` icinde
-- Detay: `modules/Recorder.js`
+- Detay: `js/modules/Recorder.js`
 
 ## Node Turleri
 
@@ -47,7 +47,7 @@ analyser.getByteTimeDomainData(data);
 const dB = rmsToDb(rms);
 const percent = dbToPercent(dB);
 ```
-- Detay: `modules/VuMeter.js`, `modules/constants.js` (AUDIO, VU_METER)
+- Detay: `js/modules/VuMeter.js`, `js/modules/constants.js` (AUDIO, VU_METER)
 - Helper'lar: `rmsToDb()`, `dbToPercent()`, `calculateLatencyMs()`, `bitrateToKbps()`
 
 ## AudioWorklet Pattern
@@ -56,7 +56,7 @@ const percent = dbToPercent(dB);
 await ac.audioWorklet.addModule('passthrough-processor.js');
 const node = new AudioWorkletNode(ac, 'passthrough-processor');
 ```
-- Detay: `modules/WorkletHelper.js`, `worklets/passthrough-processor.js`
+- Detay: `js/modules/WorkletHelper.js`, `js/worklets/passthrough-processor.js`
 - ScriptProcessor deprecated - worklet tercih et
 
 ## Pipeline Strategy Pattern (OCP)
@@ -88,7 +88,7 @@ processor.onaudioprocess = (e) => {
 };
 ```
 
-- Detay: `modules/OpusWorkerHelper.js`, `lib/opus/encoderWorker.min.js` (opus-recorder WASM)
+- Detay: `js/modules/OpusWorkerHelper.js`, `js/lib/opus/encoderWorker.min.js` (opus-recorder WASM)
 - MediaRecorder kullanilmiyor - dogrudan Opus encoding
 - Output: `.ogg` (audio/ogg; codecs=opus)
 
@@ -105,7 +105,7 @@ ms.addEventListener('sourceopen', () => {
 ```
 - `decodeAudioData` partial blob'u decode edemez
 - `sb.updating` kontrolu sart (QuotaExceededError)
-- Detay: `modules/Monitor.js` (startCodecSimulated)
+- Detay: `js/modules/Monitor.js` (startCodecSimulated)
 
 ## Temizlik
 
