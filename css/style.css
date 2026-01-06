@@ -30,6 +30,22 @@
   background: transparent;
 }
 
+.app-layout::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--sidebar-width);
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(var(--color-orange-rgb), 0.2) 30%,
+    rgba(var(--color-purple-rgb), 0.2) 70%,
+    transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* ========== APP HEADER ========== */
 /* Panel ortak degiskenleri kullanir (variables.css) */
 .app-header {
@@ -130,27 +146,10 @@
   -webkit-backdrop-filter: blur(var(--backdrop-blur));
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--glass-border);
   flex-shrink: 0;
   position: relative;
   z-index: 1; /* Gradient overlay'in ustunde */
   font-family: var(--font-sans);
-}
-
-/* Sidebar ince gradient cizgi - landing accent ile uyumlu */
-.sidebar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(180deg,
-    transparent 0%,
-    rgba(var(--color-orange-rgb), 0.2) 30%,
-    rgba(var(--color-purple-rgb), 0.2) 70%,
-    transparent 100%);
-  pointer-events: none;
 }
 
 .sidebar-header {
@@ -204,13 +203,13 @@
   margin-bottom: var(--space-xl);
 }
 
-.nav-section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--fs-2xs);
-  font-weight: 500;
-  color: var(--text-muted);
+  .nav-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   padding: var(--space-sm) var(--space-md);
@@ -346,7 +345,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: visible;
+  overflow-y: hidden;
   background: transparent; /* Gradient .app-layout'tan gelir */
   min-height: 0; /* Flex overflow fix */
   position: relative;
@@ -573,20 +573,24 @@
 .unified-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  /* gap kaldırıldı - tüm spacing adjacent sibling pattern ile yönetiliyor */
 }
 
 .unified-row {
   display: flex;
   gap: var(--space-xl);
   align-items: flex-start;
+  padding: var(--space-md) 0; /* simetrik: üst ve alt eşit */
+}
+
+/* Adjacent Sibling Pattern: Sadece çizgi - padding her row'da tanımlı */
+.unified-row + .unified-row {
+  border-top: 1px solid var(--glass-border);
 }
 
 .unified-row-main {
   flex-wrap: wrap;
   align-items: stretch;
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--glass-border);
   /* F1 yuksekligi = F2 yuksekligi */
   min-height: 170px;
 }
@@ -680,11 +684,10 @@
 }
 
 .unified-status .stat-v {
-  color: var(--text-primary);
-  font-weight: 600;
+  color: var(--text-muted);
   text-align: right;
   font-variant-numeric: tabular-nums; /* Rakamlar hizali */
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 /* Mikrofon adi - daha kucuk font */
@@ -695,57 +698,77 @@
 /* VU Row */
 .unified-row-vu {
   flex-direction: column;
-  gap: var(--space-md); /* %25 azaltildi */
+  gap: var(--space-md);
   align-items: flex-start;
-  margin-top: var(--space-lg);
+  /* padding .unified-row'dan kalıtım */
 }
 
-/* VU Row icindeki vu-section */
+/* VU Row icindeki vu-section - spacing row seviyesinde yönetiliyor */
 .unified-row-vu .vu-section {
   max-width: 500px;
   width: 100%;
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
+  margin-top: 0;    /* orijinal .vu-section margin'ini sıfırla */
+  padding-top: 0;   /* orijinal .vu-section padding'ini sıfırla */
+  border-top: none; /* orijinal .vu-section border'ını kaldır */
 }
 
 @media (min-width: 900px) {
-  /* Tum icerik sagdan %10 kisalir */
+  /* Parent grid - row'lar bu column'ları paylaşır */
   .unified-body {
+    display: grid;
+    grid-template-columns: 3fr 2fr 2fr;
+    column-gap: var(--space-xl);
     padding-right: 10%;
   }
 
+  /* TÜM row'lar tam genişlik kaplamalı (auto-flow sorununu önler) */
+  .unified-row {
+    grid-column: 1 / -1;
+  }
+
+  /* Main row - subgrid ile column genişliklerini paylaşır */
   .unified-row-main {
     display: grid;
-    grid-template-columns: 3fr 2fr 2fr; /* Controls genis, Tips ve Status esit */
-    column-gap: var(--space-xl);
+    grid-template-columns: subgrid;
   }
 
+  /* VU row - subgrid ile column genişliklerini paylaşır */
   .unified-row-vu {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md); /* %25 azaltildi */
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-template-rows: auto auto; /* iki VU section için iki satır */
+    row-gap: var(--space-md);
+    column-gap: inherit; /* parent'ın column-gap'ini kullan (base'deki gap override) */
   }
 
+  /* VU section'lar sadece ilk column'da (controls ile aynı genişlik) */
   .unified-row-vu .vu-section {
-    max-width: 500px;
+    grid-column: 1;
+    max-width: none;
+    width: 100%;
+  }
+
+  .unified-row-vu .vu-section:first-child {
+    grid-row: 1;
+  }
+
+  .unified-row-vu .vu-section:last-child {
+    grid-row: 2;
   }
 }
 
-/* Player Row */
+/* Player Row - border/padding adjacent sibling pattern ile yönetiliyor */
 .unified-row-player {
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--glass-border);
+  /* layout-specific styles only */
 }
 
 .unified-row-player .recording-player {
   width: 100%;
 }
 
-/* Settings Row */
+/* Settings Row - border/padding adjacent sibling pattern ile yönetiliyor */
 .unified-row-settings {
   flex-direction: column;
-  /* border-top kaldirildi - cift cizgi onlendi, sadece gap ile ayrilir */
 }
 
 @media (max-width: 768px) {
@@ -929,16 +952,22 @@
 }
 
 /* ========== BUTTONS ========== */
+/* Layout only - sadece yerleşim */
 .button-row {
   display: flex;
   gap: var(--space-sm);
-  justify-content: flex-start;
+  justify-content: center;
+  align-items: center;
 }
 
-/* App-specific button overrides (inherits from variables.css .btn) */
-.button-row .btn {
+/*
+ * App-specific button defaults
+ * :where() ile specificity düşürüldü (0,0,1,0)
+ * Böylece .btn-monitor, .btn-record gibi variant'lar override edebilir
+ */
+:where(.button-row) .btn {
   flex: 1;
-  padding: var(--space-sm) var(--space-lg); /* Yukseklik %25 azaltildi */
+  padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   font-size: calc(var(--fs-lg) + 2px);
   font-family: var(--font-ui-accent);
@@ -946,12 +975,18 @@
   letter-spacing: 0.012em;
 }
 
-.button-row .btn:disabled {
+:where(.button-row) .btn svg {
+  width: var(--fs-lg);
+  height: var(--fs-lg);
+  flex-shrink: 0;
+}
+
+:where(.button-row) .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.button-row .btn:active:not(:disabled) {
+:where(.button-row) .btn:active:not(:disabled) {
   transform: scale(0.98);
 }
 
@@ -1009,11 +1044,15 @@
   border: none;
   position: relative;
   overflow: hidden;
+  /* Yükseklik %20 artırıldı */
+  padding-top: calc(var(--space-sm) * 1.2);
+  padding-bottom: calc(var(--space-sm) * 1.2);
 }
 
+/* Monitor butonu ikonu - 1.5x büyük */
 .btn-monitor svg {
-  width: 24px;
-  height: 24px;
+  width: calc(var(--fs-lg) * 1.5);
+  height: calc(var(--fs-lg) * 1.5);
 }
 
 .btn-monitor::before {
@@ -1165,9 +1204,9 @@
   width: 100%;
   background: linear-gradient(
     90deg,
-    #22c55e 0%,
-    #22c55e 50%,
-    #eab308 65%,
+    var(--vu-green) 0%,
+    var(--vu-green) 50%,
+    var(--vu-yellow) 65%,
     var(--color-orange) 80%,
     var(--accent-danger) 100%
   );
@@ -1209,8 +1248,8 @@
 .remote-bar {
   background: linear-gradient(
     90deg,
-    #8b5cf6 0%,
-    #8b5cf6 50%,
+    var(--vu-purple) 0%,
+    var(--vu-purple) 50%,
     var(--color-purple-light) 65%,
     var(--accent-warning) 80%,
     var(--accent-danger) 100%
@@ -1833,7 +1872,7 @@ body.production .dev-console-toggle-btn {
   font-weight: 500;
   color: var(--text-muted);
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -2286,6 +2325,10 @@ label.option-disabled::after {
 }
 
 @media (max-width: 768px) {
+  .app-layout::before {
+    content: none;
+  }
+
   .app-header {
     --app-header-height: calc(64px * 1.95);
   }
@@ -2358,7 +2401,7 @@ label.option-disabled::after {
 }
 
 .panel-custom-settings .panel-header:hover {
-  background: var(--bg-hover);
+  background: var(--glass-bg-hover);
 }
 
 .panel-custom-settings .toggle-chevron {

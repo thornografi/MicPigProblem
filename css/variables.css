@@ -186,6 +186,11 @@
   --accent-success: #1db954;
   --accent-success-muted: rgba(29, 185, 84, 0.15);
 
+  /* VU Meter colors */
+  --vu-green: #22c55e;
+  --vu-yellow: #eab308;
+  --vu-purple: #8b5cf6;
+
   /* Text colors */
   --text-primary: #ffffff;
   --text-secondary: #b3b3b3;

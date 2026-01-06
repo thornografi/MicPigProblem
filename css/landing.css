@@ -341,13 +341,12 @@
 .section-badge {
   display: inline-block;
   padding: var(--space-xs) var(--space-md);
-  background: var(--accent-purple);
   background: linear-gradient(135deg, rgba(var(--color-purple-rgb), 0.2), rgba(var(--color-orange-rgb), 0.2));
   border: 1px solid rgba(var(--color-purple-rgb), 0.3);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--accent-purple);
+  color: var(--color-purple-light);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: var(--space-md);
