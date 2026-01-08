@@ -57,6 +57,11 @@ export const SIGNAL = {
   RMS_THRESHOLD: 0.001            // Sinyal algilama RMS esigi
 };
 
+// === LOOPBACK (WebRTC) ===
+export const LOOPBACK = {
+  ICE_WAIT_MS: 10000              // ICE baglanti timeout suresi (ms)
+};
+
 // === HELPER FUNCTIONS ===
 
 /**

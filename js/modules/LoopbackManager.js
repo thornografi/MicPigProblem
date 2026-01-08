@@ -6,7 +6,7 @@
 
 import eventBus from './EventBus.js';
 import { createAudioContext, getAudioContextOptions, stopStreamTracks } from './utils.js';
-import { DELAY, SIGNAL, BUFFER } from './constants.js';
+import { DELAY, SIGNAL, BUFFER, LOOPBACK } from './constants.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
 
 /**
@@ -253,7 +253,7 @@ class LoopbackManager {
           }
         });
         reject(new Error('ICE connection timeout'));
-      }, 10000);
+      }, LOOPBACK.ICE_WAIT_MS);
 
       let lastIce1 = null;
       let lastIce2 = null;

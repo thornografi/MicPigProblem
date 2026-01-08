@@ -71,7 +71,7 @@ Sabitler: `js/modules/constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POL
 
 ## Debug Checklist
 
-- ICE state `connected/completed` mi? (timeout: `LOOPBACK.ICE_WAIT_MS` = 3000ms)
+- ICE state `connected/completed` mi? (timeout: `LOOPBACK.ICE_WAIT_MS` = 10000ms)
 - `ontrack` ile gelen stream `active=true` mi?
 - Remote track `muted`/`readyState` ne?
 - Monitor graph log'u delay'i gosteriyor mu (`delaySeconds: DELAY.DEFAULT_SECONDS`)?
@@ -85,6 +85,5 @@ Sabitler: `js/modules/constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POL
 | `SIGNAL.MAX_WAIT_MS` | 2000 | Sinyal bekleme timeout |
 | `SIGNAL.POLL_INTERVAL_MS` | 50 | Polling araligi |
 | `SIGNAL.RMS_THRESHOLD` | 0.001 | Sinyal algilama esigi |
-
-**Not:** ICE baglanti timeout 10sn olarak `js/modules/LoopbackManager.js` icinde hardcoded.
+| `LOOPBACK.ICE_WAIT_MS` | 10000 | ICE baglanti timeout |
 

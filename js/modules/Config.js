@@ -234,11 +234,11 @@ export const PROFILES = {
       allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
 
   'telegram-voice': createProfile('telegram-voice', 'Telegram Voice Message',
-    'AudioWorklet + MediaRecorder Opus (16-32kbps) - Telegram Web simulation',
-    'send', 'record', { mediaBitrate: 32000, timeslice: 250, loopback: false, pipeline: 'worklet', encoder: 'mediarecorder' },
-    { locked: ['pipeline', 'encoder'],
-      editable: ['ec', 'ns', 'agc', 'mediaBitrate', 'timeslice'],
-      allowedValues: { mediaBitrate: [16000, 24000, 32000], timeslice: [0, 100, 250, 500] } }),
+    'AudioWorklet + WASM Opus (16-32kbps) - Telegram Web simulation',
+    'send', 'record', { mediaBitrate: 32000, timeslice: 0, loopback: false, pipeline: 'worklet', encoder: 'wasm-opus' },
+    { locked: ['pipeline', 'encoder', 'timeslice'],
+      editable: ['ec', 'ns', 'agc', 'mediaBitrate'],
+      allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
 
   'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + MediaRecorder - legacy web recording sites',
     'history', 'record', { pipeline: 'scriptprocessor', encoder: 'mediarecorder', buffer: 1024, timeslice: 1000, loopback: false },

@@ -31,8 +31,16 @@ class UIStateManager {
       refreshMicsBtn: null,
       preparingOverlay: null,
       profileSelector: null,
-      timerEl: null
+      timerEl: null,
+      headerBrandLink: null,
+      customSettingsToggle: null,
+      footerBrandLink: null,
+      settingsDrawer: null,
+      drawerOverlay: null
     };
+
+    // Footer link koleksiyonu
+    this.footerLinks = [];
 
     // Radio button koleksiyonlari
     this.radioGroups = {
@@ -95,6 +103,14 @@ class UIStateManager {
   setProfileCollections(collections) {
     if (collections.navItems) this.navItems = collections.navItems;
     if (collections.scenarioCards) this.scenarioCards = collections.scenarioCards;
+  }
+
+  /**
+   * Footer linklerini set et
+   * @param {Array} links - Footer link elementleri
+   */
+  setFooterLinks(links) {
+    this.footerLinks = links || [];
   }
 
   /**
@@ -220,6 +236,45 @@ class UIStateManager {
       profileSelector.disabled = disableProfiles;
     }
 
+    // Header brand link - aktif islem varken landing page'e donus yapilmasin
+    const { headerBrandLink, customSettingsToggle } = this.elements;
+    if (headerBrandLink) {
+      headerBrandLink.classList.toggle('disabled', !isIdle);
+      headerBrandLink.style.pointerEvents = isIdle ? '' : 'none';
+      headerBrandLink.setAttribute('aria-disabled', !isIdle ? 'true' : 'false');
+    }
+
+    // Custom settings toggle - aktif islem varken ayarlara erisim kapali
+    if (customSettingsToggle) {
+      customSettingsToggle.classList.toggle('disabled', !isIdle);
+      customSettingsToggle.style.pointerEvents = isIdle ? '' : 'none';
+      customSettingsToggle.setAttribute('aria-disabled', !isIdle ? 'true' : 'false');
+    }
+
+    // Footer brand link ve diger footer linkleri - aktif islem varken disabled
+    const { footerBrandLink, settingsDrawer, drawerOverlay } = this.elements;
+    if (footerBrandLink) {
+      footerBrandLink.classList.toggle('disabled', !isIdle);
+      footerBrandLink.style.pointerEvents = isIdle ? '' : 'none';
+      footerBrandLink.setAttribute('aria-disabled', !isIdle ? 'true' : 'false');
+    }
+
+    this.footerLinks.forEach(link => {
+      link.classList.toggle('disabled', !isIdle);
+      link.style.pointerEvents = isIdle ? '' : 'none';
+      link.setAttribute('aria-disabled', !isIdle ? 'true' : 'false');
+    });
+
+    // Settings drawer - aktif islem baslatildiginda drawer'i kapat
+    if (!isIdle && settingsDrawer && settingsDrawer.classList.contains('open')) {
+      settingsDrawer.classList.remove('open');
+      if (drawerOverlay) {
+        drawerOverlay.classList.remove('active');
+      }
+      // Body scroll lock'u kaldir
+      document.body.style.overflow = '';
+    }
+
     // Loopback durumu - dinamik kilitleme kurallari icin
     const isLoopbackOn = loopbackToggle?.checked ?? false;
 
@@ -269,21 +324,18 @@ class UIStateManager {
   }
 
   /**
-   * "Hazırlanıyor..." overlay'ini goster
+   * Preparing state goster - buton metni updateButtonStates'de zaten guncelleniyor
+   * Overlay kaldirildi, buton uzerinde "Preparing..." gosteriliyor
    */
   showPreparingState() {
-    if (this.elements.preparingOverlay) {
-      this.elements.preparingOverlay.classList.add('visible');
-    }
+    // No-op: Buton metni updateButtonStates() icinde guncelleniyor
   }
 
   /**
-   * "Hazırlanıyor..." overlay'ini gizle
+   * Preparing state gizle - buton metni updateButtonStates'de zaten guncelleniyor
    */
   hidePreparingState() {
-    if (this.elements.preparingOverlay) {
-      this.elements.preparingOverlay.classList.remove('visible');
-    }
+    // No-op: Buton metni updateButtonStates() icinde guncelleniyor
   }
 
   /**

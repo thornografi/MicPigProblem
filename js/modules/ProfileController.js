@@ -248,19 +248,31 @@ class ProfileController {
     // Kural 4: loopback ON -> timeslice kilitle (WebRTC monitoring modunda chunk anlamsiz)
     this.callbacks.setSettingDisabled('timeslice', loopback);
 
-    // Kural 5: wasm-opus encoder sadece ScriptProcessor pipeline'da kullanilabilir
-    // Diger pipeline'larda PCM data erisilemiyor, WASM Opus calismaz
-    const wasmOpusDisabled = !supportsWasmOpusEncoder(pipeline);
-    this.callbacks.setOptionDisabled('encoder', 'wasm-opus', wasmOpusDisabled);
+    // Kural 5: Encoder kilitleme - pipeline tipine gore
+    // Worklet/ScriptProcessor -> WASM Opus (PCM erisimi var)
+    // Direct/Standard -> MediaRecorder (PCM erisimi yok)
+    const supportsWasm = supportsWasmOpusEncoder(pipeline);
+    this.callbacks.setOptionDisabled('encoder', 'wasm-opus', !supportsWasm);
+    this.callbacks.setOptionDisabled('encoder', 'mediarecorder', supportsWasm);
 
-    // Eger wasm-opus seciliyken pipeline degistiyse, encoder'i mediarecorder'a cevir
+    // Pipeline degistiginde encoder'i otomatik ayarla
     const currentEncoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
-    if (wasmOpusDisabled && currentEncoder === 'wasm-opus') {
+    if (supportsWasm && currentEncoder === 'mediarecorder') {
+      // Worklet/ScriptProcessor secildi -> WASM Opus'a gec
+      const wasmOpusRadio = document.querySelector('input[name="encoder"][value="wasm-opus"]');
+      if (wasmOpusRadio) {
+        wasmOpusRadio.checked = true;
+        eventBus.emit('log:ui', {
+          message: 'Encoder otomatik olarak WASM Opus\'a degistirildi (PCM erisimi mevcut)'
+        });
+      }
+    } else if (!supportsWasm && currentEncoder === 'wasm-opus') {
+      // Direct/Standard secildi -> MediaRecorder'a gec
       const mediaRecorderRadio = document.querySelector('input[name="encoder"][value="mediarecorder"]');
       if (mediaRecorderRadio) {
         mediaRecorderRadio.checked = true;
         eventBus.emit('log:ui', {
-          message: 'Encoder otomatik olarak MediaRecorder\'a degistirildi (WASM Opus bu pipeline\'da desteklenmiyor)'
+          message: 'Encoder otomatik olarak MediaRecorder\'a degistirildi (PCM erisimi yok)'
         });
       }
     }
@@ -296,17 +308,21 @@ class ProfileController {
       }
     });
 
-    // Encoder select icin wasm-opus option'ini disable et (ScriptProcessor degilse)
+    // Encoder select icin pipeline tipine gore kilitle
     const encoderSelect = customSettingsGrid.querySelector('[data-setting="encoder"]');
     if (encoderSelect && encoderSelect.tagName === 'SELECT') {
+      const supportsWasm = supportsWasmOpusEncoder(pipeline);
       const wasmOpusOption = encoderSelect.querySelector('option[value="wasm-opus"]');
-      if (wasmOpusOption) {
-        const wasmOpusDisabled = !supportsWasmOpusEncoder(pipeline);
-        wasmOpusOption.disabled = wasmOpusDisabled;
-        // Eger wasm-opus seciliyse ve artik desteklenmiyorsa, mediarecorder'a gec
-        if (wasmOpusDisabled && encoderSelect.value === 'wasm-opus') {
-          encoderSelect.value = 'mediarecorder';
-        }
+      const mediaRecorderOption = encoderSelect.querySelector('option[value="mediarecorder"]');
+
+      if (wasmOpusOption) wasmOpusOption.disabled = !supportsWasm;
+      if (mediaRecorderOption) mediaRecorderOption.disabled = supportsWasm;
+
+      // Pipeline degistiginde encoder'i otomatik ayarla
+      if (supportsWasm && encoderSelect.value === 'mediarecorder') {
+        encoderSelect.value = 'wasm-opus';
+      } else if (!supportsWasm && encoderSelect.value === 'wasm-opus') {
+        encoderSelect.value = 'mediarecorder';
       }
     }
   }

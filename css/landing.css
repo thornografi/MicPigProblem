@@ -9,21 +9,19 @@
 }
 
 /* ========== NAVBAR ========== */
+/* Header-base'den miras alır (variables.css) */
 .navbar {
+  /* Landing-specific positioning */
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: calc(var(--navbar-height) * 1.4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+
+  /* Landing-specific layout */
+  justify-content: space-between; /* logo sol, nav sağ */
   padding: 0 var(--space-xl);
-  background: rgba(10, 10, 15, 0.8);
-  backdrop-filter: blur(var(--blur-sm));
-  -webkit-backdrop-filter: blur(var(--blur-sm));
-  border-bottom: 1px solid var(--border-secondary);
-  z-index: var(--z-sticky);
+
+  /* Scroll state transition */
   transition: background var(--transition-normal);
 }
 
@@ -34,16 +32,16 @@
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: 12px;
   text-decoration: none;
   color: var(--text-primary);
   white-space: nowrap;
 }
 
 .navbar-logo {
-  width: 36px;
-  height: 36px;
-  color: var(--brand-icon-color);
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.5)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.4));
 }
 
 .navbar-title {
@@ -114,23 +112,6 @@
   position: relative;
 }
 
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-card-hover);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  margin-bottom: var(--space-xl);
-}
-
-.hero-badge-icon {
-  color: var(--color-orange);
-}
-
 .hero-content {
   transform: translateY(-2px);
   display: flex;
@@ -153,7 +134,7 @@
 }
 
 .hero-title .gradient-text {
-  color: #818cf8; /* Indigo - lacivert tonunda, parlak */
+  color: var(--color-accent-text); /* DRY: tek kaynaktan miras */
 }
 
 .hero-subtitle {

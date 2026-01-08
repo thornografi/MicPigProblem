@@ -30,8 +30,8 @@
   --color-black-rgb: 0, 0, 0;
 
   /* Active profile color - ortak accent text rengi (Real-World, sidebar, baslik) */
-  --color-accent-text: #C03FA4;
-  --color-accent-text-rgb: 192, 63, 164;
+  --color-accent-text: #d26cfc;
+  --color-accent-text-rgb: 210, 108, 252;
   --profile-accent: var(--color-accent-text);
   --profile-accent-glow: rgba(var(--color-accent-text-rgb), 0.55);
 
@@ -118,6 +118,25 @@
   /* Primary accent gradient - HER YERDE KULLANILIR */
   --gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
   --gradient-accent-warm: linear-gradient(135deg, var(--color-coral) 0%, var(--color-pink) 50%, var(--color-purple-light) 100%);
+
+  /* Audio wave gradient - navbar brand için rainbow flow */
+  --gradient-audio-wave: linear-gradient(135deg,
+    #f59e0b 0%,    /* Orange */
+    #fb7185 20%,   /* Rose */
+    #ec4899 40%,   /* Pink */
+    #8b5cf6 60%,   /* Purple */
+    #6366f1 80%,   /* Indigo */
+    #3b82f6 100%   /* Blue */
+  );
+
+  /* Neon brand gradient - sadece cool tonlar (Pink -> Purple -> Blue) */
+  --gradient-neon-brand: linear-gradient(135deg,
+    #ec4899 0%,    /* Pink */
+    #c026d3 25%,   /* Magenta */
+    #8b5cf6 50%,   /* Purple */
+    #6366f1 75%,   /* Indigo */
+    #3b82f6 100%   /* Blue */
+  );
   --gradient-accent-soft: linear-gradient(135deg,
     rgba(var(--color-orange-rgb), var(--accent-grad-soft-alpha)),
     rgba(var(--color-purple-rgb), var(--accent-grad-soft-alpha)));
@@ -356,6 +375,27 @@
   position: fixed;
 }
 
+/* ========== HEADER BASE (Ortak Şablon) ========== */
+/* Landing navbar ve app header için ortak stil template */
+.header-base {
+  /* Height standardization */
+  --header-height: calc(var(--navbar-height) * 1.4); /* 100.8px */
+  height: var(--header-height);
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+
+  /* Visual */
+  background: rgba(10, 10, 15, 0.8);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  border-bottom: 1px solid var(--glass-border);
+
+  /* Layering */
+  z-index: var(--z-sticky);
+}
+
 /* ========== RESET ========== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -438,9 +478,9 @@ body {
 .brand-wordmark {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.18em;
+  gap: 0.24em;
   white-space: nowrap;
-  font-family: var(--font-display);
+  font-family: 'Poppins', var(--font-display);
   letter-spacing: -0.02em;
 }
 
@@ -450,8 +490,8 @@ body {
 }
 
 .brand-word--mic {
-  font-weight: 700;
-  background: var(--gradient-accent);
+  font-weight: 400;
+  background: var(--gradient-neon-brand);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -459,8 +499,8 @@ body {
 }
 
 .brand-word--probe {
-  font-weight: 600;
-  background: var(--gradient-brand);
+  font-weight: 700;
+  background: var(--gradient-neon-brand);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -501,9 +541,9 @@ body {
 .site-footer-brand svg {
   width: 22px;
   height: 22px;
-  color: var(--brand-icon-color);
+  color: url(#navbar-brand-gradient); /* DRY: tum markalar ayni gradyan */
   fill: currentColor;
-  filter: drop-shadow(0 0 8px rgba(var(--color-orange-rgb), 0.3)), drop-shadow(0 0 16px rgba(var(--color-purple-rgb), 0.2));
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6)); /* landing ile ayni */
   transition: transform var(--transition-normal), filter var(--transition-normal);
 }
 
@@ -517,19 +557,22 @@ body {
 
 .site-footer-brand:hover svg {
   transform: scale(1.15);
-  filter: drop-shadow(var(--glow-brand));
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8));
 }
 
-.site-footer-brand:hover .brand-word--mic {
-  color: var(--color-orange-light);
+.site-footer-brand.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
-.site-footer-brand:hover .brand-word--probe {
-  background: var(--gradient-brand-hover);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+.site-footer-brand.disabled:hover {
+  background: transparent;
+}
+
+.site-footer-brand.disabled:hover svg {
+  transform: none;
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
 }
 
 .site-footer-links {
@@ -546,6 +589,16 @@ body {
 
 .site-footer-links a:hover {
   color: var(--text-primary);
+}
+
+.site-footer-links a.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.site-footer-links a.disabled:hover {
+  color: var(--text-muted);
 }
 
 .site-footer-meta {

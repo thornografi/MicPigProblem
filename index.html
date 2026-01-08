@@ -9,7 +9,7 @@
   <!-- Google Fonts: Bricolage Grotesque (landing display) + Rubik (app display) + Inter (UI) + JetBrains Mono (monospace) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Rubik:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Bricolage+Grotesque:wght@400;500;600;700&family=Rubik:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- CSS -->
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/landing.css">
@@ -22,6 +22,14 @@
       <!-- Brand icon gradient - cool neon (purple -> blue) -->
       <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#8b5cf6"/>
+        <stop offset="100%" stop-color="#3b82f6"/>
+      </linearGradient>
+      <!-- Navbar brand gradient - neon pink to blue -->
+      <linearGradient id="navbar-brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ec4899"/>
+        <stop offset="25%" stop-color="#c026d3"/>
+        <stop offset="50%" stop-color="#8b5cf6"/>
+        <stop offset="75%" stop-color="#6366f1"/>
         <stop offset="100%" stop-color="#3b82f6"/>
       </linearGradient>
     </defs>
@@ -38,7 +46,7 @@
   <!-- ==================== LANDING VIEW ==================== -->
   <div id="landing-view">
     <!-- Navbar -->
-    <nav class="navbar" id="navbar">
+    <nav class="navbar header-base" id="navbar">
       <a href="#" class="navbar-brand">
         <svg class="navbar-logo" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-mic-brand"/></svg>
         <span class="navbar-title brand-wordmark"><span class="brand-word brand-word--mic">Mic</span><span class="brand-word brand-word--probe">Probe</span></span>
@@ -222,7 +230,7 @@
   <!-- ==================== APP VIEW ==================== -->
   <div id="app-view" class="hidden">
     <div class="app-shell">
-      <header class="app-header">
+      <header class="app-header header-base">
         <div class="app-header-content">
           <a href="#" class="brand-mark" onclick="showLandingView(); return false;" title="Back to Home">
             <svg class="brand-logo" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-mic-brand"/></svg>

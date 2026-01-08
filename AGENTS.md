@@ -98,5 +98,5 @@ SORU: Ayni mantik 2+ yerde tekrarlaniyor mu?
 [ ] Varyant taramasi yaptim (grep/rg ile)
 [ ] Etki analizi yaptim (bagimlilari kontrol ettim)
 [ ] DRY kontrolu yaptim (tekrar eden kod yok)
-[ ] (Gerekiyorsa) Skill guncellemesi onerdim
+[ ] Skill güncellemesi gerekip gerekmediğini kontrol ettim ve gerekiyorsa güncelledim
 ```

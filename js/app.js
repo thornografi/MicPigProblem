@@ -131,6 +131,13 @@ const preparingOverlayEl = document.getElementById('preparingOverlay');
 // Profil secici
 const profileSelector = document.getElementById('profileSelector');
 
+// Header brand link (landing page donusu)
+const headerBrandLink = document.querySelector('.brand-mark');
+
+// Footer linkleri
+const footerBrandLink = document.querySelector('.site-footer-brand');
+const footerLinks = document.querySelectorAll('.site-footer-links a');
+
 // Ozel Ayarlar Panel (Ana sayfa)
 const customSettingsToggle = document.getElementById('customSettingsToggle');
 const customSettingsContent = document.getElementById('customSettingsContent');
@@ -645,7 +652,12 @@ uiStateManager.init({
   refreshMicsBtn,
   preparingOverlay: preparingOverlayEl,
   profileSelector,
-  timerEl
+  timerEl,
+  headerBrandLink,
+  customSettingsToggle,
+  footerBrandLink,
+  settingsDrawer,
+  drawerOverlay
 });
 
 uiStateManager.setRadioGroups({
@@ -669,6 +681,8 @@ uiStateManager.setProfileCollections({
   navItems: [...navItems],
   scenarioCards: [...scenarioCards]
 });
+
+uiStateManager.setFooterLinks([...footerLinks]);
 
 uiStateManager.setProfileController(profileController);
 

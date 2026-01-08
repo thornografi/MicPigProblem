@@ -1,10 +1,26 @@
 class PassthroughProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    // PCM gonderimi acik mi? (main thread'den kontrol edilir)
+    this.sendPcm = false;
+
+    // Port uzerinden mesaj al
+    this.port.onmessage = (e) => {
+      if (e.data.command === 'enablePcm') {
+        this.sendPcm = true;
+      } else if (e.data.command === 'disablePcm') {
+        this.sendPcm = false;
+      }
+    };
+  }
+
   process(inputs, outputs) {
     const input = inputs[0];
     const output = outputs[0];
 
     if (!input || input.length === 0) return true;
 
+    // Passthrough: input -> output
     for (let channel = 0; channel < input.length; channel++) {
       const inputChannel = input[channel];
       const outputChannel = output[channel];
@@ -13,6 +29,13 @@ class PassthroughProcessor extends AudioWorkletProcessor {
       for (let i = 0; i < inputChannel.length; i++) {
         outputChannel[i] = inputChannel[i];
       }
+    }
+
+    // WASM Opus modu: PCM data'yi main thread'e gonder
+    if (this.sendPcm && input[0]) {
+      // Float32Array kopyasi olustur (transferable icin)
+      const pcmCopy = new Float32Array(input[0]);
+      this.port.postMessage({ pcm: pcmCopy }, [pcmCopy.buffer]);
     }
 
     return true;

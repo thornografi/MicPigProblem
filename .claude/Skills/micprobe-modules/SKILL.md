@@ -1,6 +1,6 @@
 ---
 name: micprobe-modules
-description: "MicProbe modulleri ve Config referansi. Anahtar kelimeler: Config, PROFILES, SETTINGS, AudioEngine, Recorder, Monitor, Player, EventBus, ProfileController, UIStateManager, LoopbackManager, LogManager, Logger, profil kategorileri, call, record, RadioGroupHandler, attachGroups, DrawerController, createDrawerController"
+description: "MicProbe modulleri ve Config referansi. Anahtar kelimeler: Config, PROFILES, SETTINGS, AudioEngine, Recorder, Monitor, Player, EventBus, ProfileController, UIStateManager, LoopbackManager, LogManager, Logger, profil kategorileri, call, record"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." yaz.
@@ -171,6 +171,14 @@ Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline ekleme
 - `standard` → AudioContext → MediaRecorder
 - `scriptprocessor` → ScriptProcessorNode → MediaRecorder/WASM Opus
 - `worklet` → AudioWorkletNode → MediaRecorder
+
+**Pipeline Cleanup Pattern (Race Condition Prevention):**
+Cleanup sırasında audio thread'den hala event'ler gelebilir:
+1. Önce handler'ı temizle (null yap)
+2. Sonra worker/buffer'ı temizle
+3. Guard clause ekle (fallback)
+
+**Örnek:** `WorkletPipeline.cleanup()` ve `ScriptProcessorPipeline.cleanup()`
 
 **Encoder (Kayit Formati):**
 - `mediarecorder` → Tarayici MediaRecorder API

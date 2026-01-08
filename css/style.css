@@ -47,15 +47,15 @@
 }
 
 /* ========== APP HEADER ========== */
-/* Panel ortak degiskenleri kullanir (variables.css) */
+/* Header-base'den miras alir (variables.css) */
 .app-header {
-  --app-header-height: calc(var(--navbar-height) * 1.95);
-  position: relative;
-  z-index: 2;
-  background: var(--panel-gradient);
-  backdrop-filter: blur(var(--panel-blur));
-  -webkit-backdrop-filter: blur(var(--panel-blur));
-  border-bottom: 1px solid var(--glass-border);
+  /* App-specific positioning */
+  position: relative; /* app-shell container içinde */
+
+  /* App-specific layout - merkez logo */
+  justify-content: center;
+
+  /* App-specific visual */
   box-shadow: var(--panel-shadow);
 }
 
@@ -64,7 +64,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--app-header-height);
+  min-height: var(--header-height); /* base'den geliyor */
   padding: 0 var(--space-xl);
   width: 100%;
   background: var(--panel-body-bg);
@@ -84,20 +84,12 @@
 }
 
 .app-header .brand-logo {
-  width: 42px;
-  height: 42px;
-  color: var(--brand-icon-color);
+  width: 40px;
+  height: 40px;
+  color: url(#navbar-brand-gradient); /* DRY: landing ile ayni gradyan */
   fill: currentColor;
-  filter: drop-shadow(0 0 12px rgba(var(--color-orange-rgb), 0.4)), drop-shadow(0 0 24px rgba(var(--color-purple-rgb), 0.25));
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6)); /* landing ile ayni glow */
   transition: transform var(--transition-normal), filter var(--transition-normal);
-}
-
-.app-header .brand-title {
-  color: var(--brand-text-color);
-  background: none;
-  -webkit-text-fill-color: currentColor;
-  background-clip: border-box;
-  transition: all var(--transition-normal);
 }
 
 .app-header a.brand-mark:hover .brand-logo {
@@ -106,10 +98,16 @@
   animation: micPulse 1.1s ease-in-out infinite;
 }
 
-.app-header a.brand-mark:hover .brand-title {
-  color: var(--brand-text-color);
-  background: none;
-  -webkit-text-fill-color: currentColor;
+.app-header a.brand-mark.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.app-header a.brand-mark.disabled:hover .brand-logo {
+  transform: none;
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+  animation: none;
 }
 
 /* Mic pulse animation */
@@ -473,50 +471,6 @@
   box-shadow: 0 0 6px var(--status-dot-shadow, currentColor);
 }
 
-/* ========== CONTENT GRID ========== */
-.content-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr clamp(280px, 25vw, 360px);
-  gap: var(--gap-fluid);
-  min-height: 0;
-  align-items: start;
-  max-width: var(--max-width);
-  width: 100%;
-}
-
-/* Sol kolon - Ana kontroller */
-.content-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  min-height: 0;
-  min-width: 0;
-}
-
-/* Sag kolon - Info sidebar */
-.content-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  min-height: 0;
-}
-
-/* Controls ve Player yan yana - artik ayri paneller */
-.panel-controls,
-.panel-player {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Player boş durumda kompakt */
-.panel-player .empty-state {
-  padding: var(--space-lg) var(--space-md);
-  text-align: center;
-  color: var(--text-muted);
-  font-size: var(--fs-md);
-}
-
 /* VU Section icinde */
 .vu-section {
   margin-top: var(--space-lg);
@@ -559,10 +513,6 @@
   opacity: 1;
 }
 
-/* Mic selector ile butonlar arasi bosluk */
-.panel-controls .mic-selector-row {
-  margin-bottom: var(--space-md);
-}
 
 /* ========== UNIFIED PANEL ========== */
 .panel-unified {
@@ -849,10 +799,6 @@
   filter: var(--glow-accent-md);
 }
 
-.panel-header .btn-clear {
-  margin-left: auto;
-}
-
 .panel-body {
   padding: var(--space-lg);
   background: var(--panel-body-bg);
@@ -1033,12 +979,13 @@
 }
 
 /* ========== RECORD BUTTON (Variant) ========== */
-/* Record'a özgü state: preparing */
+/* Record'a özgü state: preparing - tema ile uyumlu */
 .btn-record.preparing {
-  background: linear-gradient(135deg, rgba(255, 152, 0, 0.85), rgba(229, 57, 53, 0.8));
+  background: var(--gradient-neon-circle);
   color: white;
   cursor: wait;
   pointer-events: none;
+  opacity: 0.7;
 }
 
 /* Record ikonu toggle */
@@ -1056,18 +1003,17 @@
 
 
 /* ========== RECORDING TIMER ========== */
+/* Sadece sayac - buton gorunumu kaldirildi */
 .recording-timer {
   display: none;
-  margin-top: var(--space-md);
-  padding: var(--space-sm) var(--space-lg);
-  background: var(--accent-danger-muted);
-  border-radius: var(--radius-md);
+  margin-top: var(--space-sm);
   font-size: var(--fs-2xl);
   font-weight: 700;
   font-family: var(--font-mono);
-  color: var(--accent-danger);
+  color: var(--color-accent-text);
   letter-spacing: 2px;
   text-align: center;
+  text-shadow: 0 0 12px rgba(var(--color-accent-text-rgb), 0.5);
 }
 
 .recording-timer.visible {
@@ -1075,46 +1021,13 @@
 }
 
 .recording-timer.monitoring {
-  background: var(--gradient-accent-muted);
-  color: var(--color-orange);
+  color: var(--color-accent-text);
 }
 
-/* ========== PREPARING OVERLAY ========== */
+/* ========== PREPARING OVERLAY (Devre disi - gereksiz karmasiklik) ========== */
+/* Overlay artik kullanilmiyor - buton uzerindeki preparing state yeterli */
 .preparing-overlay {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--bg-input);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-primary);
-}
-
-.preparing-overlay.visible {
-  display: flex;
-}
-
-.preparing-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-primary);
-  border-top-color: var(--color-orange);
-  border-radius: 50%;
-  animation: spin 0.65s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.preparing-text {
-  font-size: var(--fs-lg);
-  font-weight: 500;
-  color: var(--text-secondary);
+  display: none !important;
 }
 
 /* ========== VU METER - Modern Design ========== */
@@ -1403,7 +1316,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--gradient-accent);
+  background: var(--gradient-neon-circle);
   border: none;
   color: white;
   cursor: pointer;
@@ -1413,6 +1326,8 @@
   transition: all var(--transition-normal);
   flex-shrink: 0;
   position: relative;
+  box-shadow: 0 0 15px rgba(var(--color-pink-rgb), 0.3),
+              0 0 30px rgba(var(--color-purple-rgb), 0.2);
 }
 
 .btn-play::before {
@@ -1426,7 +1341,8 @@
 
 .btn-play:hover:not(:disabled) {
   transform: scale(1.08);
-  box-shadow: var(--glow-accent);
+  box-shadow: 0 0 20px rgba(var(--color-pink-rgb), 0.5),
+              0 0 40px rgba(var(--color-purple-rgb), 0.35);
 }
 
 .btn-play:active:not(:disabled) {
@@ -1492,6 +1408,10 @@
   will-change: transform;
   transition: transform 0.1s linear;
   box-shadow: 0 0 8px rgba(232, 93, 59, 0.4);
+}
+
+.progress-fill.no-transition {
+  transition: none;
 }
 
 .player-time {
@@ -1880,10 +1800,6 @@ body.production .dev-console-toggle-btn {
 
 .btn-copy.copied .icon-check {
   display: block;
-}
-
-.panel-header .btn-clear {
-  margin-left: 0;
 }
 
 /* ========== SETTINGS DRAWER ========== */
@@ -2290,24 +2206,12 @@ label.option-disabled::after {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1200px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .content-info {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-md);
-  }
+  /* Responsive styles */
 }
 
 @media (max-width: 768px) {
   .app-layout::before {
     content: none;
-  }
-
-  .app-header {
-    --app-header-height: calc(var(--navbar-height) * 1.95);
   }
 
   .app-header-content {
@@ -2316,8 +2220,8 @@ label.option-disabled::after {
 
   .sidebar {
     position: fixed;
-    top: var(--app-header-height);
-    height: calc(100vh - var(--app-header-height));
+    top: var(--header-height); /* base'den geliyor */
+    height: calc(100vh - var(--header-height));
     left: calc(-1 * var(--sidebar-width));
     z-index: 100;
     transition: left 0.3s ease;
@@ -2370,6 +2274,12 @@ label.option-disabled::after {
 
 .custom-settings-toggle {
   cursor: pointer;
+}
+
+.custom-settings-toggle.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .panel-custom-settings .panel-header {
@@ -2579,18 +2489,6 @@ label.option-disabled::after {
   max-width: 500px;
 }
 
-/* VU Meters section */
-.vu-meters-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.vu-meters-section .vu-section {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
 
 
 @media (max-width: 900px) {

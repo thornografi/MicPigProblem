@@ -78,6 +78,11 @@ export default class ScriptProcessorPipeline extends BasePipeline {
 
     // ScriptProcessor -> Opus Worker (PCM gonder)
     this.nodes.processor.onaudioprocess = (e) => {
+      // Guard: cleanup sonrasi gelen audio event'lerini yoksay
+      if (!this.opusWorker) {
+        return;
+      }
+
       const pcmData = e.inputBuffer.getChannelData(0);
       this.opusWorker.encode(pcmData.slice(), false);
       // Passthrough (VU meter icin)
@@ -126,6 +131,11 @@ export default class ScriptProcessorPipeline extends BasePipeline {
    * Temizlik - Opus worker dahil
    */
   async cleanup() {
+    // Audio event handler'i temizle (race condition onlemi)
+    if (this.nodes.processor) {
+      this.nodes.processor.onaudioprocess = null;
+    }
+
     // Opus worker temizligi
     if (this.opusWorker) {
       this.opusWorker.terminate();

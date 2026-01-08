@@ -31,6 +31,7 @@ class Player {
     this.currentBlob = null;
     this.currentUrl = null;
     this.knownDurationSeconds = null;
+    this.progressAnimId = null; // requestAnimationFrame loop
 
     this.bindEvents();
 
@@ -48,7 +49,7 @@ class Player {
       this.progressBarEl.onclick = (e) => this.seek(e);
     }
 
-    this.audio.ontimeupdate = () => this.updateProgress();
+    // timeupdate yerine requestAnimationFrame kullaniliyor (daha akici)
     this.audio.onended = () => this.onEnded();
     this.audio.onloadedmetadata = () => this.onLoaded();
     // WebM dosyalarinda duration bazen gecikebilir
@@ -213,6 +214,7 @@ class Player {
 
     this.audio.pause();
     this.isPlaying = false;
+    this.stopProgressLoop();
 
     if (this.playBtnEl) {
       this.playBtnEl.innerHTML = PLAY_ICON;
@@ -226,21 +228,58 @@ class Player {
       this.audio.pause();
       this.playBtnEl.innerHTML = PLAY_ICON;
       this.isPlaying = false;
+      this.stopProgressLoop();
     } else {
       this.audio.play();
       this.playBtnEl.innerHTML = PAUSE_ICON;
       this.isPlaying = true;
+      this.startProgressLoop();
+    }
+  }
+
+  /**
+   * Progress bar icin requestAnimationFrame loop baslat
+   * timeupdate (~4Hz) yerine 60fps akici animasyon
+   */
+  startProgressLoop() {
+    const loop = () => {
+      if (!this.isPlaying) return;
+      this.updateProgress();
+      this.progressAnimId = requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  stopProgressLoop() {
+    if (this.progressAnimId) {
+      cancelAnimationFrame(this.progressAnimId);
+      this.progressAnimId = null;
     }
   }
 
   seek(e) {
-    const duration = this.audio.duration;
-    // Gecersiz duration'da seek yapma
-    if (!isFinite(duration) || isNaN(duration) || duration <= 0) return;
+    let duration = this.audio.duration;
+
+    // Gecersiz duration'da fallback: knownDurationSeconds kullan
+    if (!isFinite(duration) || isNaN(duration) || duration <= 0) {
+      duration = this.knownDurationSeconds;
+      // Hala gecersizse seek yapma
+      if (!duration || duration <= 0) return;
+    }
 
     const rect = this.progressBarEl.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
     this.audio.currentTime = percent * duration;
+
+    // Seek sirasinda instant update - transition'siz
+    if (this.progressFillEl) {
+      this.progressFillEl.classList.add('no-transition');
+      this.progressFillEl.style.transform = `scaleX(${percent})`;
+      // Bir sonraki frame'de transition'i geri ac (normal playback icin)
+      requestAnimationFrame(() => {
+        this.progressFillEl.classList.remove('no-transition');
+      });
+    }
   }
 
   updateProgress() {
@@ -280,6 +319,8 @@ class Player {
   }
 
   onEnded() {
+    this.stopProgressLoop();
+
     if (this.playBtnEl) {
       this.playBtnEl.innerHTML = PLAY_ICON;
     }

@@ -5,7 +5,7 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 	> Vibe coding notu: Eğer bir agent bu dosyayı okuyorsa, session sırasında "düşünme" aşamasına geçerken önce `(md dosyası okunuyor..)` yaz.
 
 	> ⚠️ **ZORUNLU KONTROL - KOD DEĞİŞİKLİĞİ SONRASI**
-> Tüm md dosyalarının insert update,create,delete güncellik(up to date) kontrolleri.
+> Tüm md dosyalarının güncellik kontrolleri (insert, update, create, delete)
 
 	> 🚫 **AGENTS.md SİLİNMEMELİ**
 > `AGENTS.md` dosyası Codex tarafından okunur ve skill routing için kullanılır. Bu dosya asla silinmemeli, içeriği `.claude/Skills/` altındaki SKILL.md dosyalarıyla senkron tutulmalıdır.
@@ -133,5 +133,5 @@ SORU: Ayni mantik 2+ yerde tekrarlaniyor mu?
 [ ] Varyant taramasi yaptim (grep/rg ile)
 [ ] Etki analizi yaptim (bagimlilari kontrol ettim)
 [ ] DRY kontrolu yaptim (tekrar eden kod yok)
-[ ] (Gerekiyorsa) Skill guncellemesi onerdim
+[ ] Skill güncellemesi gerekip gerekmediğini kontrol ettim ve gerekiyorsa güncelledim
 `

@@ -162,12 +162,13 @@ export function usesMediaRecorder(encoder) {
 
 /**
  * Pipeline'in WASM Opus encoder'i destekleyip desteklemedigini dondurur
- * WASM Opus sadece ScriptProcessor pipeline'inda calisir (PCM data gerektirir)
+ * WASM Opus ScriptProcessor ve Worklet pipeline'larinda calisir (PCM data gerektirir)
+ * Direct ve Standard'da PCM erisimi yok, WASM Opus kullanilamaz
  * @param {string} pipeline - Pipeline tipi
  * @returns {boolean}
  */
 export function supportsWasmOpusEncoder(pipeline) {
-  return pipeline === 'scriptprocessor';
+  return pipeline === 'scriptprocessor' || pipeline === 'worklet';
 }
 
 /**
