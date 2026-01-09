@@ -17,7 +17,7 @@ import Recorder from './modules/Recorder.js';
 import Monitor from './modules/Monitor.js';
 import StatusManager from './modules/StatusManager.js';
 import DeviceInfo from './modules/DeviceInfo.js';
-import { formatTime, createAudioContext, getAudioContextOptions, stopStreamTracks, toggleDisplay, createMediaRecorder, needsBufferSetting, usesWebAudio, usesWasmOpus, usesMediaRecorder } from './modules/utils.js';
+import { formatTime, createAudioContext, getAudioContextOptions, stopStreamTracks, toggleDisplay, createMediaRecorder, needsBufferSetting, usesWebAudio, usesWasmOpus, usesMediaRecorder, wrapAsyncHandler } from './modules/utils.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet, isAudioWorkletSupported } from './modules/WorkletHelper.js';
 import { isWasmOpusSupported } from './modules/OpusWorkerHelper.js';
 import { PROFILES, SETTINGS, PROFILE_CATEGORIES } from './modules/Config.js';
@@ -124,9 +124,6 @@ const progressBarEl = document.getElementById('progressBar');
 
 // Timeslice container (kayit modu icin)
 const timesliceContainerEl = document.querySelector('[data-setting="timeslice"]');
-
-// Hazirlanıyor overlay (kayit/monitoring gecikme gostergesi)
-const preparingOverlayEl = document.getElementById('preparingOverlay');
 
 // Profil secici
 const profileSelector = document.getElementById('profileSelector');
@@ -498,8 +495,15 @@ RadioGroupHandler.attachToggle(loopbackToggle, 'WebRTC Loopback', {
 // Profil degisikligi (hidden select - backward compatibility)
 if (profileSelector) {
   profileSelector.addEventListener('change', async (e) => {
-    await profileController.applyProfile(e.target.value);
-    updateScenarioCardSelection(e.target.value);
+    try {
+      await profileController.applyProfile(e.target.value);
+      updateScenarioCardSelection(e.target.value);
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'Profil degisikligi hatasi',
+        details: { profileId: e.target.value, error: err.message }
+      });
+    }
   });
   // NOT: Baslangic profili uygulama, callbacks set edildikten sonra yapiliyor (line ~912)
 }
@@ -650,7 +654,6 @@ uiStateManager.init({
   downloadBtn: downloadBtnEl,
   micSelector,
   refreshMicsBtn,
-  preparingOverlay: preparingOverlayEl,
   profileSelector,
   timerEl,
   headerBrandLink,
@@ -813,9 +816,10 @@ profileUIManager.setCallbacks({
 // ============================================
 // RECORDING (Toggle)
 // ============================================
-recordToggleBtn.onclick = async () => {
-  await recordingController.toggle();
-};
+recordToggleBtn.onclick = wrapAsyncHandler(
+  () => recordingController.toggle(),
+  'Kayit toggle hatasi'
+);
 
 // stopRecording - artik RecordingController tarafindan yonetiliyor
 async function stopRecording() {
@@ -825,9 +829,10 @@ async function stopRecording() {
 // ============================================
 // MONITORING (Toggle)
 // ============================================
-monitorToggleBtn.onclick = async () => {
-  await monitoringController.toggle();
-};
+monitorToggleBtn.onclick = wrapAsyncHandler(
+  () => monitoringController.toggle(),
+  'Monitor toggle hatasi'
+);
 
 // stopMonitoring - artik MonitoringController tarafindan yonetiliyor
 async function stopMonitoring() {

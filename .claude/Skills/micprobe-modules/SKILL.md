@@ -72,6 +72,7 @@ js/
     ├── WorkletHelper.js         # AudioWorklet yardimci islemleri
     ├── Logger.js                # UI log paneli gosterimi
     ├── LogManager.js            # IndexedDB log yonetimi
+    ├── WaveAnimator.js          # Landing page ses dalgasi animasyonu
     └── utils.js                 # Genel yardimci fonksiyonlar
 ```
 
@@ -239,3 +240,59 @@ Monitoring (call):
 **Yeni profil eklemek:**
 1. `Config.js` → PROFILES'a createProfile() ile ekle
 2. Sidebar'a HTML ekle (data-profile attribute)
+
+---
+
+## Mevcut Helper Katalogu
+
+> Kod yazarken once bu listeyi kontrol et! DRY ihlalinden kacin.
+
+### utils.js (js/modules/utils.js)
+
+| Helper | Amac |
+|--------|------|
+| `stopStreamTracks(stream)` | MediaStream track'lerini durdur |
+| `createAudioContext(opts)` | AudioContext factory + resume |
+| `getAudioContextOptions(stream)` | Sample rate matching |
+| `createMediaRecorder(stream, opts)` | MimeType fallback |
+| `wrapAsyncHandler(fn, msg)` | Async try-catch wrapper |
+| `toggleDisplay(el, show, display)` | DOM visibility |
+| `formatTime(seconds)` | MM:SS format |
+| `getBestAudioMimeType()` | Tarayici destekli mimeType |
+
+### Pipeline Helper'lari (utils.js)
+
+| Helper | Amac |
+|--------|------|
+| `needsBufferSetting(pipeline)` | Buffer ayari gerekli mi? |
+| `usesWebAudio(pipeline)` | WebAudio kullaniyor mu? |
+| `usesWasmOpus(encoder)` | WASM Opus kullaniyor mu? |
+| `usesMediaRecorder(encoder)` | MediaRecorder kullaniyor mu? |
+| `supportsWasmOpusEncoder(pipeline)` | WASM Opus destekler mi? |
+
+### SettingTypeHandlers (utils.js - OCP)
+
+```javascript
+// Yeni setting tipi eklemek (OCP uyumlu)
+SettingTypeHandlers.register('newType', {
+  group: 'newTypes',
+  render({ key, setting, isLocked, currentValue }) { ... }
+});
+```
+
+### BasePipeline (js/pipelines/BasePipeline.js)
+
+| Method | Amac |
+|--------|------|
+| `cleanup()` | Node disconnect loop (DRY) |
+| `log(msg, details)` | Merkezi log:webaudio emit |
+
+### constants.js (js/modules/constants.js)
+
+| Helper | Amac |
+|--------|------|
+| `rmsToDb(rms)` | RMS -> dB donusumu |
+| `dbToPercent(dB)` | dB -> yuzde donusumu |
+| `calculateLatencyMs(sampleRate, bufferSize)` | Gecikme hesaplama |
+| `bitrateToKbps(bps)` | Bitrate format |
+| `bytesToKB(bytes)` | Boyut format |

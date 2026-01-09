@@ -90,19 +90,26 @@ class ProfileUIManager {
       return;
     }
 
-    const { profileSelector } = this.elements;
-    if (profileSelector) {
-      profileSelector.value = profileId;
+    try {
+      const { profileSelector } = this.elements;
+      if (profileSelector) {
+        profileSelector.value = profileId;
+      }
+
+      await profileController.applyProfile(profileId);
+      this.updateScenarioCardSelection(profileId);
+      this.updateNavItemSelection(profileId);
+      this.callbacks.updateCustomSettingsPanel(profileId);
+
+      eventBus.emit('log:ui', {
+        message: `Senaryo degistirildi: ${PROFILES[profileId]?.label || profileId}`
+      });
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'Profil secimi hatasi',
+        details: { profileId, error: err.message }
+      });
     }
-
-    await profileController.applyProfile(profileId);
-    this.updateScenarioCardSelection(profileId);
-    this.updateNavItemSelection(profileId);
-    this.callbacks.updateCustomSettingsPanel(profileId);
-
-    eventBus.emit('log:ui', {
-      message: `Senaryo degistirildi: ${PROFILES[profileId]?.label || profileId}`
-    });
   }
 
   /**

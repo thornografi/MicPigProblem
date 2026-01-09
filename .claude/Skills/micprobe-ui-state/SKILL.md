@@ -82,8 +82,45 @@ Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 ## Dosya Referanslari
 
 - UI state: `js/modules/UIStateManager.js` → `updateButtonStates()`
+- Status yonetimi: `js/modules/StatusManager.js` → recording/monitoring states
 - Profil UI: `js/ui/ProfileUIManager.js` → `handleProfileSelect()`
 - Profil logic: `js/modules/ProfileController.js` → `applyProfile()`
 - Timer: `js/modules/UIStateManager.js` → `startTimer()/stopTimer()`
 - Player: `js/modules/Player.js`
 - Stil: `css/style.css`
+
+## CSS Responsive Breakpoint'ler
+
+Unified panel layout icin breakpoint yapisi:
+
+| Breakpoint | Layout | Aciklama |
+|------------|--------|----------|
+| 1024px+ | Grid 3 sutun | `grid-template-columns: 3fr 2fr 2fr` |
+| 768-1023px | Flex wrap | Controls tam genislik, tips/status yan yana |
+| <768px | Flex column | Mobil, sidebar gizli |
+| <480px | Kompakt | Kucuk mobil optimizasyonlari |
+
+### Breakpoint Dosya Konumlari
+
+```css
+/* css/style.css icinde */
+
+/* 768-1023px tablet */
+@media (min-width: 768px) and (max-width: 1023px) { ... }
+
+/* 1024px+ desktop grid */
+@media (min-width: 1024px) { ... }
+
+/* <768px mobil */
+@media (max-width: 768px) { ... }
+
+/* <480px kucuk mobil */
+@media (max-width: 480px) { ... }
+```
+
+### Breakpoint Degisiklik Rehberi
+
+Yeni breakpoint eklerken:
+1. Mevcut breakpoint'lerle cakisma kontrolu yap
+2. `min-width` ve `max-width` araliklari birbirini tamamlamali
+3. Test: Chrome DevTools → Toggle device toolbar

@@ -43,8 +43,40 @@ class LogManager {
 
     this.initDB();
     this.bindEvents();
+    this._processEarlyErrors(); // index.html'de yakalanan erken hatalari isle
 
     this.log('system', 'LogManager baslatildi', { sessionId: this.sessionId });
+  }
+
+  /**
+   * index.html'deki early error capture script'inin yakaladigi hatalari isle
+   */
+  _processEarlyErrors() {
+    if (window.__earlyErrors?.length) {
+      window.__earlyErrors.forEach(err => {
+        if (err.type === 'error') {
+          // Lokasyonu belirle
+          const location = err.filename
+            ? `${err.filename.split('/').pop()}:${err.lineno}:${err.colno}`
+            : 'unknown';
+
+          this.log('error', `[Early] ${err.message} @ ${location}`, {
+            filename: err.filename,
+            lineno: err.lineno,
+            colno: err.colno,
+            stack: err.stack,
+            capturedAt: err.timestamp
+          });
+        } else if (err.type === 'unhandledrejection') {
+          this.log('error', `[Early] Promise Rejected: ${err.reason}`, {
+            stack: err.stack,
+            capturedAt: err.timestamp
+          });
+        }
+      });
+      console.warn(`[LogManager] ${window.__earlyErrors.length} erken hata islendi`);
+      window.__earlyErrors = []; // Temizle
+    }
   }
 
   async initDB() {
@@ -150,20 +182,65 @@ class LogManager {
 
     // Global error handler - Named handlers (cleanup icin)
     this.errorHandler = (e) => {
-      this.log('error', 'Uncaught Error', {
-        message: e.message,
+      // Lokasyonu belirle - önce e.filename'den dene
+      let location = e.filename
+        ? `${e.filename.split('/').pop()}:${e.lineno}:${e.colno}`
+        : null;
+
+      // Filename boşsa stack trace'den çıkar
+      if (!location && e.error?.stack) {
+        // Format 1: "at functionName (http://...:line:col)"
+        const stackMatch = e.error.stack.match(/at\s+.*?\s+\((.+?):(\d+):(\d+)\)/);
+        if (stackMatch) {
+          const [, file, line, col] = stackMatch;
+          location = `${file.split('/').pop()}:${line}:${col}`;
+        } else {
+          // Format 2: "at http://...:line:col"
+          const altMatch = e.error.stack.match(/at\s+(.+?):(\d+):(\d+)/);
+          if (altMatch) {
+            const [, file, line, col] = altMatch;
+            location = `${file.split('/').pop()}:${line}:${col}`;
+          }
+        }
+      }
+
+      location = location || 'unknown';
+
+      const errorInfo = {
         filename: e.filename,
         lineno: e.lineno,
         colno: e.colno,
         stack: e.error?.stack
-      });
+      };
+
+      // Log panelinde ANLAMLI mesaj gorsun: "Cannot read property 'x' @ app.js:123:45"
+      this.log('error', `${e.message} @ ${location}`, errorInfo);
     };
 
     this.rejectionHandler = (e) => {
-      this.log('error', 'Unhandled Promise Rejection', {
-        reason: e.reason?.message || e.reason,
+      const reason = e.reason?.message || String(e.reason);
+
+      // Stack trace'den lokasyon çıkar
+      let location = 'unknown';
+      if (e.reason?.stack) {
+        const stackMatch = e.reason.stack.match(/at\s+.*?\s+\((.+?):(\d+):(\d+)\)/);
+        if (stackMatch) {
+          const [, file, line, col] = stackMatch;
+          location = `${file.split('/').pop()}:${line}:${col}`;
+        } else {
+          const altMatch = e.reason.stack.match(/at\s+(.+?):(\d+):(\d+)/);
+          if (altMatch) {
+            const [, file, line, col] = altMatch;
+            location = `${file.split('/').pop()}:${line}:${col}`;
+          }
+        }
+      }
+
+      const errorInfo = {
         stack: e.reason?.stack
-      });
+      };
+
+      this.log('error', `Promise Rejected: ${reason} @ ${location}`, errorInfo);
     };
 
     window.addEventListener('error', this.errorHandler);

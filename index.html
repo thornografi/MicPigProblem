@@ -14,6 +14,33 @@
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/landing.css">
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- Early Error Capture - LogManager yüklenmeden önce hataları yakala -->
+  <script>
+    window.__earlyErrors = [];
+    window.addEventListener('error', function(e) {
+      window.__earlyErrors.push({
+        type: 'error',
+        message: e.message,
+        filename: e.filename,
+        lineno: e.lineno,
+        colno: e.colno,
+        stack: e.error?.stack,
+        timestamp: Date.now()
+      });
+      // Console'a da yaz (debug için)
+      console.error('[Early Error]', e.message, e.filename + ':' + e.lineno);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      window.__earlyErrors.push({
+        type: 'unhandledrejection',
+        reason: e.reason?.message || String(e.reason),
+        stack: e.reason?.stack,
+        timestamp: Date.now()
+      });
+      console.error('[Early Rejection]', e.reason?.message || e.reason);
+    });
+  </script>
 </head>
 <body>
   <!-- SVG Gradient Definition (ayri, gorunur olmayan) -->
@@ -323,12 +350,12 @@
                   </div>
 
                   <div class="button-row">
-                    <button id="recordToggle" class="btn btn-action btn-record">
+                    <button id="recordToggle" class="btn btn-action btn-record always-active">
                       <svg class="icon-circle" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
                       <svg class="icon-square" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                       <span class="btn-text">Record</span>
                     </button>
-                    <button id="monitorToggle" class="btn btn-action btn-monitor">
+                    <button id="monitorToggle" class="btn btn-action btn-monitor always-active">
                       <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
                       <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                       <span class="btn-text">Monitor</span>
@@ -336,10 +363,6 @@
                   </div>
 
                   <div id="recordingTimer" class="recording-timer">0:00</div>
-                  <div id="preparingOverlay" class="preparing-overlay">
-                    <span class="preparing-spinner"></span>
-                    <span class="preparing-text">Preparing...</span>
-                  </div>
                 </div>
 
                 <!-- Tips (inline text, no boxes) -->
@@ -774,8 +797,8 @@
       }
     });
 
-    // Smooth scroll for anchor links (except #app)
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    // Smooth scroll for anchor links (except #app and download links)
+    document.querySelectorAll('a[href^="#"]:not([download])').forEach(anchor => {
       anchor.addEventListener('click', function (e) {
         const href = this.getAttribute('href');
         if (href !== '#' && href !== '#app') {

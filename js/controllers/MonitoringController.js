@@ -186,14 +186,22 @@ class MonitoringController {
       details: { loopbackEnabled: useLoopback }
     });
 
-    if (useLoopback) {
-      await this._stopLoopbackMonitoring();
-    } else {
-      await this.deps.monitor?.stop();
+    try {
+      if (useLoopback) {
+        await this._stopLoopbackMonitoring();
+      } else {
+        await this.deps.monitor?.stop();
+      }
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'Monitor durdurma hatasi',
+        details: { error: err.message, stack: err.stack, loopback: useLoopback }
+      });
+    } finally {
+      // Her durumda state reset - hata olsa bile UI tutarli kalsin
+      this.deps.setCurrentMode(null);
+      this.deps.uiStateManager?.updateButtonStates();
     }
-
-    this.deps.setCurrentMode(null);
-    this.deps.uiStateManager?.updateButtonStates();
   }
 
   /**

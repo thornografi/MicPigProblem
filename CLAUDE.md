@@ -74,6 +74,64 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 
 ---
 
+## Kod Yazarken Proaktif DRY Kontrol
+
+> **KRITIK:** Yeni kod yazmadan ONCE bu checklist'i uygula!
+
+### Quick Check (Her Zaman)
+
+| Adim | Soru | Aksiyon |
+|------|------|---------|
+| 1 | Bu islem icin helper var mi? | `utils.js` kontrol et |
+| 2 | Bu kod 3+ yerde mi tekrar edecek? | Helper yaz |
+| 3 | AudioNode cleanup mi? | `BasePipeline.cleanup()` pattern kullan |
+
+### Helper Referans (utils.js)
+
+| Islem | Helper | Ornek |
+|-------|--------|-------|
+| Stream durdur | `stopStreamTracks(stream)` | `stopStreamTracks(this.stream)` |
+| AudioContext | `createAudioContext(opts)` | `await createAudioContext({sampleRate})` |
+| MediaRecorder | `createMediaRecorder(stream, opts)` | `createMediaRecorder(stream, {audioBitsPerSecond})` |
+| Async error wrap | `wrapAsyncHandler(fn, msg)` | `btn.onclick = wrapAsyncHandler(handler, 'Error')` |
+| DOM visibility | `toggleDisplay(el, show)` | `toggleDisplay(panel, true, 'flex')` |
+| Zaman format | `formatTime(seconds)` | `formatTime(125)` → "2:05" |
+
+### Pipeline Helper'lari (utils.js)
+
+| Helper | Amac |
+|--------|------|
+| `needsBufferSetting(pipeline)` | Buffer ayari gerekli mi? |
+| `usesWebAudio(pipeline)` | WebAudio kullaniyor mu? |
+| `supportsWasmOpusEncoder(pipeline)` | WASM Opus destekler mi? |
+
+### Anti-Pattern (YAPMA)
+
+```javascript
+// ❌ DRY ihlali
+stream.getTracks().forEach(t => t.stop());
+
+// ✅ Dogru
+stopStreamTracks(stream);
+
+// ❌ DRY ihlali - Her node icin ayri
+if (this.node1) { this.node1.disconnect(); this.node1 = null; }
+if (this.node2) { this.node2.disconnect(); this.node2 = null; }
+
+// ✅ Dogru - Loop ile (BasePipeline.cleanup() pattern)
+Object.values(this.nodes).forEach(n => n?.disconnect?.());
+```
+
+### Esik Degerleri (Asiri Muhendislikten Kacin)
+
+| Tekrar | Aksiyon |
+|--------|---------|
+| < 3 | Inline birak |
+| 3-4 | Helper dusun |
+| 5+ | Kesinlikle helper |
+
+---
+
 ## Bulgu Duzeltme Sonrasi Zorunlu Analiz
 
 > **KRITIK:** Bir bulgu/hata duzeltildikten sonra asagidaki 3 analiz ZORUNLU!

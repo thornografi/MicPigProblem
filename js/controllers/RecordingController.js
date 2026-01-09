@@ -107,11 +107,19 @@ class RecordingController {
       details: {}
     });
 
-    this.deps.uiStateManager?.stopTimer();
-    this.deps.recorder?.stop();
-
-    this.deps.setCurrentMode(null);
-    this.deps.uiStateManager?.updateButtonStates();
+    try {
+      this.deps.uiStateManager?.stopTimer();
+      await this.deps.recorder?.stop();
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'Kayit durdurma hatasi',
+        details: { error: err.message, stack: err.stack }
+      });
+    } finally {
+      // Her durumda state reset - hata olsa bile UI tutarli kalsin
+      this.deps.setCurrentMode(null);
+      this.deps.uiStateManager?.updateButtonStates();
+    }
   }
 }
 

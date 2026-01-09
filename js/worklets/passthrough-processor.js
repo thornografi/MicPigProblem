@@ -6,10 +6,15 @@ class PassthroughProcessor extends AudioWorkletProcessor {
 
     // Port uzerinden mesaj al
     this.port.onmessage = (e) => {
-      if (e.data.command === 'enablePcm') {
-        this.sendPcm = true;
-      } else if (e.data.command === 'disablePcm') {
-        this.sendPcm = false;
+      try {
+        if (e.data.command === 'enablePcm') {
+          this.sendPcm = true;
+        } else if (e.data.command === 'disablePcm') {
+          this.sendPcm = false;
+        }
+      } catch (err) {
+        console.error('[Worklet] Port message error:', err);
+        this.port.postMessage({ error: err.message || 'Unknown worklet error' });
       }
     };
   }

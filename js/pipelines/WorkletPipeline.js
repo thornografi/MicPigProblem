@@ -92,8 +92,16 @@ export default class WorkletPipeline extends BasePipeline {
     // Worklet'e PCM gonderimini ac
     this.nodes.worklet.port.postMessage({ command: 'enablePcm' });
 
-    // Worklet'ten gelen PCM data'yi dinle
+    // Worklet'ten gelen PCM data'yi dinle + error handler
     this.nodes.worklet.port.onmessage = (e) => {
+      // Worklet'ten gelen hata mesajlarini yakala
+      if (e.data.error) {
+        eventBus.emit('log:error', {
+          message: 'AudioWorklet hatasi',
+          details: { error: e.data.error }
+        });
+        return;
+      }
       if (e.data.pcm) {
         this._accumulateAndEncode(e.data.pcm);
       }
@@ -126,14 +134,21 @@ export default class WorkletPipeline extends BasePipeline {
       return;
     }
 
-    for (let i = 0; i < pcmData.length; i++) {
-      this.accumulator[this.accumulatorIndex++] = pcmData[i];
+    try {
+      for (let i = 0; i < pcmData.length; i++) {
+        this.accumulator[this.accumulatorIndex++] = pcmData[i];
 
-      // Frame doldu, encode et
-      if (this.accumulatorIndex >= OPUS_FRAME_SIZE) {
-        this.opusWorker.encode(this.accumulator.slice(), false);
-        this.accumulatorIndex = 0;
+        // Frame doldu, encode et
+        if (this.accumulatorIndex >= OPUS_FRAME_SIZE) {
+          this.opusWorker.encode(this.accumulator.slice(), false);
+          this.accumulatorIndex = 0;
+        }
       }
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: 'WASM Opus encode hatasi',
+        details: { error: err.message, stack: err.stack }
+      });
     }
   }
 

@@ -29,7 +29,6 @@ class UIStateManager {
       downloadBtn: null,
       micSelector: null,
       refreshMicsBtn: null,
-      preparingOverlay: null,
       profileSelector: null,
       timerEl: null,
       headerBrandLink: null,
@@ -135,6 +134,10 @@ class UIStateManager {
     const isRecording = currentMode === 'recording';
     const isMonitoring = currentMode === 'monitoring';
 
+    // Global UI state - CSS whitelist yaklaşımı için
+    // body[data-app-state="recording/monitoring"] tüm interactive elementleri disable eder
+    document.body.dataset.appState = isIdle ? 'idle' : (isRecording ? 'recording' : 'monitoring');
+
     const {
       recordToggleBtn,
       monitorToggleBtn,
@@ -182,22 +185,10 @@ class UIStateManager {
       progressBar.classList.toggle('no-pointer-events', disableRecordingUi);
     }
 
+    // Download butonu - CSS whitelist yaklaşımı pointer-events'i hallediyor
+    // href yönetimi kaldırıldı (Player.js set ediyor, üzerine yazılmasın)
     if (downloadBtn) {
-      downloadBtn.classList.toggle('disabled', disableRecordingUi);
       downloadBtn.setAttribute('aria-disabled', disableRecordingUi ? 'true' : 'false');
-
-      if (disableRecordingUi) {
-        const currentHref = downloadBtn.getAttribute('href');
-        if (currentHref) downloadBtn.dataset.href = currentHref;
-        downloadBtn.removeAttribute('href');
-        downloadBtn.tabIndex = -1;
-      } else {
-        if (!downloadBtn.getAttribute('href') && downloadBtn.dataset.href) {
-          downloadBtn.setAttribute('href', downloadBtn.dataset.href);
-        }
-        delete downloadBtn.dataset.href;
-        downloadBtn.tabIndex = 0;
-      }
     }
 
     // Profil kilitleri kontrolu - ProfileController'dan al

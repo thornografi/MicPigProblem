@@ -1,6 +1,7 @@
 /**
  * Utils - Ortak yardimci fonksiyonlar
  */
+import eventBus from './EventBus.js';
 
 /**
  * Saniyeyi mm:ss formatina cevir
@@ -94,6 +95,26 @@ export function toggleDisplay(element, shouldShow, displayValue = 'block') {
   if (element) {
     element.style.display = shouldShow ? displayValue : 'none';
   }
+}
+
+/**
+ * Async event handler'lari try-catch ile sarar - DRY: Tekrarlayan error handling
+ * OCP: Hata formati degismek istediginde tek yerden degisir
+ * @param {Function} fn - Async handler fonksiyonu
+ * @param {string} errorMessage - Hata mesaji
+ * @returns {Function} - Try-catch ile sarili handler
+ */
+export function wrapAsyncHandler(fn, errorMessage) {
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (err) {
+      eventBus.emit('log:error', {
+        message: errorMessage,
+        details: { error: err.message, stack: err.stack }
+      });
+    }
+  };
 }
 
 /**

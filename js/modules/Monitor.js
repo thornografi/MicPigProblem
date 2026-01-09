@@ -471,7 +471,9 @@ class Monitor {
       await new Promise((resolve, reject) => {
         this.codecMediaSource.addEventListener('sourceopen', () => {
           try {
-            this.codecSourceBuffer = this.codecMediaSource.addSourceBuffer(mimeType);
+            // FIX: mimeType degiskeni tanimsizdi - MediaRecorder'dan al
+            const recorderMimeType = this.codecMediaRecorder?.mimeType || 'audio/webm;codecs=opus';
+            this.codecSourceBuffer = this.codecMediaSource.addSourceBuffer(recorderMimeType);
             this.codecSourceBuffer.mode = 'sequence';
 
             // updateend event'inde siradaki chunk'i isle

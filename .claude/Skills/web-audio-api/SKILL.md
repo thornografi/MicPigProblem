@@ -109,8 +109,48 @@ ms.addEventListener('sourceopen', () => {
 
 ## Temizlik
 
+### Stream Temizligi (DRY)
+
 ```javascript
+// ❌ YANLIS - DRY ihlali
 stream.getTracks().forEach(t => t.stop());
+
+// ✅ DOGRU - utils.js helper kullan
+import { stopStreamTracks } from './utils.js';
+stopStreamTracks(stream);
+```
+
+### Node Cleanup Pattern (DRY)
+
+```javascript
+// ❌ YANLIS - Her node icin ayri (DRY ihlali)
+if (this.processorNode) {
+  this.processorNode.disconnect();
+  this.processorNode.onaudioprocess = null;
+  this.processorNode = null;
+}
+if (this.workletNode) {
+  this.workletNode.disconnect();
+  this.workletNode = null;
+}
+
+// ✅ DOGRU - BasePipeline.cleanup() pattern'i kullan
+Object.values(this.nodes).forEach(node => {
+  if (node) {
+    try { node.disconnect(); } catch { /* ignore */ }
+  }
+});
+// ScriptProcessor icin handler'i null yap
+if (this.nodes.processor?.onaudioprocess) {
+  this.nodes.processor.onaudioprocess = null;
+}
+```
+
+**Not:** Pipeline'larda `BasePipeline.cleanup()` metodunu kullan/extend et.
+
+### Diger Temizlik
+
+```javascript
 await ac.close();
 URL.revokeObjectURL(blobUrl);
 ```

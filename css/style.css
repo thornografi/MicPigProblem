@@ -99,7 +99,7 @@
 }
 
 .app-header a.brand-mark.disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -285,7 +285,7 @@
 }
 
 .nav-item.disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -657,7 +657,32 @@
   border-top: none; /* orijinal .vu-section border'ını kaldır */
 }
 
-@media (min-width: 900px) {
+/* ========== 768-1023px TABLET FLEX LAYOUT ========== */
+/* Grid 1024px'te basliyor, bu aralik icin ozel flex layout */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .unified-row-main {
+    flex-wrap: wrap;
+  }
+
+  .unified-controls {
+    flex: 1 1 100%;  /* Tam genislik - ilk sirada */
+    margin-bottom: var(--space-md);
+  }
+
+  .unified-tips,
+  .unified-status {
+    flex: 1 1 45%;  /* Yan yana - ikinci sirada */
+    min-width: 200px;
+  }
+
+  /* VU meter tablet'te tam genislik */
+  .unified-row-vu .vu-section {
+    max-width: 100%;
+  }
+}
+
+/* ========== 1024px+ DESKTOP GRID LAYOUT ========== */
+@media (min-width: 1024px) {
   /* Parent grid - row'lar bu column'ları paylaşır */
   .unified-body {
     display: grid;
@@ -699,6 +724,35 @@
 
   .unified-row-vu .vu-section:last-child {
     grid-row: 2;
+  }
+
+  /* Player Row subgrid - progress bar tips ile hizalı */
+  .unified-row-player {
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+
+  .unified-row-player .recording-player {
+    grid-column: 1 / -1;
+  }
+
+  .unified-row-player .recording-player.visible {
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+
+  /* Player child elements - hepsi ilk column'dan başlasın */
+  .player-controls {
+    grid-column: 1 / -1;
+  }
+
+  /* Progress row - ilk 2 column (controls + tips genişliği) */
+  .player-progress-row {
+    grid-column: 1 / 3;
+  }
+
+  .player-actions {
+    grid-column: 1 / -1;
   }
 }
 
@@ -851,7 +905,7 @@
 }
 
 .mic-dropdown:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -888,7 +942,7 @@
 }
 
 .btn-icon:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -923,7 +977,7 @@
 }
 
 :where(.button-row) .btn:disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -1024,11 +1078,7 @@
   color: var(--color-accent-text);
 }
 
-/* ========== PREPARING OVERLAY (Devre disi - gereksiz karmasiklik) ========== */
-/* Overlay artik kullanilmiyor - buton uzerindeki preparing state yeterli */
-.preparing-overlay {
-  display: none !important;
-}
+/* PREPARING OVERLAY kaldırıldı - buton .preparing state yeterli */
 
 /* ========== VU METER - Modern Design ========== */
 .signal-dot {
@@ -1356,7 +1406,7 @@
 
 .btn-play:disabled {
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   background: var(--glass-bg-hover);
 }
 
@@ -1453,7 +1503,7 @@
 .btn-download.disabled,
 .btn-download[aria-disabled="true"] {
   pointer-events: none;
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
 }
 
 .empty-state {
@@ -2053,7 +2103,7 @@ body.production .dev-console-toggle-btn {
 }
 
 .toggle-switch input:disabled + .toggle-slider {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -2125,7 +2175,7 @@ body.production .dev-console-toggle-btn {
 }
 
 .segment-control input[type="radio"]:disabled + .segment-btn {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
 }
 
@@ -2153,7 +2203,7 @@ body.production .dev-console-toggle-btn {
 
 /* ========== UI HELPERS ========== */
 .ui-disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   pointer-events: none;
 }
 
@@ -2205,10 +2255,6 @@ label.option-disabled::after {
 }
 
 /* ========== RESPONSIVE ========== */
-@media (max-width: 1200px) {
-  /* Responsive styles */
-}
-
 @media (max-width: 768px) {
   .app-layout::before {
     content: none;
@@ -2277,7 +2323,7 @@ label.option-disabled::after {
 }
 
 .custom-settings-toggle.disabled {
-  opacity: 0.4;
+  opacity: var(--opacity-disabled);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -2702,4 +2748,127 @@ label.option-disabled::after {
 
 .unified-tip-text strong {
   color: var(--color-orange);
+}
+
+/* ========== GLOBAL UI DISABLE (WHITELIST APPROACH) ========== */
+/* Recording/Monitoring sirasinda TUM interactive elementler disabled
+   Sadece .always-active class'i olanlar aktif kalir (Stop butonu vb.)
+   Yeni element eklendiginde OTOMATIK disabled olur - kod degisikligi GEREKMEZ */
+
+body[data-app-state="recording"],
+body[data-app-state="monitoring"] {
+  /* Tum interactive elementler disabled (whitelist haric) */
+  button:not(.always-active),
+  a:not(.always-active),
+  input:not(.always-active),
+  select:not(.always-active),
+  [role="button"]:not(.always-active),
+  .clickable:not(.always-active),
+  .nav-item:not(.always-active),
+  .scenario-card:not(.always-active),
+  .custom-settings-toggle:not(.always-active) {
+    pointer-events: none !important;
+    opacity: var(--opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  /* Label'lar da disable gorunumunde */
+  label:not(.always-active) {
+    opacity: var(--opacity-disabled);
+    cursor: not-allowed;
+  }
+}
+
+/* Whitelist: Aktif kalacak elementler - full opacity ve interaction */
+.always-active {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* ========== MOBILE SMALL (480px) RESPONSIVE ========== */
+/* Kucuk mobil cihazlar icin ozel optimizasyonlar */
+@media (max-width: 480px) {
+  /* Content padding azalt - icerik alani genislesin */
+  .content-container {
+    --content-right-padding: 16px;
+    padding: var(--space-sm);
+  }
+
+  /* Panel bleed kapat - overflow-x onle */
+  .panel-unified {
+    width: 100%;
+    margin-right: 0;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Sabit genislikler kaldir */
+  .unified-left .button-row,
+  .unified-left .mic-selector-row,
+  .vu-section {
+    max-width: 100%;
+  }
+
+  /* Row gap azalt */
+  .unified-row {
+    gap: var(--space-md);
+  }
+
+  /* Dev console drawer tam ekran */
+  .dev-console-drawer {
+    width: 100%;
+    right: -100%;
+  }
+
+  .dev-console-drawer.open {
+    right: 0;
+  }
+
+  /* VU meter biraz kucult */
+  .vu-meter {
+    height: 20px;
+  }
+
+  /* Buton min-width kaldir, padding azalt */
+  .btn-action {
+    min-width: 0;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--fs-sm);
+  }
+
+  /* Header font kucult */
+  .page-header h1 {
+    font-size: var(--fs-xl);
+  }
+
+  /* Mic dropdown tam genislik */
+  .mic-dropdown {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Tips/Status daha kompakt */
+  .unified-tips .utip,
+  .unified-status .stat {
+    font-size: var(--fs-sm);
+  }
+
+  /* Player kompakt */
+  .player-filename {
+    font-size: var(--fs-sm);
+  }
+
+  .player-time {
+    font-size: var(--fs-xs);
+  }
+
+  /* Settings drawer tam ekran */
+  .settings-drawer {
+    width: 100%;
+    right: -100%;
+  }
+
+  .settings-drawer.open {
+    right: 0;
+  }
 }

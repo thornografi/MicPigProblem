@@ -303,44 +303,64 @@ class Recorder {
       if (e.data.size) this.chunks.push(e.data);
     };
 
-    this.mediaRecorder.onstop = async () => {
-      const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
-      const blob = new Blob(this.chunks, { type: mimeType });
-      const suffix = this.pipelineType === 'direct' ? '' : `_${this.pipelineType}`;
-      const filename = `kayit${suffix}_${Date.now()}.webm`;
-
-      // Gercek bitrate hesapla
-      const durationMs = Date.now() - this.startTime;
-      const durationSec = durationMs / 1000;
-      const actualBitrate = durationSec > 0 ? Math.round((blob.size * 8) / durationSec) : 0;
-      const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
-
-      // Istenen vs gercek karsilastirmasi
-      const requestedBitrate = this.mediaBitrate || 0;
-      const bitrateComparison = requestedBitrate > 0
-        ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
-        : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
-
-      eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(blob.size).toFixed(1)} KB (${bitrateComparison})`);
-      eventBus.emit('recording:completed', {
-        blob,
-        mimeType,
-        filename,
-        pipeline: this.pipelineType,
-        encoder: this.encoder,
-        useWebAudio: usesWebAudio(this.pipelineType),
-        durationMs,
-        requestedBitrate,
-        actualBitrate
+    // MediaRecorder hata handler - kayit sirasinda hata olursa log'a yaz
+    this.mediaRecorder.onerror = (e) => {
+      eventBus.emit('log:error', {
+        message: 'MediaRecorder hatasi',
+        details: {
+          error: e.error?.message || e.error?.name || 'Unknown error',
+          state: this.mediaRecorder?.state
+        }
       });
+    };
 
-      // WebAudio temizlik
-      if (usesWebAudio(this.pipelineType)) {
-        await this.cleanupWebAudio();
+    this.mediaRecorder.onstop = async () => {
+      try {
+        const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(this.chunks, { type: mimeType });
+        const suffix = this.pipelineType === 'direct' ? '' : `_${this.pipelineType}`;
+        const filename = `kayit${suffix}_${Date.now()}.webm`;
+
+        // Gercek bitrate hesapla
+        const durationMs = Date.now() - this.startTime;
+        const durationSec = durationMs / 1000;
+        const actualBitrate = durationSec > 0 ? Math.round((blob.size * 8) / durationSec) : 0;
+        const actualBitrateKbps = (actualBitrate / 1000).toFixed(1);
+
+        // Istenen vs gercek karsilastirmasi
+        const requestedBitrate = this.mediaBitrate || 0;
+        const bitrateComparison = requestedBitrate > 0
+          ? `Istenen: ${(requestedBitrate / 1000).toFixed(0)} kbps, Gercek: ~${actualBitrateKbps} kbps`
+          : `Gercek bitrate: ~${actualBitrateKbps} kbps`;
+
+        eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(blob.size).toFixed(1)} KB (${bitrateComparison})`);
+        eventBus.emit('recording:completed', {
+          blob,
+          mimeType,
+          filename,
+          pipeline: this.pipelineType,
+          encoder: this.encoder,
+          useWebAudio: usesWebAudio(this.pipelineType),
+          durationMs,
+          requestedBitrate,
+          actualBitrate
+        });
+
+        // WebAudio temizlik
+        if (usesWebAudio(this.pipelineType)) {
+          await this.cleanupWebAudio();
+        }
+
+        // Temizlik
+        this.mediaRecorder = null;
+      } catch (err) {
+        eventBus.emit('log:error', {
+          message: 'MediaRecorder onstop hatasi',
+          details: { error: err.message, stack: err.stack }
+        });
+        eventBus.emit('recording:failed', { error: err.message });
+        this.mediaRecorder = null;
       }
-
-      // Temizlik
-      this.mediaRecorder = null;
     };
 
     // Timeslice ile veya tek chunk olarak baslat

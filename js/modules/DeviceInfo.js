@@ -71,7 +71,14 @@ class DeviceInfo {
       this.micSelector.addEventListener('mousedown', async (e) => {
         if (!this.hasMicPermission) {
           e.preventDefault();
-          await this.enumerateMicrophones();
+          try {
+            await this.enumerateMicrophones();
+          } catch (err) {
+            eventBus.emit('log:error', {
+              message: 'Mikrofon listesi yuklenemedi',
+              details: { error: err.message }
+            });
+          }
         }
       });
 
@@ -102,7 +109,14 @@ class DeviceInfo {
             message: 'Cihaz degisikligi algilandi, liste guncelleniyor...',
             details: {}
           });
-          await this.enumerateMicrophones(true);
+          try {
+            await this.enumerateMicrophones(true);
+          } catch (err) {
+            eventBus.emit('log:error', {
+              message: 'Cihaz degisikligi sonrasi liste guncellenemedi',
+              details: { error: err.message }
+            });
+          }
         }
       });
     }

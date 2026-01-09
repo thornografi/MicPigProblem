@@ -91,7 +91,7 @@ class Player {
 
     if (this.downloadBtnEl) {
       this.downloadBtnEl.href = this.currentUrl;
-      this.downloadBtnEl.download = filename;
+      this.downloadBtnEl.download = filename || `kayit_${Date.now()}.webm`;
     }
 
     if (this.containerEl) {

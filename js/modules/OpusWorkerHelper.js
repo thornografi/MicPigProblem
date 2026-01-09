@@ -469,81 +469,94 @@ export class OpusRecorderWrapper {
    * @private
    */
   _handleMessage(e) {
-    const data = e.data;
+    try {
+      const data = e.data;
 
-    switch (data.message) {
-      case 'ready':
-        if (this._initResolver) {
-          this._initResolver.resolve();
-          this._initResolver = null;
-        }
-        break;
+      // Guard: data veya data.message undefined olabilir
+      if (!data) return;
 
-      case 'page':
-        // Ogg page geldi - kaydet
-        this.pages.push(data.page);
-
-        // Progress callback
-        if (this.onProgress) {
-          const sampleRate = this.config?.encoderSampleRate || 48000;
-          this.onProgress({
-            samplePosition: data.samplePosition,
-            estimatedDuration: data.samplePosition / sampleRate,
-            pageCount: this.pages.length
-          });
-        }
-        break;
-
-      case 'done':
-        // Encoding tamamlandi - header page'lerini ekle ve blob olustur
-        // opus-recorder sadece audio data page'leri veriyor, OpusHead/OpusTags yok
-
-        // opus-recorder'in serial number'ini oku (ilk page'den)
-        // ve tum page'leri ayni serial + ardisik page sequence ile yeniden yaz
-        const fixedPages = this._fixOggStream(this.pages);
-
-        const blob = new Blob(fixedPages, { type: 'audio/ogg; codecs=opus' });
-        const sampleRate = this.config?.encoderSampleRate || 48000;
-        const duration = this.totalSamples / (this.config?.originalSampleRate || 48000);
-
-        if (this._finishResolver) {
-          this._finishResolver.resolve({
-            blob,
-            duration,
-            pageCount: this.pages.length,
-            encoderType: 'wasm'
-          });
-          this._finishResolver = null;
-        }
-
-        if (this.onComplete) {
-          this.onComplete({
-            blob,
-            duration,
-            pageCount: this.pages.length
-          });
-        }
-
-        // Cleanup
-        this.pages = [];
-        break;
-
-      default:
-        // Bilinmeyen mesaj - error olabilir
-        if (data.error) {
-          const error = new Error(data.error);
+      switch (data.message) {
+        case 'ready':
           if (this._initResolver) {
-            this._initResolver.reject(error);
+            this._initResolver.resolve();
             this._initResolver = null;
           }
+          break;
+
+        case 'page':
+          // Ogg page geldi - kaydet
+          if (data.page) {
+            this.pages.push(data.page);
+          }
+
+          // Progress callback
+          if (this.onProgress) {
+            const sampleRate = this.config?.encoderSampleRate || 48000;
+            this.onProgress({
+              samplePosition: data.samplePosition,
+              estimatedDuration: data.samplePosition / sampleRate,
+              pageCount: this.pages.length
+            });
+          }
+          break;
+
+        case 'done':
+          // Encoding tamamlandi - header page'lerini ekle ve blob olustur
+          // opus-recorder sadece audio data page'leri veriyor, OpusHead/OpusTags yok
+
+          // opus-recorder'in serial number'ini oku (ilk page'den)
+          // ve tum page'leri ayni serial + ardisik page sequence ile yeniden yaz
+          const fixedPages = this._fixOggStream(this.pages);
+
+          const blob = new Blob(fixedPages, { type: 'audio/ogg; codecs=opus' });
+          const sampleRate = this.config?.encoderSampleRate || 48000;
+          const duration = this.totalSamples / (this.config?.originalSampleRate || 48000);
+
           if (this._finishResolver) {
-            this._finishResolver.reject(error);
+            this._finishResolver.resolve({
+              blob,
+              duration,
+              pageCount: this.pages.length,
+              encoderType: 'wasm'
+            });
             this._finishResolver = null;
           }
-          if (this.onError) {
-            this.onError(error);
+
+          if (this.onComplete) {
+            this.onComplete({
+              blob,
+              duration,
+              pageCount: this.pages.length
+            });
           }
-        }
+
+          // Cleanup
+          this.pages = [];
+          break;
+
+        default:
+          // Bilinmeyen mesaj - error olabilir
+          if (data.error) {
+            const error = new Error(data.error);
+            if (this._initResolver) {
+              this._initResolver.reject(error);
+              this._initResolver = null;
+            }
+            if (this._finishResolver) {
+              this._finishResolver.reject(error);
+              this._finishResolver = null;
+            }
+            if (this.onError) {
+              this.onError(error);
+            }
+          }
+      }
+    } catch (err) {
+      // Worker message handling hatasi - sessizce yoksayma, logla
+      console.error('[OpusWorkerHelper] _handleMessage error:', err);
+      if (this.onError) {
+        this.onError(err);
+      }
     }
   }
 }

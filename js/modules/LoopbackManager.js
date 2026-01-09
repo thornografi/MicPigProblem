@@ -127,10 +127,24 @@ class LoopbackManager {
     this.pc2 = new RTCPeerConnection({ iceServers: [] });
 
     this.pc1.onicecandidate = (e) => {
-      if (e.candidate) this.pc2.addIceCandidate(e.candidate);
+      if (e.candidate) {
+        this.pc2.addIceCandidate(e.candidate).catch(err => {
+          eventBus.emit('log:warning', {
+            message: 'ICE candidate hatasi (pc2)',
+            details: { error: err.message }
+          });
+        });
+      }
     };
     this.pc2.onicecandidate = (e) => {
-      if (e.candidate) this.pc1.addIceCandidate(e.candidate);
+      if (e.candidate) {
+        this.pc1.addIceCandidate(e.candidate).catch(err => {
+          eventBus.emit('log:warning', {
+            message: 'ICE candidate hatasi (pc1)',
+            details: { error: err.message }
+          });
+        });
+      }
     };
 
     // Track handler - WebRTC'nin sagladigi stream'i kullan
