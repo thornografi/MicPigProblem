@@ -11,8 +11,6 @@ class RecordingController {
     this.deps = {
       getConstraints: () => ({}),
       getPipeline: () => 'direct',
-      getEncoder: () => 'mediarecorder',
-      getProcessingMode: () => 'direct', // Geriye uyumluluk
       isWebAudioEnabled: () => false,
       getTimeslice: () => 0,
       getBufferSize: () => 4096,
@@ -24,8 +22,7 @@ class RecordingController {
       // State yonetimi
       setCurrentMode: () => {},
       getCurrentMode: () => null,
-      setIsPreparing: () => {},
-      getIsPreparing: () => false
+      setIsPreparing: () => {}
     };
   }
 
@@ -55,11 +52,16 @@ class RecordingController {
     const useWebAudio = this.deps.isWebAudioEnabled();
     const constraints = this.deps.getConstraints();
     const pipeline = useWebAudio ? this.deps.getPipeline() : 'direct';
-    const encoder = this.deps.getEncoder();
+
+    // Encoder: Pipeline tipine gore zorunlu secim
+    // ScriptProcessor/Worklet -> WASM Opus (PCM erisimi var)
+    // Direct/Standard -> MediaRecorder (PCM erisimi yok)
+    const pipelineSupportsWasm = pipeline === 'scriptprocessor' || pipeline === 'worklet';
+    const encoder = pipelineSupportsWasm ? 'wasm-opus' : 'mediarecorder';
 
     eventBus.emit('log:recorder', {
       message: 'Kayit baslat butonuna basildi',
-      details: { constraints, webAudioEnabled: useWebAudio, pipeline, encoder }
+      details: { constraints, webAudioEnabled: useWebAudio, pipeline, encoder, pipelineSupportsWasm }
     });
 
     try {

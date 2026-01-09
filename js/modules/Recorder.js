@@ -188,7 +188,7 @@ class Recorder {
       const modeText = `${pipelineLabel} + ${encoderLabel}`;
       const timesliceText = this.timeslice > 0 ? `, Timeslice: ${this.timeslice}ms` : '';
       eventBus.emit('log', `KAYIT basladi (${modeText}${timesliceText})`);
-      eventBus.emit('recorder:started');
+      eventBus.emit('recorder:started', { encoder: this.encoder, pipeline: this.pipelineType });
       eventBus.emit('recording:started');
 
     } catch (err) {
@@ -481,7 +481,7 @@ class Recorder {
 
     eventBus.emit('stream:stopped');
     eventBus.emit('log', 'KAYIT durduruldu');
-    eventBus.emit('recorder:stopped');
+    eventBus.emit('recorder:stopped', { encoder: this.encoder, pipeline: this.pipelineType });
   }
 
   getStream() {

@@ -111,6 +111,9 @@ class CustomSettingsPanelHandler {
       }
 
       // Dinamik bagimliliklari guncelle (mode -> buffer, loopback -> timeslice vb.)
+      // updateDynamicLocks: Radio button'lari gunceller (encoder otomatik degisimi dahil)
+      // updateCustomSettingsPanelDynamicState: Custom panel combo'larini gunceller
+      this.dependencies.profileController?.updateDynamicLocks();
       this.dependencies.profileController?.updateCustomSettingsPanelDynamicState();
 
       eventBus.emit('log:ui', {

@@ -323,13 +323,12 @@ function getPipeline() {
   return getRadioValue('pipeline', 'standard');
 }
 
-function getEncoder() {
-  return getRadioValue('encoder', 'mediarecorder');
-}
-
-// Geriye uyumluluk icin alias
-function getProcessingMode() {
-  return getPipeline();
+// DRY: Drawer radio -> Custom Panel combo senkronizasyonu
+function syncToCustomPanel(settingKey, value) {
+  const select = document.querySelector(`#customSettingsGrid [data-setting="${settingKey}"]`);
+  if (select && select.tagName === 'SELECT') {
+    select.value = value;
+  }
 }
 
 function isLoopbackEnabled() {
@@ -370,12 +369,6 @@ function updateBufferInfo(value) {
   if (value <= BUFFER.WARNING_THRESHOLD) {
     bufferInfoText.classList.add('warning');
   }
-}
-
-// NOT: createAudioMediaRecorder utils.js'teki createMediaRecorder'a delege eder
-// RecordingController dependency olarak aliyor
-function createAudioMediaRecorder(stream, options = {}) {
-  return createMediaRecorder(stream, options);
 }
 
 // Timeslice info metnini guncelle
@@ -425,6 +418,7 @@ RadioGroupHandler.attachGroups({
     labels: { direct: 'Direct', standard: 'Standard', scriptprocessor: 'ScriptProcessor', worklet: 'AudioWorklet' },
     logCategory: 'log:webaudio',
     onChange: (pipeline) => {
+      syncToCustomPanel('pipeline', pipeline);  // DRY: Custom Panel sync
       // Buffer size gorunurlugu: profil ayarlarina veya pipeline'a bagli
       const profile = profileController.getCurrentProfile();
       const bufferInProfile = profile?.lockedSettings?.includes('buffer') ||
@@ -441,7 +435,8 @@ RadioGroupHandler.attachGroups({
   Encoder: {
     radios: encoderRadios,
     labels: { mediarecorder: 'MediaRecorder', 'wasm-opus': 'WASM Opus' },
-    logCategory: 'log:webaudio'
+    logCategory: 'log:webaudio',
+    onChange: (encoder) => syncToCustomPanel('encoder', encoder)  // DRY: Custom Panel sync
   },
 
   // Buffer Size
@@ -449,14 +444,18 @@ RadioGroupHandler.attachGroups({
     radios: bufferSizeRadios,
     logCategory: 'log:webaudio',
     formatValue: (v) => `${v} samples`,
-    onChange: (bufferSize) => updateBufferInfo(bufferSize)
+    onChange: (bufferSize) => {
+      syncToCustomPanel('buffer', bufferSize);  // DRY: Custom Panel sync
+      updateBufferInfo(bufferSize);
+    }
   },
 
   // Opus Bitrate
   'Opus Bitrate': {
     radios: bitrateRadios,
     logCategory: 'log:stream',
-    formatValue: (v) => `${v / 1000} kbps`
+    formatValue: (v) => `${v / 1000} kbps`,
+    onChange: (bitrate) => syncToCustomPanel('bitrate', bitrate)  // DRY: Custom Panel sync
   },
 
   // Timeslice
@@ -464,7 +463,18 @@ RadioGroupHandler.attachGroups({
     radios: timesliceRadios,
     logCategory: 'log:recorder',
     formatValue: (v) => v === 0 ? 'OFF' : `${v}ms`,
-    onChange: (timeslice) => updateTimesliceInfo(timeslice)
+    onChange: (timeslice) => {
+      syncToCustomPanel('timeslice', timeslice);  // DRY: Custom Panel sync
+      updateTimesliceInfo(timeslice);
+    }
+  },
+
+  // Media Bitrate
+  'Media Bitrate': {
+    radios: [...document.querySelectorAll('input[name="mediaBitrate"]')],
+    logCategory: 'log:recorder',
+    formatValue: (v) => v === 0 ? 'Off' : `${v / 1000}k`,
+    onChange: (mediaBitrate) => syncToCustomPanel('mediaBitrate', mediaBitrate)  // DRY: Custom Panel sync
   }
 });
 
@@ -630,7 +640,8 @@ profileController.setCallbacks({
   getRadioValue,
   setSettingDisabled,
   setOptionDisabled,
-  getSettingElements
+  getSettingElements,
+  resetPlayer: () => player.reset()
 });
 
 profileController.setStateGetters({
@@ -762,23 +773,19 @@ loopbackManager.workletSupported = WORKLET_SUPPORTED;
 const controllerDeps = {
   getConstraints,
   getPipeline,
-  getEncoder,
-  getProcessingMode, // Geriye uyumluluk icin (getPipeline alias)
   isLoopbackEnabled,
   isWebAudioEnabled,
   getOpusBitrate,
   getTimeslice,
   getBufferSize,
   getMediaBitrate,
-  createAudioMediaRecorder,
   recorder,
   monitor,
   player,
   uiStateManager,
   setCurrentMode: (mode) => { currentMode = mode; },
   getCurrentMode: () => currentMode,
-  setIsPreparing: (val) => { isPreparing = val; },
-  getIsPreparing: () => isPreparing
+  setIsPreparing: (val) => { isPreparing = val; }
 };
 
 recordingController.setDependencies(controllerDeps);

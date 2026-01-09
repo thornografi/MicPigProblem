@@ -87,6 +87,9 @@ class ProfileController {
     const profile = PROFILES[profileId];
     if (!profile) return;
 
+    // Profil degistiginde Player'i temizle (memory leak ve UX tutarliligi)
+    this.callbacks.resetPlayer?.();
+
     // Mevcut profil ID'sini guncelle
     this.currentProfileId = profileId;
     this.applyProfileTheme(profileId);
@@ -229,8 +232,10 @@ class ProfileController {
     const profile = PROFILES[this.currentProfileId];
     if (!profile) return;
 
-    // Sadece 'all' editable profillerde dinamik kilitleme aktif
-    const isDynamicProfile = profile.allowedSettings === 'all' && profile.lockedSettings?.length === 0;
+    // Dinamik kilitleme: lockedSettings bos olan profillerde aktif
+    // (Raw profili gibi tum ayarlarin degistirilebildigi profiller)
+    const isDynamicProfile = profile.lockedSettings?.length === 0;
+
     if (!isDynamicProfile) return;
 
     const loopback = this.elements.loopbackToggle?.checked ?? false;

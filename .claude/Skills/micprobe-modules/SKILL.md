@@ -32,6 +32,7 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." 
 ```
 js/
 ├── app.js                       # Orchestrator, event wiring (~907)
+├── landing.js                   # Landing/App view switching, lazy loading (~225)
 ├── controllers/
 │   ├── RecordingController.js   # Normal kayit wrapper (~120)
 │   └── MonitoringController.js  # Loopback monitor + sinyal bekleme (~310)

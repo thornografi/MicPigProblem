@@ -18,8 +18,6 @@ class MonitoringController {
     this.deps = {
       getConstraints: () => ({}),
       getPipeline: () => 'direct',
-      getEncoder: () => 'mediarecorder',
-      getProcessingMode: () => 'direct', // Geriye uyumluluk
       isLoopbackEnabled: () => false,
       isWebAudioEnabled: () => false,
       getOpusBitrate: () => 64000,
@@ -33,8 +31,7 @@ class MonitoringController {
       // State yonetimi
       setCurrentMode: () => {},
       getCurrentMode: () => null,
-      setIsPreparing: () => {},
-      getIsPreparing: () => false
+      setIsPreparing: () => {}
     };
   }
 

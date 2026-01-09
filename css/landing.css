@@ -370,19 +370,23 @@
   margin: 0 auto;
 }
 
-.feature-card {
-  background: rgba(var(--color-white-rgb), 0.0196);
-  border: 1px solid rgba(var(--color-white-rgb), 0.042);
+/* Landing Card Base - DRY: feature-card ve step-card ortak stilleri */
+.landing-card {
+  background: var(--glass-card-bg);
+  border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   padding: var(--space-2xl);
   transition: all var(--transition-normal);
-  position: relative;
 }
 
-.feature-card:hover {
-  background: rgba(var(--color-white-rgb), 0.0392);
-  border-color: rgba(var(--color-white-rgb), 0.07);
+.landing-card:hover {
+  background: var(--glass-card-bg-hover);
+  border-color: var(--glass-card-border-hover);
   transform: translateY(-2px);
+}
+
+.feature-card {
+  position: relative;
 }
 
 .feature-icon {
@@ -438,16 +442,6 @@
   min-width: 280px;
   max-width: 360px;
   text-align: left;
-  padding: var(--space-2xl);
-  background: rgba(var(--color-white-rgb), 0.0196);
-  border: 1px solid rgba(var(--color-white-rgb), 0.042);
-  border-radius: var(--radius-lg);
-  transition: all var(--transition-normal);
-}
-
-.step-card:hover {
-  background: rgba(var(--color-white-rgb), 0.0392);
-  border-color: rgba(var(--color-white-rgb), 0.07);
 }
 
 .step-number {

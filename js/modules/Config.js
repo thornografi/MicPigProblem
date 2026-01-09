@@ -240,8 +240,8 @@ export const PROFILES = {
       editable: ['ec', 'ns', 'agc', 'mediaBitrate'],
       allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
 
-  'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + MediaRecorder - legacy web recording sites',
-    'history', 'record', { pipeline: 'scriptprocessor', encoder: 'mediarecorder', buffer: 1024, timeslice: 1000, loopback: false },
+  'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + WASM Opus - legacy web recording simulation',
+    'history', 'record', { pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 1024, timeslice: 1000, loopback: false },
     { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice', 'mediaBitrate'] }),
     // allowedValues yok = tum degerler izinli
 

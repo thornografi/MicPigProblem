@@ -137,13 +137,17 @@ class LogManager {
       this.log('stream', 'Stream durduruldu');
     });
 
-    // Recorder event'leri
+    // Recorder event'leri (encoder-agnostic)
     eventBus.on('recorder:started', (details) => {
-      this.log('recorder', 'MediaRecorder baslatildi', details || null);
+      const encoder = details?.encoder || 'unknown';
+      const msg = encoder === 'wasm-opus' ? 'WASM Opus encoder baslatildi' : 'MediaRecorder baslatildi';
+      this.log('recorder', msg, details || null);
     });
 
     eventBus.on('recorder:stopped', (details) => {
-      this.log('recorder', 'MediaRecorder durduruldu', details || null);
+      const encoder = details?.encoder || 'unknown';
+      const msg = encoder === 'wasm-opus' ? 'WASM Opus encoder durduruldu' : 'MediaRecorder durduruldu';
+      this.log('recorder', msg, details || null);
     });
 
     eventBus.on('recording:completed', (data) => {

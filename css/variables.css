@@ -237,6 +237,12 @@
   --glass-bg-hover: rgba(var(--color-white-rgb), 0.06);
   --glass-border: rgba(var(--color-white-rgb), 0.08);
 
+  /* Landing Card (daha şeffaf glass surface) */
+  --glass-card-bg: rgba(var(--color-white-rgb), 0.0196);
+  --glass-card-bg-hover: rgba(var(--color-white-rgb), 0.0392);
+  --glass-card-border: rgba(var(--color-white-rgb), 0.042);
+  --glass-card-border-hover: rgba(var(--color-white-rgb), 0.07);
+
   /* Blur tokens - DRY (tum blur degerleri tek yerde) */
   --blur-xs: 4px;
   --blur-sm: 12px;
