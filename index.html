@@ -43,26 +43,7 @@
   </script>
 </head>
 <body>
-  <!-- SVG Gradient Definition (ayri, gorunur olmayan) -->
-  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">
-    <defs>
-      <!-- Brand icon gradient - cool neon (purple -> blue) -->
-      <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#8b5cf6"/>
-        <stop offset="100%" stop-color="#3b82f6"/>
-      </linearGradient>
-      <!-- Navbar brand gradient - neon pink to blue -->
-      <linearGradient id="navbar-brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#ec4899"/>
-        <stop offset="25%" stop-color="#c026d3"/>
-        <stop offset="50%" stop-color="#8b5cf6"/>
-        <stop offset="75%" stop-color="#6366f1"/>
-        <stop offset="100%" stop-color="#3b82f6"/>
-      </linearGradient>
-    </defs>
-  </svg>
-
-  <!-- SVG Sprite (loaded from external file) -->
+  <!-- SVG Sprite (gradient'ler dahil, icons.svg'den yüklenir) -->
   <div id="svg-sprite-container"></div>
   <script>
     fetch('icons.svg')
@@ -81,7 +62,10 @@
       <div class="navbar-nav">
         <a href="#features" class="navbar-link">Features</a>
         <a href="#how-it-works" class="navbar-link">How It Works</a>
-        <button class="navbar-cta" onclick="showAppView()">Get Started</button>
+        <button class="btn btn--primary navbar-cta" onclick="showAppView()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Get Started
+          </button>
       </div>
       <button class="navbar-menu-btn" id="mobileMenuBtn" aria-label="Menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -251,6 +235,21 @@
         </div>
       </div>
     </section>
+
+    <!-- Shared Footer (dinamik olarak taşınır) -->
+    <footer class="site-footer" id="sharedFooter">
+      <div class="site-footer-content">
+        <a href="#" class="site-footer-brand" onclick="showLandingView(); return false;">
+          <svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-mic-brand"/></svg>
+          <span class="brand-wordmark"><span class="brand-word brand-word--mic">Mic</span><span class="brand-word brand-word--probe">Probe</span></span>
+        </a>
+        <nav class="site-footer-links">
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+        </nav>
+        <p class="site-footer-meta">Built for developers and audio enthusiasts</p>
+      </div>
+    </footer>
 
   </div>
 
@@ -721,21 +720,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ==================== SHARED FOOTER ==================== -->
-  <footer class="site-footer" id="sharedFooter">
-    <div class="site-footer-content">
-      <a href="#" class="site-footer-brand" onclick="showLandingView(); return false;">
-        <svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-mic-brand"/></svg>
-        <span class="brand-wordmark"><span class="brand-word brand-word--mic">Mic</span><span class="brand-word brand-word--probe">Probe</span></span>
-      </a>
-      <nav class="site-footer-links">
-        <a href="#features" onclick="showLandingView();">Features</a>
-        <a href="#how-it-works" onclick="showLandingView();">How It Works</a>
-      </nav>
-      <p class="site-footer-meta">Built for developers and audio enthusiasts</p>
-    </div>
-  </footer>
 
   <!-- Landing + App Lazy Loader -->
   <script type="module" src="js/landing.js"></script>

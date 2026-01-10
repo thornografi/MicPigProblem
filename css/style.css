@@ -122,14 +122,12 @@
 }
 
 #app-view :focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
+  outline: none;
 }
 
 #app-view button:focus-visible,
 #app-view a:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
+  outline: none;
 }
 
 /* ========== APP LAYOUT ========== */
@@ -355,7 +353,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  --content-right-padding: clamp(81px, 20vw, 405px); /* -%30 */
+  /* Responsive: Büyük ekranlarda geniş, küçük ekranlarda önce boşluk azalır */
+  --content-right-padding: clamp(16px, calc(20vw - 100px), 405px);
   --panel-right-bleed: min(var(--content-right-padding), 120px);
   padding: var(--padding-fluid);
   padding-right: var(--content-right-padding);
@@ -431,19 +430,19 @@
   align-items: center;
   gap: var(--space-xs-plus);
   padding: var(--space-xs) var(--space-md-minus);
-  border-radius: var(--radius-full);
+  border-radius: var(--label-radius);
   font-size: var(--fs-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.45px;
-  background: var(--status-bg, var(--glass-bg));
-  border: 1px solid var(--status-border, var(--glass-border));
+  background: var(--status-bg, var(--label-bg));
+  /* border kaldırıldı - daha temiz görünüm */
   color: var(--status-color, var(--text-muted));
   box-shadow: var(--status-shadow, none);
 }
 
 .status-idle {
-  --status-bg: var(--glass-bg);
+  --status-bg: var(--label-bg);
   --status-border: var(--glass-border);
   --status-color: var(--text-muted);
   --status-shadow: none;
@@ -666,6 +665,11 @@
 /* ========== 768-1023px TABLET FLEX LAYOUT ========== */
 /* Grid 1024px'te basliyor, bu aralik icin ozel flex layout */
 @media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet aralığında sağ boşluğu minimize et */
+  .content-container {
+    --content-right-padding: clamp(16px, 5vw, 48px);
+  }
+
   .unified-row-main {
     flex-wrap: wrap;
   }
@@ -690,11 +694,12 @@
 /* ========== 1024px+ DESKTOP GRID LAYOUT ========== */
 @media (min-width: 1024px) {
   /* Parent grid - row'lar bu column'ları paylaşır */
+  /* minmax ile içerik minimum genişliğini garanti eder */
   .unified-body {
     display: grid;
-    grid-template-columns: 3fr 2fr 2fr;
+    grid-template-columns: minmax(280px, 3fr) minmax(150px, 2fr) minmax(120px, 2fr);
     column-gap: var(--space-xl);
-    padding-right: 10%;
+    /* padding-right kaldırıldı - content-container'dan geliyor */
   }
 
   /* TÜM row'lar tam genişlik kaplamalı (auto-flow sorununu önler) */
@@ -875,9 +880,9 @@
 
 .mic-dropdown {
   flex: 1;
-  min-width: 180px;
+  min-width: 270px; /* 1.5x */
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   border-radius: var(--radius-md);
   background: var(--bg-input);
   border: 1px solid var(--border-primary);
@@ -1111,12 +1116,12 @@
 }
 
 .vu-meter {
-  height: 36px;
-  background: transparent;  /* arka plan yok */
-  border-radius: var(--radius-sm);
+  height: 29px;
+  background: rgba(var(--color-white-rgb), 0.03);
+  border-radius: 10px;
   overflow: hidden;
   position: relative;
-  border: 1px solid var(--glass-border);
+  /* border kaldırıldı - daha temiz görünüm */
 }
 
 /* VU Meter segmented background lines - kaldirildi (cizgiler kapatildi) */
@@ -1970,8 +1975,8 @@ body.production .dev-console-toggle-btn {
 
 .setting-item input[type="checkbox"] {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--text-muted);
   border-radius: 4px;
   cursor: pointer;
@@ -2245,6 +2250,27 @@ label.option-disabled::after {
 }
 
 /* ========== RESPONSIVE ========== */
+
+/* Büyük tablet ve altı - sağ boşluğu kademeli azalt */
+@media (max-width: 1200px) {
+  .content-container {
+    --content-right-padding: clamp(16px, 8vw, 80px);
+  }
+}
+
+/* Tablet - sağ boşluğu minimize et */
+@media (max-width: 900px) {
+  .content-container {
+    --content-right-padding: 16px;
+    --panel-right-bleed: 0;
+  }
+
+  .panel-unified {
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .app-layout::before {
     content: none;
@@ -2346,7 +2372,7 @@ label.option-disabled::after {
 
 .custom-settings-hint {
   margin: 0 0 var(--space-lg) 0;
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -2393,7 +2419,7 @@ label.option-disabled::after {
 
 /* Checkbox grubu başlığı - tum section baslikları icin */
 .custom-settings-section-label {
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -2427,8 +2453,8 @@ label.option-disabled::after {
 }
 
 .custom-setting-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   accent-color: var(--color-orange);
   flex-shrink: 0;
 }
@@ -2437,7 +2463,7 @@ label.option-disabled::after {
 .custom-setting-item .setting-name {
   flex: 1;
   color: var(--text-secondary);
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -2448,10 +2474,10 @@ label.option-disabled::after {
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   font-weight: 500;
   cursor: pointer;
-  width: 160px;
+  width: 240px; /* 1.5x */
   height: 36px;
   flex-shrink: 0;
 }
@@ -2517,7 +2543,7 @@ label.option-disabled::after {
 /* Unified içindeki kontroller */
 .unified-left .mic-selector-row {
   flex: 1;
-  max-width: 500px;
+  max-width: 750px; /* 1.5x */
 }
 
 .unified-left .button-row {
@@ -2816,7 +2842,7 @@ body[data-app-state="monitoring"] {
 
   /* VU meter biraz kucult */
   .vu-meter {
-    height: 26px;
+    height: 21px;
   }
 
   /* Buton min-width kaldir, padding azalt */

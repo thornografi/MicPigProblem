@@ -36,6 +36,12 @@ export async function showAppView() {
   document.getElementById('app-view').classList.remove('hidden');
   window.scrollTo(0, 0);
 
+  // Footer'ı app-shell'e taşı
+  const footer = document.getElementById('sharedFooter');
+  if (footer) {
+    document.querySelector('.app-shell').appendChild(footer);
+  }
+
   // Update URL (hibrit: path-based tercih, hash fallback)
   const newUrl = window.location.origin + '/app';
   if (window.location.href !== newUrl) {
@@ -64,6 +70,12 @@ export function showLandingView() {
   document.getElementById('app-view').classList.add('hidden');
   document.getElementById('landing-view').classList.remove('hidden');
   window.scrollTo(0, 0);
+
+  // Footer'ı landing-view'a geri taşı
+  const footer = document.getElementById('sharedFooter');
+  if (footer) {
+    document.getElementById('landing-view').appendChild(footer);
+  }
 
   // Update URL to root
   if (window.location.pathname !== '/') {

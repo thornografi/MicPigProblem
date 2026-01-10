@@ -68,26 +68,15 @@
   color: var(--text-primary);
 }
 
+/* Navbar CTA - .btn--primary'den miras, sadece boyut farkı */
 .navbar-cta {
   padding: var(--space-sm) var(--space-lg);
-  background: var(--gradient-neon-circle);
-  color: white;
-  border: none;
-  border-radius: var(--radius-full);
   font-size: var(--text-sm);
-  font-weight: 600;
-  font-family: var(--font-display);
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  box-shadow: 0 0 15px rgba(var(--color-pink-rgb), 0.3),
-              0 0 30px rgba(var(--color-purple-rgb), 0.2);
 }
 
-.navbar-cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(var(--color-pink-rgb), 0.5),
-              0 0 40px rgba(var(--color-purple-rgb), 0.3);
+.navbar-cta svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Mobile menu button */
@@ -158,9 +147,8 @@
 }
 
 .hero-buttons .btn--primary {
-  border-radius: var(--radius-full);
   padding: 14px 32px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), var(--shadow-glow-orange);
+  box-shadow: 0 12px 32px rgba(var(--color-black-rgb), 0.35), var(--shadow-glow-orange);
   white-space: nowrap;
   min-width: 160px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -186,9 +174,6 @@
 }
 
 .hero-buttons .btn--secondary:hover {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
   opacity: 1;
   text-shadow: 0 0 18px rgba(var(--color-white-rgb), 0.2);
 }
@@ -334,9 +319,9 @@
 .section-badge {
   display: inline-block;
   padding: var(--space-xs) var(--space-md);
-  background: rgba(var(--color-white-rgb), 0.04);
-  border: 1px solid rgba(var(--color-white-rgb), 0.08);
-  border-radius: var(--radius-full);
+  background: var(--label-bg);
+  /* border kaldırıldı - daha temiz görünüm */
+  border-radius: var(--label-radius);
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-secondary);
