@@ -35,10 +35,17 @@ class VuMeter {
     this.meterWidth = this.peakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
     this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
 
+    // Event listener referansları (memory leak önleme - stop()'da kaldırılır)
+    this._onStreamStarted = (stream) => this.start(stream);
+    this._onStreamStopped = () => this.stop();
+    this._onLoopbackRemote = (stream) => this.startRemote(stream);
+    this._onAnalyserReady = (analyserNode) => this.startWithAnalyser(analyserNode);
+
     // Event dinle
-    eventBus.on('stream:started', (stream) => this.start(stream));
-    eventBus.on('stream:stopped', () => this.stop());
-    eventBus.on('loopback:remoteStream', (stream) => this.startRemote(stream));
+    eventBus.on('stream:started', this._onStreamStarted);
+    eventBus.on('stream:stopped', this._onStreamStopped);
+    eventBus.on('loopback:remoteStream', this._onLoopbackRemote);
+    eventBus.on('pipeline:analyserReady', this._onAnalyserReady);
 
     // Resize event'inde meter width'i guncelle
     // Memory leak fix: Named handler, stop()'ta removeEventListener icin
@@ -49,17 +56,70 @@ class VuMeter {
     window.addEventListener('resize', this.resizeHandler);
   }
 
+  /**
+   * Resize handler'i yeniden ekle (DRY helper)
+   * stop()'da kaldirilmis olabilir, tekrar baslatmada yeniden ekle
+   */
+  _ensureResizeHandler() {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      window.addEventListener('resize', this.resizeHandler);
+    }
+  }
+
+  /**
+   * Pipeline'dan gelen analyserNode ile VU Meter baslat
+   * Bu metod encode oncesi islenmiş sinyali gosterir (fan-out pattern)
+   * @param {AnalyserNode} analyserNode - Pipeline'dan gelen analyser
+   */
+  startWithAnalyser(analyserNode) {
+    if (!analyserNode) return;
+
+    // Onceki animasyonu durdur (tekrar baslatma durumunda)
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
+
+    // AudioEngine baglantisini temizle (orphaned node onleme)
+    // Defansif: stream:started event'i AudioEngine.connectStream() cagirmis olabilir
+    // Guard ile onlense de, eski event siralamasindan kalan baglanti olabilir
+    audioEngine.disconnect();
+
+    // Resize handler'i yeniden ekle (DRY)
+    this._ensureResizeHandler();
+
+    // Pipeline'dan gelen analyser'i kullan
+    this.analyser = analyserNode;
+
+    // DataArray olustur (pipeline'in audioContext'inden)
+    const bufferLength = this.analyser.frequencyBinCount;
+    this._pipelineDataArray = new Uint8Array(bufferLength);
+
+    this.update();
+
+    eventBus.emit('log:vumeter', {
+      message: 'VU Meter: Pipeline analyser baglandi',
+      details: { fftSize: analyserNode.fftSize, source: 'pipeline' }
+    });
+
+    eventBus.emit('vumeter:started');
+  }
+
   async start(stream) {
     if (!stream) return;
 
-    // Resize handler'i yeniden ekle (stop()'da kaldirilmis olabilir)
-    if (this.resizeHandler) {
-      window.removeEventListener('resize', this.resizeHandler); // Duplicate onleme
-      window.addEventListener('resize', this.resizeHandler);
-    }
+    // Guard: Pipeline analyser zaten set edilmisse AudioEngine'e baglanma
+    // pipeline:analyserReady event'i stream:started'dan ONCE gelirse bu guard calisir
+    if (this.analyser) return;
+
+    // Resize handler'i yeniden ekle (DRY)
+    this._ensureResizeHandler();
 
     // AudioEngine'den hazir analyser al (pre-init sayesinde hizli)
+    // Bu yol sadece Loopback modunda kullanilir (Local VU = HAM mikrofon)
     this.analyser = await audioEngine.connectStream(stream);
+    this._pipelineDataArray = null; // AudioEngine kendi dataArray'ini kullanir
     this.update();
 
     // AudioContext bilgisini gonder
@@ -86,6 +146,11 @@ class VuMeter {
     if (this.remoteContainerEl) {
       this.remoteContainerEl.style.display = 'block';
     }
+
+    // DOM render sonrasi width hesapla (container artik gorunur)
+    requestAnimationFrame(() => {
+      this.remoteMeterWidth = this.remotePeakEl?.parentElement?.offsetWidth || VU_METER.DEFAULT_METER_WIDTH;
+    });
 
     try {
       // Remote stream icin ayri AudioContext (cakisma onleme)
@@ -125,7 +190,7 @@ class VuMeter {
     }
 
     // Remote VU elementlerini sifirla (container visibility'i UI tarafindan kontrol edilir)
-    if (this.remoteBarEl) this.remoteBarEl.style.transform = 'scaleX(0)';
+    if (this.remoteBarEl) this.remoteBarEl.style.width = '0';
     if (this.remotePeakEl) this.remotePeakEl.style.transform = 'translateX(0)';
     // NOT: Container display'i burada degistirilmez - profil kategorisine gore UI tarafindan yonetilir
 
@@ -145,8 +210,8 @@ class VuMeter {
   update() {
     if (!this.analyser) return;
 
-    // Performans: AudioEngine'den pre-allocated array kullan (GC onleme)
-    const dataArray = audioEngine.getDataArray();
+    // Performans: Pipeline varsa kendi array'imizi, yoksa AudioEngine'den al
+    const dataArray = this._pipelineDataArray || audioEngine.getDataArray();
     this.analyser.getByteTimeDomainData(dataArray);
 
     // RMS ve maxSample hesapla
@@ -166,9 +231,9 @@ class VuMeter {
     const peakdB = maxSample > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(maxSample) : VU_METER.MIN_DB;
     const isClipping = peakdB >= VU_METER.CLIPPING_THRESHOLD_DB;
 
-    // Bar guncelle - transform kullan (GPU accelerated, reflow yok)
+    // Bar guncelle - soldan saga genisler
     if (this.barEl) {
-      this.barEl.style.transform = `scaleX(${level / 100})`;
+      this.barEl.style.width = `${level}%`;
     }
 
     // Peak hold
@@ -227,9 +292,9 @@ class VuMeter {
     const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
     const remoteLevel = Math.max(0, Math.min(100, (dB - VU_METER.MIN_DB) / -VU_METER.MIN_DB * 100));
 
-    // Remote bar guncelle
+    // Remote bar guncelle - soldan saga genisler
     if (this.remoteBarEl) {
-      this.remoteBarEl.style.transform = `scaleX(${remoteLevel / 100})`;
+      this.remoteBarEl.style.width = `${remoteLevel}%`;
     }
 
     // Remote peak hold
@@ -258,8 +323,8 @@ class VuMeter {
       window.removeEventListener('resize', this.resizeHandler);
     }
 
-    // Transform'lari sifirla (GPU accelerated)
-    if (this.barEl) this.barEl.style.transform = 'scaleX(0)';
+    // Bar'lari sifirla
+    if (this.barEl) this.barEl.style.width = '0';
     if (this.peakEl) this.peakEl.style.transform = 'translateX(0)';
     if (this.dotEl) {
       this.dotEl.className = 'signal-dot';

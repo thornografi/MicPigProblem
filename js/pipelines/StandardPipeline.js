@@ -13,12 +13,18 @@ export default class StandardPipeline extends BasePipeline {
 
   /**
    * Standard mode: Source direkt Destination'a baglanir
+   * Fan-out: Source -> AnalyserNode (VU) + DestinationNode (Encode)
    */
   async setup(options = {}) {
-    this.sourceNode.connect(this.destinationNode);
+    // VU Meter icin AnalyserNode olustur
+    this.createAnalyser();
 
-    this.log('Standard grafigi baglandi', {
-      graph: 'MicStream -> SourceNode -> DestinationNode -> RecordStream'
+    // Fan-out: ayni sinyal iki hedefe
+    this.sourceNode.connect(this.analyserNode);      // VU Meter icin
+    this.sourceNode.connect(this.destinationNode);   // Encode icin
+
+    this.log('Standard grafigi baglandi (fan-out)', {
+      graph: 'Source -> [AnalyserNode (VU) + DestinationNode (Encode)]'
     });
   }
 

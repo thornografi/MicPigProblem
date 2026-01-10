@@ -7,7 +7,7 @@
 export const AUDIO = {
   DEFAULT_SAMPLE_RATE: 48000,     // Varsayilan sample rate (Hz)
   FFT_SIZE: 256,                   // AnalyserNode FFT boyutu
-  SMOOTHING_TIME_CONSTANT: 0.7,    // AnalyserNode smoothing (slow motion icin)
+  SMOOTHING_TIME_CONSTANT: 0.3,    // AnalyserNode smoothing (fast responsive VU meter)
   CENTER_VALUE: 128                // 8-bit audio center point
 };
 
@@ -28,7 +28,7 @@ export const VU_METER = {
   RMS_THRESHOLD: 0.0001,          // dB hesaplama icin minimum RMS
   MIN_DB: -60,                    // Minimum dB seviyesi (sessizlik)
   CLIPPING_THRESHOLD_DB: -0.5,    // Bu dB ustu = clipping riski
-  PEAK_HOLD_TIME_MS: 1000,        // Peak gostergesini tutma suresi
+  PEAK_HOLD_TIME_MS: 4500,        // Peak gostergesini tutma suresi (4.5 saniye)
   PEAK_DECAY_RATE: 2,             // Peak dusme hizi (dB/frame)
   DOT_ACTIVE_THRESHOLD: 5,        // Sinyal noktasi aktif esigi (%)
   DEFAULT_METER_WIDTH: 200        // Varsayilan meter genisligi (px)

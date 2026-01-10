@@ -58,6 +58,26 @@ Farklı ses teknolojilerini kullanan(electron, scriptprocessornode,  WebRTC ve C
 | `call` | Monitoring only | 🎧 Monitor |
 | `record` | Recording + Playback | 🔴 Kayıt, ▶️ Oynat |
 
+### VU Meter Event Sıralama Kuralı
+
+> **KRİTİK:** `pipeline:analyserReady` event'i MUTLAKA `stream:started`'dan ÖNCE emit edilmeli!
+
+```
+DOĞRU SIRALAMA:
+1. pipeline:analyserReady → VuMeter.startWithAnalyser() → Pipeline analyser kullan
+2. stream:started → VuMeter.start() → Guard ile atla (this.analyser zaten set)
+
+YANLIŞ SIRALAMA:
+1. stream:started → VuMeter.start() → AudioEngine baglan (GEREKSIZ!)
+2. pipeline:analyserReady → startWithAnalyser() → audioEngine.disconnect()
+```
+
+| Senaryo | Event Sırası | VU Kaynağı |
+|---------|--------------|------------|
+| Record | pipeline:analyserReady → stream:started | Pipeline.analyserNode |
+| Monitor | pipeline:analyserReady → stream:started | Monitor.analyserNode |
+| Loopback | stream:started (pipeline yok) | AudioEngine (HAM) |
+
 
 ## Skill Router
 

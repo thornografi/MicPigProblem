@@ -21,6 +21,20 @@ export default class BasePipeline {
       mute: null,       // WASM Opus icin mute GainNode
       worklet: null     // AudioWorkletNode
     };
+
+    // VU Meter icin AnalyserNode (fan-out pattern)
+    this.analyserNode = null;
+  }
+
+  /**
+   * VU Meter icin AnalyserNode olustur
+   * @returns {AnalyserNode}
+   */
+  createAnalyser() {
+    this.analyserNode = this.audioContext.createAnalyser();
+    this.analyserNode.fftSize = 2048;
+    this.analyserNode.smoothingTimeConstant = 0.8;
+    return this.analyserNode;
   }
 
   /**
@@ -51,6 +65,16 @@ export default class BasePipeline {
     // ScriptProcessor onaudioprocess temizligi
     if (this.nodes.processor?.onaudioprocess) {
       this.nodes.processor.onaudioprocess = null;
+    }
+
+    // AnalyserNode temizligi
+    if (this.analyserNode) {
+      try {
+        this.analyserNode.disconnect();
+      } catch {
+        // Node zaten disconnect olmus olabilir
+      }
+      this.analyserNode = null;
     }
 
     this.nodes = { processor: null, mute: null, worklet: null };

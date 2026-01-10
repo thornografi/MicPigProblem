@@ -1111,61 +1111,47 @@
 }
 
 .vu-meter {
-  height: 24px;
-  background: linear-gradient(180deg, rgba(var(--color-black-rgb), 0.4) 0%, rgba(var(--color-black-rgb), 0.2) 100%);
-  border-radius: var(--radius-lg);
+  height: 36px;
+  background: transparent;  /* arka plan yok */
+  border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
   border: 1px solid var(--glass-border);
-  box-shadow: inset 0 2px 8px rgba(var(--color-black-rgb), 0.4), 0 1px 0 rgba(var(--color-white-rgb), 0.05);
 }
 
-/* VU Meter segmented background lines */
+/* VU Meter segmented background lines - kaldirildi (cizgiler kapatildi) */
 .vu-meter::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0px,
-    transparent 8px,
-    rgba(var(--color-white-rgb), 0.03) 8px,
-    rgba(var(--color-white-rgb), 0.03) 9px
-  );
-  pointer-events: none;
-  z-index: 2;
+  display: none;
+}
+
+/* VU Meter dB tick marks - kaldirildi */
+.vu-meter::after {
+  display: none;
 }
 
 .vu-meter-bar {
   height: 100%;
-  width: 100%;
+  width: 0;
   background: linear-gradient(
     90deg,
     var(--vu-green) 0%,
-    var(--vu-green) 50%,
-    var(--vu-yellow) 65%,
-    var(--color-orange) 80%,
-    var(--accent-danger) 100%
+    var(--vu-green) 45%,       /* yesil */
+    var(--vu-yellow) 70%,      /* sari */
+    #f97316 88%,               /* turuncu (gercek turuncu) */
+    var(--accent-danger) 100%  /* kirmizi sadece maksimumda */
   );
-  border-radius: var(--radius-lg);
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 0.06s ease-out;
-  will-change: transform;
-  position: relative;
+  /* Gradyan container genisliginde sabit kalsin */
+  background-size: 500px 100%;
+  background-position: left;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-sm);
+  transition: width 0.12s ease-out;
+  will-change: width;
 }
 
-/* Glossy highlight on bar */
+/* Glossy highlight - bar artik maske, bu efekt kaldirildi */
 .vu-meter-bar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 40%;
-  background: linear-gradient(180deg, rgba(var(--color-white-rgb), 0.25) 0%, transparent 100%);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  pointer-events: none;
+  display: none;
 }
 
 .vu-meter-peak {
@@ -1186,11 +1172,14 @@
   background: linear-gradient(
     90deg,
     var(--vu-purple) 0%,
-    var(--vu-purple) 50%,
-    var(--color-purple-light) 65%,
-    var(--accent-warning) 80%,
-    var(--accent-danger) 100%
+    var(--vu-purple) 45%,          /* mor */
+    var(--color-purple-light) 70%, /* acik mor - daha erken baslar */
+    var(--accent-warning) 88%,     /* turuncu */
+    var(--accent-danger) 100%      /* kirmizi sadece maksimumda */
   );
+  background-size: 500px 100%;
+  background-position: left;
+  background-repeat: no-repeat;
 }
 
 /* Remote dot - #remoteVuContainer context ile specificity artırıldı */
@@ -2827,7 +2816,7 @@ body[data-app-state="monitoring"] {
 
   /* VU meter biraz kucult */
   .vu-meter {
-    height: 20px;
+    height: 26px;
   }
 
   /* Buton min-width kaldir, padding azalt */

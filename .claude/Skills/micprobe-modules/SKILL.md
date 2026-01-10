@@ -50,13 +50,12 @@ js/
 │   ├── RadioGroupHandler.js     # Radio/checkbox event handler (~141)
 │   └── DebugConsole.js          # Debug fonksiyonlari (~145)
 ├── lib/opus/
-│   ├── encoderWorker.min.js     # opus-recorder WASM encoder (376KB)
-│   └── OggOpusWriter.js         # Ogg Opus container writer (yedek)
+│   └── encoderWorker.min.js     # opus-recorder WASM encoder (376KB)
 ├── worklets/
 │   └── passthrough-processor.js # AudioWorklet processor
 └── modules/
-    ├── Config.js                # PROFILES, SETTINGS, getProfileValue
-    ├── constants.js             # AUDIO, DELAY, VU_METER, SIGNAL, OPUS sabitleri
+    ├── Config.js                # PROFILES, SETTINGS
+    ├── constants.js             # AUDIO, DELAY, BUFFER, VU_METER, BYTES, THROTTLE, LOG, SIGNAL, LOOPBACK sabitleri
     ├── EventBus.js              # Pub/Sub singleton
     ├── ProfileController.js     # applyProfile, constraint logic
     ├── UIStateManager.js        # Buton state yonetimi, updateButtonStates
@@ -141,12 +140,11 @@ drawer.bindButtons(btn1, btn2); drawer.bindCloseButtons(closeBtn);
 
 ### Config
 ```javascript
-import { PROFILES, SETTINGS, getProfileValue } from './Config.js';
+import { PROFILES, SETTINGS } from './Config.js';
 
 PROFILES['discord'].values.bitrate     // 64000
 PROFILES['discord'].canMonitor         // true (OCP: otomatik)
 PROFILES['discord'].canRecord          // false
-getProfileValue('discord', 'bitrate')
 ```
 
 ### EventBus
@@ -176,11 +174,15 @@ Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline ekleme
 
 **Pipeline Cleanup Pattern (Race Condition Prevention):**
 Cleanup sırasında audio thread'den hala event'ler gelebilir:
-1. Önce handler'ı temizle (null yap)
-2. Sonra worker/buffer'ı temizle
-3. Guard clause ekle (fallback)
+1. Önce mesajı gönder (postMessage) - worklet son komutu alsın
+2. Sonra handler'ı temizle (null yap)
+3. Guard clause ekle (fallback için null check)
 
-**Örnek:** `WorkletPipeline.cleanup()` ve `ScriptProcessorPipeline.cleanup()`
+**Örnek:** `WorkletPipeline.cleanup()` - sıra önemli!
+
+**DirectPipeline AudioContext:**
+DirectPipeline kendi AudioContext oluşturmaz, dışarıdan alır (Recorder'dan).
+Cleanup'ta context kapatılmaz - Recorder yönetir.
 
 **Encoder (Kayit Formati):**
 - `mediarecorder` → Tarayici MediaRecorder API

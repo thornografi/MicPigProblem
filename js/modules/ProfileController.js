@@ -5,7 +5,7 @@
  */
 
 import eventBus from './EventBus.js';
-import { PROFILES, SETTINGS, PROFILE_TIPS, PROFILE_THEMES } from './Config.js';
+import { PROFILES, SETTINGS, PROFILE_TIPS } from './Config.js';
 import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder } from './utils.js';
 
 /**
@@ -192,21 +192,13 @@ class ProfileController {
 
   /**
    * Profil tema token'larini uygula (UI accent renkleri)
+   * Not: Per-profile tema destegi kaldirildi, varsayilan degerler kullaniliyor
    */
-  applyProfileTheme(profileId) {
+  applyProfileTheme() {
     if (typeof document === 'undefined') return;
-    const theme = {
-      ...(PROFILE_THEMES.default || {}),
-      ...(PROFILE_THEMES[profileId] || {})
-    };
-
     const root = document.documentElement;
-    if (theme.accent) {
-      root.style.setProperty('--profile-accent', theme.accent);
-    }
-    if (theme.accentGlow) {
-      root.style.setProperty('--profile-accent-glow', theme.accentGlow);
-    }
+    root.style.setProperty('--profile-accent', 'var(--color-accent-text)');
+    root.style.setProperty('--profile-accent-glow', 'rgba(var(--color-accent-text-rgb), 0.55)');
   }
 
   /**

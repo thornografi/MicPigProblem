@@ -240,8 +240,4 @@ export function initWaveAnimator(svgSelector = '.hero-soundwave', config = {}) {
   return waveAnimatorInstance;
 }
 
-export function getWaveAnimator() {
-  return waveAnimatorInstance;
-}
-
 export default WaveAnimator;

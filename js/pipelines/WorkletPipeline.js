@@ -107,8 +107,14 @@ export default class WorkletPipeline extends BasePipeline {
       }
     };
 
+    // VU Meter icin AnalyserNode olustur
+    this.createAnalyser();
+
     // Graph kur: Source -> Worklet -> MuteGain -> destination
     this.sourceNode.connect(this.nodes.worklet);
+
+    // Fan-out: Worklet cikisindan VU Meter'a
+    this.nodes.worklet.connect(this.analyserNode);
 
     // Worklet destination'a baglanmali - aksi halde process() tetiklenmez
     // Ses cikisini engellemek icin mute GainNode kullan
@@ -117,8 +123,8 @@ export default class WorkletPipeline extends BasePipeline {
     this.nodes.worklet.connect(this.nodes.mute);
     this.nodes.mute.connect(this.audioContext.destination);
 
-    this.log('AudioWorklet + WASM Opus grafigi baglandi', {
-      graph: 'MicStream -> SourceNode -> AudioWorklet(128) -> Accumulator(960) -> Opus Worker -> .ogg',
+    this.log('AudioWorklet + WASM Opus grafigi baglandi (fan-out)', {
+      graph: 'Source -> Worklet -> [AnalyserNode (VU) + MuteGain -> Destination]',
       frameSize: OPUS_FRAME_SIZE,
       bitrate: opusBitrate,
       encoderType: this.opusWorker.encoderType
@@ -156,12 +162,18 @@ export default class WorkletPipeline extends BasePipeline {
    * MediaRecorder passthrough kurulumu
    */
   _setupPassthrough() {
+    // VU Meter icin AnalyserNode olustur
+    this.createAnalyser();
+
     // Graph kur: Source -> Worklet -> Destination
     this.sourceNode.connect(this.nodes.worklet);
-    this.nodes.worklet.connect(this.destinationNode);
 
-    this.log('AudioWorklet grafigi baglandi (Kayit)', {
-      graph: 'MicStream -> SourceNode -> AudioWorklet(passthrough) -> DestinationNode -> RecordStream'
+    // Fan-out: Worklet cikisindan VU Meter ve Destination'a
+    this.nodes.worklet.connect(this.analyserNode);      // VU Meter icin
+    this.nodes.worklet.connect(this.destinationNode);   // Encode icin
+
+    this.log('AudioWorklet grafigi baglandi (fan-out)', {
+      graph: 'Source -> Worklet -> [AnalyserNode (VU) + DestinationNode (Encode)]'
     });
   }
 
@@ -169,10 +181,10 @@ export default class WorkletPipeline extends BasePipeline {
    * Temizlik - Opus worker dahil
    */
   async cleanup() {
-    // Message handler'i temizle (race condition onlemi)
+    // Önce mesajı gönder, sonra handler'ı temizle (sıra önemli!)
     if (this.nodes.worklet) {
-      this.nodes.worklet.port.onmessage = null;
       this.nodes.worklet.port.postMessage({ command: 'disablePcm' });
+      this.nodes.worklet.port.onmessage = null;
     }
 
     // Opus worker temizligi
@@ -202,6 +214,11 @@ export default class WorkletPipeline extends BasePipeline {
   async finishOpusEncoding() {
     if (!this.opusWorker) {
       throw new Error('Opus worker mevcut degil');
+    }
+
+    // Null guard: cleanup sonrası çağrılmış olabilir
+    if (!this.accumulator) {
+      return await this.opusWorker.finish();
     }
 
     // Kalan accumulator verisini gonder (padding ile)

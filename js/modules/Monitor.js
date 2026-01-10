@@ -16,6 +16,7 @@ class Monitor {
     this.processorNode = null;
     this.workletNode = null;
     this.delayNode = null;
+    this.analyserNode = null; // VU Meter icin (fan-out pattern)
     this.isMonitoring = false;
     this.mode = null; // 'standard', 'scriptprocessor', 'worklet', 'direct' veya 'codec-simulated'
 
@@ -31,6 +32,34 @@ class Monitor {
     this.isStoppingCodecSimulated = false;
     this.lastSourceBufferErrorTime = 0;
     this.lastMediaRecorderErrorTime = 0;
+  }
+
+  /**
+   * AnalyserNode olusturur ve VU Meter event'i emit eder (DRY helper)
+   * @param {AudioNode} sourceNode - Analyser'a baglanacak node
+   * @param {string} mode - Log icin mod adi
+   * @returns {AnalyserNode}
+   */
+  _createAnalyser(sourceNode, mode = '') {
+    this.analyserNode = this.audioContext.createAnalyser();
+    this.analyserNode.fftSize = 2048;
+    this.analyserNode.smoothingTimeConstant = 0.8;
+
+    // Fan-out: sourceNode -> analyser (VU icin)
+    sourceNode.connect(this.analyserNode);
+
+    // VU Meter'a bildir
+    eventBus.emit('pipeline:analyserReady', this.analyserNode);
+
+    eventBus.emit('log:webaudio', {
+      message: `AnalyserNode olusturuldu${mode ? ` (${mode})` : ''}`,
+      details: {
+        fftSize: this.analyserNode.fftSize,
+        purpose: 'VU Meter (encode oncesi sinyal)'
+      }
+    });
+
+    return this.analyserNode;
   }
 
   /**
@@ -110,10 +139,13 @@ class Monitor {
       this.sourceNode.connect(this.delayNode);
       this.delayNode.connect(this.audioContext.destination);
 
+      // VU Meter icin AnalyserNode (fan-out: Source -> Analyser)
+      this._createAnalyser(this.sourceNode, 'Standard');
+
       eventBus.emit('log:webaudio', {
         message: 'WebAudio grafigi tamamlandi',
         details: {
-          graph: `MediaStream -> Source -> DelayNode(${this.delayNode.delayTime.value}s) -> Destination`,
+          graph: `MediaStream -> Source -> [AnalyserNode (VU) + DelayNode(${this.delayNode.delayTime.value}s)] -> Destination`,
           finalState: this.audioContext.state
         }
       });
@@ -209,10 +241,13 @@ class Monitor {
       this.processorNode.connect(this.delayNode);
       this.delayNode.connect(this.audioContext.destination);
 
+      // VU Meter icin AnalyserNode (fan-out: Processor -> Analyser)
+      this._createAnalyser(this.processorNode, 'ScriptProcessor');
+
       eventBus.emit('log:webaudio', {
         message: 'WebAudio grafigi tamamlandi (ScriptProcessor)',
         details: {
-          graph: `MediaStream -> Source -> ScriptProcessor -> DelayNode(${this.delayNode.delayTime.value}s) -> Destination`,
+          graph: `MediaStream -> Source -> ScriptProcessor -> [AnalyserNode (VU) + DelayNode(${this.delayNode.delayTime.value}s)] -> Destination`,
           finalState: this.audioContext.state
         }
       });
@@ -275,10 +310,13 @@ class Monitor {
       this.workletNode.connect(this.delayNode);
       this.delayNode.connect(this.audioContext.destination);
 
+      // VU Meter icin AnalyserNode (fan-out: Worklet -> Analyser)
+      this._createAnalyser(this.workletNode, 'AudioWorklet');
+
       eventBus.emit('log:webaudio', {
         message: 'WebAudio grafigi tamamlandi (AudioWorklet)',
         details: {
-          graph: `MediaStream -> Source -> AudioWorklet(passthrough) -> DelayNode(${this.delayNode.delayTime.value}s) -> Destination`,
+          graph: `MediaStream -> Source -> AudioWorklet -> [AnalyserNode (VU) + DelayNode(${this.delayNode.delayTime.value}s)] -> Destination`,
           finalState: this.audioContext.state
         }
       });
@@ -339,6 +377,9 @@ class Monitor {
       // Baglanti: Source -> Delay -> Destination
       this.sourceNode.connect(this.delayNode);
       this.delayNode.connect(this.audioContext.destination);
+
+      // VU Meter icin AnalyserNode (fan-out: Source -> Analyser)
+      this._createAnalyser(this.sourceNode, 'Direct');
 
       this.isMonitoring = true;
       this.mode = 'direct';
@@ -446,6 +487,10 @@ class Monitor {
         });
       }
 
+      // VU Meter icin AnalyserNode (fan-out: processing node -> Analyser)
+      const vuSourceNode = this.workletNode || this.processorNode || this.sourceNode;
+      this._createAnalyser(vuSourceNode, 'Codec-simulated');
+
       // MediaRecorder - DRY: createMediaRecorder helper kullaniliyor
       const recordStream = destinationNode.stream;
       this.codecMediaRecorder = createMediaRecorder(recordStream, {
@@ -495,8 +540,8 @@ class Monitor {
           }
         }, { once: true });
 
-        this.codecMediaSource.addEventListener('error', (e) => {
-          reject(new Error('MediaSource error: ' + e));
+        this.codecMediaSource.addEventListener('error', () => {
+          reject(new Error('MediaSource error'));
         }, { once: true });
       });
 
@@ -725,6 +770,15 @@ class Monitor {
     }
 
     this.pendingChunks = [];
+
+    if (this.analyserNode) {
+      this.analyserNode.disconnect();
+      eventBus.emit('log:webaudio', {
+        message: 'AnalyserNode disconnect edildi',
+        details: {}
+      });
+      this.analyserNode = null;
+    }
 
     if (this.delayNode) {
       this.delayNode.disconnect();

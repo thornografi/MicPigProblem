@@ -44,8 +44,10 @@ class AudioEngine {
     }
 
     try {
-      // AudioContext olustur
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // AudioContext olustur (interactive latency = dusuk gecikme)
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+        latencyHint: 'interactive'
+      });
 
       // AnalyserNode onceden olustur
       this.analyserNode = this.audioContext.createAnalyser();

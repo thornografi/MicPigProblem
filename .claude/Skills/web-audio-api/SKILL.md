@@ -1,6 +1,6 @@
 ---
 name: web-audio-api
-description: "Web Audio API, mikrofon, kayit, VU meter, WASM Opus. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource, OggOpusWriter, opus-encoder-worker"
+description: "Web Audio API, mikrofon, kayit, VU meter, WASM Opus. Anahtar kelimeler: getUserMedia, MediaRecorder, AudioContext, AnalyserNode, ScriptProcessorNode, AudioWorkletNode, GainNode, MediaStreamDestination, MediaSource, opus-encoder-worker"
 ---
 
 Zorunlu: Bu satirlari okuyorsan konsola "web-audio-api SKILL.md okunuyor..." yaz.
@@ -22,9 +22,13 @@ const stream = await navigator.mediaDevices.getUserMedia({
 ```javascript
 const rec = new MediaRecorder(stream, { mimeType });
 rec.ondataavailable = e => chunks.push(e.data);
-rec.onstop = () => { /* TEMIZLIK BURADA */ };
+rec.onstop = () => {
+  rec.ondataavailable = null; // Race condition önleme
+  // Temizlik burada
+};
 ```
 - `rec.stop()` asenkron - temizlik `onstop` icinde
+- `onstop` başında `ondataavailable = null` yap (son chunk zaten gelmiş olur)
 - Detay: `js/modules/Recorder.js`
 
 ## Node Turleri

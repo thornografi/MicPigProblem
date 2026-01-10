@@ -85,6 +85,24 @@ const server = http.createServer((req, res) => {
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
+        // SPA fallback: extension yoksa index.html döndür
+        if (!extname) {
+          const indexPath = path.join(__dirname, 'index.html');
+          fs.readFile(indexPath, (indexErr, indexContent) => {
+            if (indexErr) {
+              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end('404 Not Found');
+              return;
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            if (req.method === 'HEAD') {
+              res.end();
+              return;
+            }
+            res.end(indexContent);
+          });
+          return;
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('404 Not Found');
         return;

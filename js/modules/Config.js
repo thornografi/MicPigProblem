@@ -251,15 +251,6 @@ export const PROFILES = {
     // allowedValues yok = tum degerler izinli (test profili)
 };
 
-// Profil tema token'lari (UI accent renkleri)
-// Yeni profil rengi eklemek icin bu map'e giris eklemek yeterli.
-export const PROFILE_THEMES = {
-  default: {
-    accent: 'var(--color-accent-text)',
-    accentGlow: 'rgba(var(--color-accent-text-rgb), 0.55)'
-  }
-};
-
 // Kategori tanimlari (UI siralama icin)
 // Sadece iki ana kategori: call ve record
 export const PROFILE_CATEGORIES = {
@@ -334,24 +325,9 @@ export const PROFILE_TIPS = {
   ]
 };
 
-/**
- * Profil degerini al
- * @param {string} profileId - Profil ID
- * @param {string} settingKey - Ayar anahtari
- * @returns {*} Ayar degeri veya default
- */
-export function getProfileValue(profileId, settingKey) {
-  const profile = PROFILES[profileId];
-  if (!profile || !profile.values) {
-    return SETTINGS[settingKey]?.default;
-  }
-  return profile.values[settingKey] ?? SETTINGS[settingKey]?.default;
-}
-
 export default {
   SETTINGS,
   PROFILES,
   PROFILE_CATEGORIES,
-  PROFILE_TIPS,
-  getProfileValue
+  PROFILE_TIPS
 };

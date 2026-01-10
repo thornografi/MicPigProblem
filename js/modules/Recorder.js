@@ -87,8 +87,8 @@ class Recorder {
       this.stream = await requestStream(constraints);
       this.chunks = [];
 
-      // Stream event'i gonder (VuMeter dinler)
-      eventBus.emit('stream:started', this.stream);
+      // NOT: stream:started event'i pipeline kurulumundan SONRA emit edilir
+      // Bu sayede VuMeter.start() yerine startWithAnalyser() kullanilir (gereksiz AudioEngine baglantisi onlenir)
 
       let recordStream = this.stream;
 
@@ -145,11 +145,30 @@ class Recorder {
           mediaBitrate
         });
 
+        // VU Meter icin pipeline'dan analyser'i gonder (encode oncesi islenmiş sinyal)
+        if (this.pipelineStrategy.analyserNode) {
+          eventBus.emit('pipeline:analyserReady', this.pipelineStrategy.analyserNode);
+        }
+
         // MediaRecorder icin WebAudio'dan gelen stream'i kullan
         if (needsMediaRecorder) {
           recordStream = this.destinationNode.stream;
         }
+      } else {
+        // Direct pipeline - VU Meter icin shared AudioContext kullan
+        await this._ensureAudioContext();
+        this.pipelineStrategy = createPipeline('direct', this.audioContext, null, null);
+        await this.pipelineStrategy.setup({ stream: this.stream });
+
+        // VU Meter icin pipeline'dan analyser'i gonder
+        if (this.pipelineStrategy.analyserNode) {
+          eventBus.emit('pipeline:analyserReady', this.pipelineStrategy.analyserNode);
+        }
       }
+
+      // Stream event'i gonder (DeviceInfo ve LogManager dinler)
+      // pipeline:analyserReady SONRA emit edilir - VuMeter guard ile gereksiz baglanti onlenir
+      eventBus.emit('stream:started', this.stream);
 
       // ═══════════════════════════════════════════════════════════════
       // ENCODER KURULUMU (MediaRecorder veya WASM Opus)
@@ -315,8 +334,13 @@ class Recorder {
     };
 
     this.mediaRecorder.onstop = async () => {
+      // Race condition önleme: onstop sonrası ondataavailable fire etmesin
+      if (this.mediaRecorder) {
+        this.mediaRecorder.ondataavailable = null;
+      }
+
       try {
-        const mimeType = this.mediaRecorder.mimeType || 'audio/webm';
+        const mimeType = this.mediaRecorder?.mimeType || 'audio/webm';
         const blob = new Blob(this.chunks, { type: mimeType });
         const suffix = this.pipelineType === 'direct' ? '' : `_${this.pipelineType}`;
         const filename = `kayit${suffix}_${Date.now()}.webm`;

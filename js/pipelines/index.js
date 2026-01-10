@@ -18,7 +18,5 @@ export { default as WorkletPipeline } from './WorkletPipeline.js';
 // Factory
 export {
   createPipeline,
-  getSupportedPipelines,
-  isPipelineSupported,
-  getWebAudioPipelines
+  isPipelineSupported
 } from './PipelineFactory.js';

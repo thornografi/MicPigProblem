@@ -90,7 +90,13 @@ export default class ScriptProcessorPipeline extends BasePipeline {
       output.set(pcmData);
     };
 
+    // VU Meter icin AnalyserNode olustur
+    this.createAnalyser();
+
     this.sourceNode.connect(this.nodes.processor);
+
+    // Fan-out: Processor cikisindan VU Meter'a
+    this.nodes.processor.connect(this.analyserNode);
 
     // ScriptProcessor destination'a baglanmali - aksi halde onaudioprocess tetiklenmez
     // Ses cikisini engellemek icin mute GainNode kullan
@@ -99,8 +105,8 @@ export default class ScriptProcessorPipeline extends BasePipeline {
     this.nodes.processor.connect(this.nodes.mute);
     this.nodes.mute.connect(this.audioContext.destination);
 
-    this.log('ScriptProcessor + WASM Opus grafigi baglandi', {
-      graph: `MicStream -> SourceNode -> ScriptProcessor(${bufferSize}) -> Opus Worker -> .ogg`,
+    this.log('ScriptProcessor + WASM Opus grafigi baglandi (fan-out)', {
+      graph: `Source -> Processor -> [AnalyserNode (VU) + MuteGain -> Destination]`,
       bufferSize,
       bitrate: opusBitrate,
       encoderType: this.opusWorker.encoderType
@@ -118,11 +124,17 @@ export default class ScriptProcessorPipeline extends BasePipeline {
       output.set(input);
     };
 
-    this.sourceNode.connect(this.nodes.processor);
-    this.nodes.processor.connect(this.destinationNode);
+    // VU Meter icin AnalyserNode olustur
+    this.createAnalyser();
 
-    this.log('ScriptProcessor grafigi baglandi (Kayit)', {
-      graph: `MicStream -> SourceNode -> ScriptProcessor(${bufferSize}) -> DestinationNode -> RecordStream`,
+    this.sourceNode.connect(this.nodes.processor);
+
+    // Fan-out: Processor cikisindan VU Meter ve Destination'a
+    this.nodes.processor.connect(this.analyserNode);      // VU Meter icin
+    this.nodes.processor.connect(this.destinationNode);   // Encode icin
+
+    this.log('ScriptProcessor grafigi baglandi (fan-out)', {
+      graph: `Source -> Processor -> [AnalyserNode (VU) + DestinationNode (Encode)]`,
       warning: 'Deprecated API - sadece test icin'
     });
   }

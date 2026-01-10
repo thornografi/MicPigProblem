@@ -34,6 +34,7 @@ class LoopbackManager {
     this.signalCheckTimeout = null;
     this.lastBytesSent = 0;
     this.lastStatsTimestamp = 0;
+    this._isCleaningUp = false; // Race condition guard for async stats polling
 
     // Worklet support flag (dısarıdan set edilir)
     this.workletSupported = true;
@@ -353,7 +354,8 @@ class LoopbackManager {
     let statsErrorCount = 0;
 
     this.statsInterval = setInterval(async () => {
-      if (!this.pc1) {
+      // Race condition guard: cleanup sırasında veya pc1 yoksa çık
+      if (this._isCleaningUp || !this.pc1) {
         clearInterval(this.statsInterval);
         this.statsInterval = null;
         return;
@@ -416,6 +418,9 @@ class LoopbackManager {
    * Loopback kaynaklarini temizler
    */
   async cleanup() {
+    // Race condition flag: stats polling'in cleanup sırasında çalışmasını engelle
+    this._isCleaningUp = true;
+
     // Stats polling durdur
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
@@ -445,6 +450,9 @@ class LoopbackManager {
       message: 'Loopback: Kaynaklar temizlendi',
       details: {}
     });
+
+    // Cleanup tamamlandı, flag'i sıfırla
+    this._isCleaningUp = false;
   }
 
   /**
