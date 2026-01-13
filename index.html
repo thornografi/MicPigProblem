@@ -6,11 +6,7 @@
   <title>Mic Probe - Diagnose Microphone Issues</title>
   <meta name="description" content="Test your microphone with real-world simulations. WebRTC, codec testing, and voice app profiles for Discord, Zoom, WhatsApp, and more.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
-  <!-- Google Fonts: Bricolage Grotesque (landing display) + Rubik (app display) + Inter (UI) + JetBrains Mono (monospace) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Bricolage+Grotesque:wght@400;500;600;700&family=Rubik:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- CSS -->
+  <!-- CSS (fonts are imported in variables.css) -->
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/landing.css">
   <link rel="stylesheet" href="css/style.css">
@@ -338,15 +334,25 @@
     <!-- Shared Footer (dinamik olarak taşınır) -->
     <footer class="site-footer" id="sharedFooter">
       <div class="site-footer-content">
+        <!-- Logo -->
         <a href="#" class="site-footer-brand" onclick="showLandingView(); return false;">
           <svg viewBox="0 0 24 24"><use href="#icon-mic-brand"/></svg>
           <span class="brand-wordmark"><span class="brand-word brand-word--mic">Mic</span><span class="brand-word brand-word--probe">Probe</span></span>
         </a>
+        <!-- Linkler -->
         <nav class="site-footer-links">
           <a href="#features">Features</a>
           <a href="#how-it-works">How It Works</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/terms.html">Terms</a>
         </nav>
-        <p class="site-footer-meta">Built for developers and audio enthusiasts</p>
+        <!-- Contact -->
+        <a href="mailto:micprobe@gmail.com" class="site-footer-contact">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          micprobe@gmail.com
+        </a>
+        <!-- Copyright -->
+        <p class="site-footer-meta">&copy; 2025 MicProbe</p>
       </div>
     </footer>
 

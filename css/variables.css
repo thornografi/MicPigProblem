@@ -4,6 +4,9 @@
    Landing ve App ayni design token'lari kullanir.
 */
 
+/* Google Fonts - Merkezi Import (DRY) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Bricolage+Grotesque:wght@400;500;600;700&family=Rubik:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
   /* ========== CORE COLORS ========== */
   /* Base palette - her iki view icin ortak */
@@ -510,6 +513,58 @@ body {
   color: var(--color-pink);
 }
 
+/* ========== LEGAL PAGES (Privacy, Terms vb.) ========== */
+.legal-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* background: html'den miras alınır (--gradient-bg) */
+}
+
+.legal-content {
+  flex: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-3xl) var(--space-xl);
+}
+
+.legal-content h1 {
+  font-size: var(--text-3xl);
+  color: var(--text-primary);
+  margin-bottom: var(--space-lg);
+}
+
+.legal-content p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-md);
+}
+
+.legal-content a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.legal-content a:hover {
+  color: var(--text-primary);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-xl);
+  transition: color var(--transition-fast);
+}
+
+.back-link:hover {
+  color: var(--text-primary);
+}
+
 /* ========== SITE FOOTER (Ortak - Tüm Sayfalar) ========== */
 /* Landing page footer baz alındı - ortalanmış dikey düzen */
 .site-footer {
@@ -526,7 +581,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .site-footer-brand {
@@ -580,7 +635,8 @@ body {
 
 .site-footer-links {
   display: flex;
-  gap: var(--space-xl);
+  align-items: center;
+  gap: 0;
 }
 
 .site-footer-links a {
@@ -588,6 +644,19 @@ body {
   text-decoration: none;
   font-size: var(--text-sm);
   transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+}
+
+.site-footer-links a::before {
+  content: '·';
+  margin: 0 var(--space-sm);
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.site-footer-links a:first-child::before {
+  display: none;
 }
 
 .site-footer-links a:hover {
@@ -607,6 +676,42 @@ body {
 .site-footer-meta {
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+.site-footer-meta a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.site-footer-meta a:hover {
+  color: var(--text-primary);
+}
+
+.site-footer-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  transition: color var(--transition-fast);
+}
+
+.site-footer-contact:hover {
+  color: var(--text-primary);
+}
+
+.site-footer-contact svg {
+  opacity: 0.7;
+}
+
+/* Footer Mobile Responsive */
+@media (max-width: 640px) {
+  .site-footer-links {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 /* ========== SHARED BUTTONS (Ortak - Tüm Sayfalar) ========== */
