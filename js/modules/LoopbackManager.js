@@ -127,23 +127,30 @@ class LoopbackManager {
     this.pc1 = new RTCPeerConnection({ iceServers: [] });
     this.pc2 = new RTCPeerConnection({ iceServers: [] });
 
+    // ICE candidate handler'lari - cleanup sirasinda gec gelen candidate'ler icin guard
     this.pc1.onicecandidate = (e) => {
-      if (e.candidate) {
+      if (e.candidate && this.pc2 && !this._isCleaningUp) {
         this.pc2.addIceCandidate(e.candidate).catch(err => {
-          eventBus.emit('log:warning', {
-            message: 'ICE candidate hatasi (pc2)',
-            details: { error: err.message }
-          });
+          // Cleanup sirasinda hata normal - sessizce atla
+          if (!this._isCleaningUp) {
+            eventBus.emit('log:warning', {
+              message: 'ICE candidate hatasi (pc2)',
+              details: { error: err.message }
+            });
+          }
         });
       }
     };
     this.pc2.onicecandidate = (e) => {
-      if (e.candidate) {
+      if (e.candidate && this.pc1 && !this._isCleaningUp) {
         this.pc1.addIceCandidate(e.candidate).catch(err => {
-          eventBus.emit('log:warning', {
-            message: 'ICE candidate hatasi (pc1)',
-            details: { error: err.message }
-          });
+          // Cleanup sirasinda hata normal - sessizce atla
+          if (!this._isCleaningUp) {
+            eventBus.emit('log:warning', {
+              message: 'ICE candidate hatasi (pc1)',
+              details: { error: err.message }
+            });
+          }
         });
       }
     };
@@ -352,6 +359,8 @@ class LoopbackManager {
     this.lastBytesSent = 0;
     this.lastStatsTimestamp = Date.now();
     let statsErrorCount = 0;
+    let measurementCount = 0;
+    const GRACE_MEASUREMENTS = 3; // Ilk 3 olcum (6 saniye) - ramp-up periyodu
 
     this.statsInterval = setInterval(async () => {
       // Race condition guard: cleanup sırasında veya pc1 yoksa çık
@@ -380,6 +389,7 @@ class LoopbackManager {
           const actualKbps = (actualBitrate / 1000).toFixed(1);
           const requestedKbps = (requestedBitrate / 1000).toFixed(0);
 
+          // Stats event'i her zaman emit et (UI icin)
           eventBus.emit('loopback:stats', {
             requestedBitrate,
             actualBitrate,
@@ -387,12 +397,17 @@ class LoopbackManager {
             actualKbps
           });
 
-          const deviation = Math.abs(actualBitrate - requestedBitrate) / requestedBitrate;
-          if (deviation > 0.5) {
-            eventBus.emit('log:warning', {
-              message: `WebRTC bitrate sapmasi: Istenen ${requestedKbps}kbps, Gercek ~${actualKbps}kbps`,
-              details: { requestedBitrate, actualBitrate, deviation: (deviation * 100).toFixed(0) + '%' }
-            });
+          // Sapma uyarisi: Ramp-up periyodundan sonra kontrol et
+          // NOT: Baslangicta ve DTX/sessizlik sirasinda sapma normal
+          measurementCount++;
+          if (measurementCount > GRACE_MEASUREMENTS) {
+            const deviation = Math.abs(actualBitrate - requestedBitrate) / requestedBitrate;
+            if (deviation > 0.5) {
+              eventBus.emit('log:warning', {
+                message: `WebRTC bitrate sapmasi: Istenen ${requestedKbps}kbps, Gercek ~${actualKbps}kbps`,
+                details: { requestedBitrate, actualBitrate, deviation: (deviation * 100).toFixed(0) + '%' }
+              });
+            }
           }
         }
 

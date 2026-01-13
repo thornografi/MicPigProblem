@@ -5,7 +5,7 @@
  */
 
 import { PROFILES, SETTINGS } from './Config.js';
-import { formatTime, needsBufferSetting } from './utils.js';
+import { formatTime, needsBufferSetting, shouldDisableTimeslice } from './utils.js';
 
 /**
  * UIStateManager class - UI durumlarini yonetir
@@ -284,8 +284,9 @@ class UIStateManager {
     // Bitrate selector - profil kilidi + loopback OFF ise disabled
     this.radioGroups.bitrate.forEach(r => r.disabled = shouldBeDisabled('bitrate') || !isLoopbackOn);
 
-    // Timeslice selector - profil kilidi + loopback ON ise disabled
-    this.radioGroups.timeslice.forEach(r => r.disabled = shouldBeDisabled('timeslice') || isLoopbackOn);
+    // Timeslice selector - profil kilidi + MediaRecorder kullanilmiyorsa disabled (DRY helper)
+    const selectedEncoder = document.querySelector('input[name="encoder"]:checked')?.value || 'mediarecorder';
+    this.radioGroups.timeslice.forEach(r => r.disabled = shouldBeDisabled('timeslice') || shouldDisableTimeslice(isLoopbackOn, selectedEncoder));
 
     // MediaBitrate selector - profil kilidi + loopback ON ise disabled
     this.radioGroups.mediaBitrate.forEach(r => r.disabled = shouldBeDisabled('mediaBitrate') || isLoopbackOn);

@@ -40,4 +40,17 @@ Her kategori icin `log:<category>` event'i dinlenir.
 - Monitor delay degeri eksik/hatali mi
 - Web Audio Pipeline pasifken mode uyumsuzlugu
 - Stream start/stop dengesi
+- `PIPELINE_LABEL_MISMATCH`: Loopback aktifken pipelineDesc "WebRTC Loopback" icermeli
+
+### Severity Seviyeleri
+
+| Kod | Severity | Aciklama |
+|-----|----------|----------|
+| `RECORDING_ACTIVE` | `info` | Check sirasinda kayit devam ediyor (normal) |
+| `MONITORING_ACTIVE` | `info` | Check sirasinda monitoring devam ediyor (normal) |
+| `STREAM_BALANCE_NONZERO` | `warn` | Start/stop dengesi bozuk |
+| `PIPELINE_LABEL_MISMATCH` | `warn` | Loopback label tutarsizligi |
+| `MONITOR_MODE_MISMATCH` | `error` | WebAudio pasifken mode hatasi |
+
+**Not:** `runSanityChecks()` aktif session sirasinda cagrilabilir. Bu durumda `RECORDING_ACTIVE` / `MONITORING_ACTIVE` hata degil, bilgi amaclidir.
 

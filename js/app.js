@@ -436,7 +436,10 @@ RadioGroupHandler.attachGroups({
     radios: encoderRadios,
     labels: { mediarecorder: 'MediaRecorder', 'wasm-opus': 'WASM Opus' },
     logCategory: 'log:webaudio',
-    onChange: (encoder) => syncToCustomPanel('encoder', encoder)  // DRY: Custom Panel sync
+    onChange: (encoder) => {
+      syncToCustomPanel('encoder', encoder);  // DRY: Custom Panel sync
+      updateAllStates();  // Encoder degisince timeslice durumunu guncelle (MediaRecorder bagimliligi)
+    }
   },
 
   // Buffer Size

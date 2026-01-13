@@ -6,7 +6,7 @@
 
 import eventBus from './EventBus.js';
 import { PROFILES, SETTINGS, PROFILE_TIPS } from './Config.js';
-import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder } from './utils.js';
+import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder, shouldDisableTimeslice } from './utils.js';
 
 /**
  * ProfileController class - Profil islemlerini yonetir
@@ -242,8 +242,9 @@ class ProfileController {
     // Kural 3: loopback OFF -> bitrate kilitle (WebRTC yoksa Opus bitrate anlamsiz)
     this.callbacks.setSettingDisabled('bitrate', !loopback);
 
-    // Kural 4: loopback ON -> timeslice kilitle (WebRTC monitoring modunda chunk anlamsiz)
-    this.callbacks.setSettingDisabled('timeslice', loopback);
+    // Kural 4: MediaRecorder kullanilmiyorsa timeslice kilitle (DRY helper)
+    const encoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
+    this.callbacks.setSettingDisabled('timeslice', shouldDisableTimeslice(loopback, encoder));
 
     // Kural 5: Encoder kilitleme - pipeline tipine gore
     // Worklet/ScriptProcessor -> WASM Opus (PCM erisimi var)
@@ -286,12 +287,13 @@ class ProfileController {
     if (!customSettingsGrid) return;
 
     const pipeline = this.callbacks.getRadioValue('pipeline', 'standard');
+    const encoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
     const loopbackOn = loopbackToggle?.checked ?? false;
     const dynamicLockMap = {
       buffer: !needsBufferSetting(pipeline),  // Sadece ScriptProcessor pipeline'da editable
       mediaBitrate: loopbackOn,            // Loopback ON -> disabled
       bitrate: !loopbackOn,                // Loopback OFF -> disabled
-      timeslice: loopbackOn                // Loopback ON -> disabled
+      timeslice: shouldDisableTimeslice(loopbackOn, encoder)  // DRY helper
     };
 
     Object.entries(dynamicLockMap).forEach(([key, isLocked]) => {

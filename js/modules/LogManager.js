@@ -384,7 +384,7 @@ class LogManager {
 
       // UI aksiyon loglari - detayi kontrol et
       if (category === 'stream' && message === 'Monitor Baslat butonuna basildi') {
-        const { webAudioEnabled, loopbackEnabled, monitorMode, pipeline } = details;
+        const { webAudioEnabled, loopbackEnabled, monitorMode, pipeline, pipelineDesc } = details;
         if (webAudioEnabled === false && monitorMode && monitorMode !== 'direct') {
           addIssue('error', 'MONITOR_MODE_MISMATCH', 'WebAudio Pipeline PASIF iken monitorMode direct degil', {
             webAudioEnabled,
@@ -393,9 +393,12 @@ class LogManager {
             loopbackEnabled
           });
         }
-        if (loopbackEnabled === true && typeof pipeline === 'string' && !pipeline.includes('WebRTC Loopback')) {
-          addIssue('warn', 'PIPELINE_LABEL_MISMATCH', 'Loopback aktif ama pipeline label WebRTC Loopback icermiyor', {
-            pipeline
+        // NOT: pipeline degiskeni direct/standard/worklet gibi degerler alir
+        // pipelineDesc ise "WebRTC Loopback + ..." seklinde aciklama icerir
+        if (loopbackEnabled === true && typeof pipelineDesc === 'string' && !pipelineDesc.includes('WebRTC Loopback')) {
+          addIssue('warn', 'PIPELINE_LABEL_MISMATCH', 'Loopback aktif ama pipelineDesc WebRTC Loopback icermiyor', {
+            pipeline,
+            pipelineDesc
           });
         }
       }
@@ -455,11 +458,13 @@ class LogManager {
       }
     }
 
+    // NOT: runSanityChecks() aktif session sirasinda cagrilabilir
+    // Bu durumda aktif kayit/monitor normal bir durumdur, hata degil
     if (recordingActive) {
-      addIssue('warn', 'RECORDING_STILL_ACTIVE', 'Session sonunda kayit aktif gorunuyor (durdur event kacmis olabilir)', {});
+      addIssue('info', 'RECORDING_ACTIVE', 'Kayit aktif (check sirasinda devam ediyor)', {});
     }
     if (monitoringActive) {
-      addIssue('warn', 'MONITORING_STILL_ACTIVE', 'Session sonunda monitoring aktif gorunuyor (durdur event kacmis olabilir)', {});
+      addIssue('info', 'MONITORING_ACTIVE', 'Monitoring aktif (check sirasinda devam ediyor)', {});
     }
     if (streamBalance !== 0) {
       addIssue('warn', 'STREAM_BALANCE_NONZERO', 'Session sonunda stream baslat/durdur dengesi sifir degil', { streamBalance });

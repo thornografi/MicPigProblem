@@ -69,12 +69,42 @@ Sabitler: `js/modules/constants.js` → `SIGNAL.MAX_WAIT_MS` (2000), `SIGNAL.POL
 
 **Not:** Loopback recording kaldirildi. Loopback sadece monitoring (call kategorisi) icin kullanilir.
 
+## Bitrate Monitoring
+
+`startStatsPolling()` WebRTC getStats ile gercek bitrate olcer.
+
+**Grace Period:** Ilk 3 olcum (6 saniye) boyunca sapma uyarisi verilmez. Bunun nedeni:
+- WebRTC baslangicta ramp-up yapar
+- DTX (Discontinuous Transmission) sessizlikte dusuk bitrate kullanir
+- Baslangic sapmasi normal davranis
+
+Sapma esigi: `> %50` → `log:warning` emit edilir
+
+## Cleanup & Race Condition
+
+`_isCleaningUp` flag'i race condition onlemek icin kullanilir:
+- ICE candidate handler'larinda: cleanup sirasinda gec gelen candidate'ler sessizce atlanir
+- Stats polling'de: cleanup sirasinda interval otomatik durur
+- Tum async islemler bu flag'i kontrol eder
+
+```javascript
+// ICE handler pattern
+if (e.candidate && this.pc2 && !this._isCleaningUp) {
+  this.pc2.addIceCandidate(e.candidate).catch(err => {
+    if (!this._isCleaningUp) {
+      // Sadece cleanup degilse warning ver
+    }
+  });
+}
+```
+
 ## Debug Checklist
 
 - ICE state `connected/completed` mi? (timeout: `LOOPBACK.ICE_WAIT_MS` = 10000ms)
 - `ontrack` ile gelen stream `active=true` mi?
 - Remote track `muted`/`readyState` ne?
 - Monitor graph log'u delay'i gosteriyor mu (`delaySeconds: DELAY.DEFAULT_SECONDS`)?
+- Bitrate sapmasi var mi? (ilk 6sn normal, sonrasi kontrol edilir)
 
 ## Tum Sabitler (js/modules/constants.js)
 

@@ -46,22 +46,24 @@ export async function requestStream(constraints = {}) {
     eventBus.emit('log', `  - channelCount: ${settings.channelCount || 'N/A'}`);
 
     // Constraint mismatch kontrolu - istenen vs gercek
+    // NOT: Bazi tarayicilar (Safari, mobile) constraint degerlerini raporlamiyor (undefined doner)
+    // Bu durumda yanlis pozitif onlemek icin actual !== undefined kontrolu eklendi
     const mismatches = [];
-    if (merged.echoCancellation !== undefined && settings.echoCancellation !== merged.echoCancellation) {
+    if (merged.echoCancellation !== undefined && settings.echoCancellation !== undefined && settings.echoCancellation !== merged.echoCancellation) {
       mismatches.push({ name: 'echoCancellation', requested: merged.echoCancellation, actual: settings.echoCancellation });
     }
-    if (merged.noiseSuppression !== undefined && settings.noiseSuppression !== merged.noiseSuppression) {
+    if (merged.noiseSuppression !== undefined && settings.noiseSuppression !== undefined && settings.noiseSuppression !== merged.noiseSuppression) {
       mismatches.push({ name: 'noiseSuppression', requested: merged.noiseSuppression, actual: settings.noiseSuppression });
     }
-    if (merged.autoGainControl !== undefined && settings.autoGainControl !== merged.autoGainControl) {
+    if (merged.autoGainControl !== undefined && settings.autoGainControl !== undefined && settings.autoGainControl !== merged.autoGainControl) {
       mismatches.push({ name: 'autoGainControl', requested: merged.autoGainControl, actual: settings.autoGainControl });
     }
     // sampleRate mismatch kontrolu
-    if (merged.sampleRate !== undefined && settings.sampleRate && settings.sampleRate !== merged.sampleRate) {
+    if (merged.sampleRate !== undefined && settings.sampleRate !== undefined && settings.sampleRate !== merged.sampleRate) {
       mismatches.push({ name: 'sampleRate', requested: merged.sampleRate, actual: settings.sampleRate });
     }
     // channelCount mismatch kontrolu
-    if (merged.channelCount !== undefined && settings.channelCount && settings.channelCount !== merged.channelCount) {
+    if (merged.channelCount !== undefined && settings.channelCount !== undefined && settings.channelCount !== merged.channelCount) {
       mismatches.push({ name: 'channelCount', requested: merged.channelCount, actual: settings.channelCount });
     }
 

@@ -193,6 +193,17 @@ export function supportsWasmOpusEncoder(pipeline) {
 }
 
 /**
+ * Timeslice ayarinin disabled olmasi gerekip gerekmedigi
+ * MediaRecorder kullanilmiyorsa timeslice anlamsiz
+ * @param {boolean} loopbackOn - Loopback toggle durumu
+ * @param {string} encoder - Encoder tipi
+ * @returns {boolean} - true ise disabled olmali
+ */
+export function shouldDisableTimeslice(loopbackOn, encoder) {
+  return loopbackOn || !usesMediaRecorder(encoder);
+}
+
+/**
  * SettingTypeHandlers - OCP uyumlu setting type registry
  * Yeni tip eklemek icin sadece register() cagirmak yeterli
  *

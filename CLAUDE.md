@@ -117,13 +117,16 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 | DOM visibility | `toggleDisplay(el, show)` | `toggleDisplay(panel, true, 'flex')` |
 | Zaman format | `formatTime(seconds)` | `formatTime(125)` → "2:05" |
 
-### Pipeline Helper'lari (utils.js)
+### Pipeline & Encoder Helper'lari (utils.js)
 
 | Helper | Amac |
 |--------|------|
 | `needsBufferSetting(pipeline)` | Buffer ayari gerekli mi? |
 | `usesWebAudio(pipeline)` | WebAudio kullaniyor mu? |
 | `supportsWasmOpusEncoder(pipeline)` | WASM Opus destekler mi? |
+| `usesMediaRecorder(encoder)` | MediaRecorder kullaniyor mu? |
+| `usesWasmOpus(encoder)` | WASM Opus kullaniyor mu? |
+| `shouldDisableTimeslice(loopback, encoder)` | Timeslice disabled olmali mi? |
 
 ### Anti-Pattern (YAPMA)
 

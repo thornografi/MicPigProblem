@@ -98,7 +98,7 @@ class VuMeter {
 
     this.update();
 
-    eventBus.emit('log:vumeter', {
+    eventBus.emit('log:audio', {
       message: 'VU Meter: Pipeline analyser baglandi',
       details: { fftSize: analyserNode.fftSize, source: 'pipeline' }
     });
