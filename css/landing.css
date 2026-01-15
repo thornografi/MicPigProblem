@@ -156,7 +156,7 @@
 
 /* Mikrofon hover olunca buton da hover gibi görünsün */
 .hero-buttons .btn--primary.mic-hover-active {
-  transform: translateY(-2px);
+  transform: translateY(-2.4px);
   box-shadow: var(--shadow-glow-orange);
 }
 
@@ -186,8 +186,8 @@
 /* Hero Visual - mikrofon ikonu ve dalga efektinin merkezi */
 .hero-visual {
   position: relative;
-  width: clamp(86px, 8.5vw, 115px);
-  height: clamp(86px, 8.5vw, 115px);
+  width: clamp(74.2px, 7.33vw, 99.2px);
+  height: clamp(74.2px, 7.33vw, 99.2px);
   overflow: visible;
   isolation: isolate;
 }
@@ -216,7 +216,7 @@
 }
 
 .hero-mic-icon:hover {
-  transform: scale(0.972);
+  transform: scale(0.9864);
 }
 
 .hero-mic-circle {
@@ -259,8 +259,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 300%;
-  height: 300%;
+  width: 225%;
+  height: 225%;
   pointer-events: none;
   /* opacity parent'ta değil, child'larda kontrol edilmeli - animasyon çalışsın */
   z-index: 1;
@@ -299,8 +299,8 @@
     opacity: 0.71;
   }
   100% {
-    width: 274px;
-    height: 274px;
+    width: 205.5px;
+    height: 205.5px;
     opacity: 0;
   }
 }
