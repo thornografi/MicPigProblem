@@ -59,9 +59,9 @@ export const SETTINGS = {
     category: 'pipeline',
     labels: {
       direct: 'Direct (No Web Audio)',
-      standard: 'Standard (Web Audio)',
-      scriptprocessor: 'ScriptProcessorNode',
-      worklet: 'AudioWorklet'
+      standard: 'Direct (WebAudio)',
+      scriptprocessor: 'ScriptProcessorNode (WebAudio)',
+      worklet: 'Worklet (WebAudio)'
     },
     ui: { type: 'radio', name: 'pipeline' }
   },
@@ -241,8 +241,8 @@ export const PROFILES = {
       allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
 
   'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + WASM Opus - legacy web recording simulation',
-    'history', 'record', { pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 1024, timeslice: 1000, loopback: false },
-    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'timeslice', 'mediaBitrate'] }),
+    'history', 'record', { pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 1024, loopback: false },
+    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'mediaBitrate'] }),
     // allowedValues yok = tum degerler izinli
 
   'raw': createProfile('raw', 'Raw Recording', 'All filters off, all settings unlocked - for testing and comparison',

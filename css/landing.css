@@ -45,7 +45,7 @@
 }
 
 .navbar-title {
-  font-size: var(--text-xl);
+  font-size: var(--fs-xl);
   font-weight: 600;
   color: var(--brand-text-color);
 }
@@ -59,7 +59,7 @@
 .navbar-link {
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   font-weight: 500;
   transition: color var(--transition-fast);
 }
@@ -71,7 +71,7 @@
 /* Navbar CTA - .btn--primary'den miras, sadece boyut farkı */
 .navbar-cta {
   padding: var(--space-sm) var(--space-lg);
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
 }
 
 .navbar-cta svg {
@@ -305,6 +305,13 @@
   }
 }
 
+/* ========== ANCHOR SCROLL OFFSET ========== */
+/* Fixed navbar için scroll offset */
+.features,
+.how-it-works {
+  scroll-margin-top: calc(var(--navbar-height) * 1.4 + var(--space-xl));
+}
+
 /* ========== FEATURES SECTION ========== */
 .features {
   padding: var(--space-4xl) var(--space-xl);
@@ -322,7 +329,7 @@
   background: var(--label-bg);
   /* border kaldırıldı - daha temiz görünüm */
   border-radius: var(--label-radius);
-  font-size: var(--text-xs);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -339,7 +346,7 @@
 }
 
 .section-subtitle {
-  font-size: var(--text-lg);
+  font-size: var(--fs-btn);
   color: var(--text-secondary);
   max-width: 640px;
   margin: 0 auto;
@@ -393,7 +400,7 @@
 }
 
 .feature-title {
-  font-size: var(--text-xl);
+  font-size: var(--fs-xl);
   font-weight: 600;
   margin-bottom: var(--space-md);
   color: var(--text-primary);
@@ -401,7 +408,7 @@
 }
 
 .feature-description {
-  font-size: var(--text-base);
+  font-size: var(--fs-lg);
   color: var(--text-secondary);
   line-height: 1.65;
   opacity: 0.85;
@@ -437,7 +444,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-xl);
+  font-size: var(--fs-xl);
   font-weight: 700;
   color: white;
   margin-bottom: var(--space-lg);
@@ -446,7 +453,7 @@
 }
 
 .step-title {
-  font-size: var(--text-xl);
+  font-size: var(--fs-xl);
   font-weight: 600;
   margin-bottom: var(--space-md);
   color: var(--text-primary);
@@ -454,7 +461,7 @@
 }
 
 .step-description {
-  font-size: var(--text-base);
+  font-size: var(--fs-lg);
   color: var(--text-secondary);
   line-height: 1.65;
   opacity: 0.85;

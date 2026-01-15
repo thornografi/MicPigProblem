@@ -464,6 +464,12 @@
                       <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                       <span class="btn-text">Monitor</span>
                     </button>
+                    <button id="testBtn" class="btn btn-action btn-test always-active" title="7 second loopback test">
+                      <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                      <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                      <span class="btn-text">Test</span>
+                      <span class="test-countdown" id="testCountdown"></span>
+                    </button>
                   </div>
 
                   <div id="recordingTimer" class="recording-timer">0:00</div>
@@ -641,10 +647,8 @@
               <div class="segment-control" id="sampleRateSelector">
                 <input type="radio" name="sampleRate" id="sr16" value="16000">
                 <label for="sr16" class="segment-btn">16 kHz</label>
-                <input type="radio" name="sampleRate" id="sr22" value="22050">
-                <label for="sr22" class="segment-btn">22 kHz</label>
-                <input type="radio" name="sampleRate" id="sr44" value="44100">
-                <label for="sr44" class="segment-btn">44.1 kHz</label>
+                <input type="radio" name="sampleRate" id="sr24" value="24000">
+                <label for="sr24" class="segment-btn">24 kHz</label>
                 <input type="radio" name="sampleRate" id="sr48" value="48000" checked>
                 <label for="sr48" class="segment-btn">48 kHz</label>
               </div>
@@ -679,11 +683,11 @@
                 <input type="radio" name="pipeline" id="pipelineDirect" value="direct">
                 <label for="pipelineDirect" class="segment-btn">Direct</label>
                 <input type="radio" name="pipeline" id="pipelineStandard" value="standard" checked>
-                <label for="pipelineStandard" class="segment-btn">Standard</label>
+                <label for="pipelineStandard" class="segment-btn">Direct (WebAudio)</label>
                 <input type="radio" name="pipeline" id="pipelineScript" value="scriptprocessor">
-                <label for="pipelineScript" class="segment-btn">ScriptProcessor</label>
+                <label for="pipelineScript" class="segment-btn">ScriptProcessor (WebAudio)</label>
                 <input type="radio" name="pipeline" id="pipelineWorklet" value="worklet">
-                <label for="pipelineWorklet" class="segment-btn">Worklet</label>
+                <label for="pipelineWorklet" class="segment-btn">Worklet (WebAudio)</label>
               </div>
             </div>
 
@@ -745,6 +749,10 @@
                 <span>Opus Bitrate (WebRTC)</span>
               </div>
               <div class="segment-control" id="bitrateSelector">
+                <input type="radio" name="bitrate" id="bitrate16" value="16000">
+                <label for="bitrate16" class="segment-btn">16 kbps</label>
+                <input type="radio" name="bitrate" id="bitrate24" value="24000">
+                <label for="bitrate24" class="segment-btn">24 kbps</label>
                 <input type="radio" name="bitrate" id="bitrate32" value="32000">
                 <label for="bitrate32" class="segment-btn">32 kbps</label>
                 <input type="radio" name="bitrate" id="bitrate48" value="48000">
@@ -755,6 +763,10 @@
                 <label for="bitrate96" class="segment-btn">96 kbps</label>
                 <input type="radio" name="bitrate" id="bitrate128" value="128000">
                 <label for="bitrate128" class="segment-btn">128 kbps</label>
+                <input type="radio" name="bitrate" id="bitrate256" value="256000">
+                <label for="bitrate256" class="segment-btn">256 kbps</label>
+                <input type="radio" name="bitrate" id="bitrate384" value="384000">
+                <label for="bitrate384" class="segment-btn">384 kbps</label>
               </div>
             </div>
 
@@ -772,6 +784,10 @@
                 <label for="mediaBitrate24" class="segment-btn">24 kbps</label>
                 <input type="radio" name="mediaBitrate" id="mediaBitrate32" value="32000">
                 <label for="mediaBitrate32" class="segment-btn">32 kbps</label>
+                <input type="radio" name="mediaBitrate" id="mediaBitrate64" value="64000">
+                <label for="mediaBitrate64" class="segment-btn">64 kbps</label>
+                <input type="radio" name="mediaBitrate" id="mediaBitrate128" value="128000">
+                <label for="mediaBitrate128" class="segment-btn">128 kbps</label>
               </div>
             </div>
           </div>

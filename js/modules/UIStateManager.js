@@ -16,6 +16,8 @@ class UIStateManager {
     this.elements = {
       recordToggleBtn: null,
       monitorToggleBtn: null,
+      testBtn: null,
+      testCountdownEl: null,
       loopbackToggle: null,
       ecCheckbox: null,
       nsCheckbox: null,
@@ -133,14 +135,24 @@ class UIStateManager {
     const isIdle = currentMode === null;
     const isRecording = currentMode === 'recording';
     const isMonitoring = currentMode === 'monitoring';
+    const isTestRecording = currentMode === 'test-recording';
+    const isTestPlayback = currentMode === 'test-playback';
+    const isTesting = isTestRecording || isTestPlayback;
 
     // Global UI state - CSS whitelist yaklaşımı için
-    // body[data-app-state="recording/monitoring"] tüm interactive elementleri disable eder
-    document.body.dataset.appState = isIdle ? 'idle' : (isRecording ? 'recording' : 'monitoring');
+    // body[data-app-state="recording/monitoring/testing"] tüm interactive elementleri disable eder
+    const appState = isIdle ? 'idle'
+      : isRecording ? 'recording'
+      : isMonitoring ? 'monitoring'
+      : isTesting ? 'testing'
+      : 'idle';
+    document.body.dataset.appState = appState;
 
     const {
       recordToggleBtn,
       monitorToggleBtn,
+      testBtn,
+      testCountdownEl,
       loopbackToggle,
       ecCheckbox,
       nsCheckbox,
@@ -165,13 +177,36 @@ class UIStateManager {
     recordToggleBtn?.classList.toggle('preparing', isPreparing && !isMonitoring);
     monitorToggleBtn?.classList.toggle('preparing', isPreparing && !isRecording);
 
-    // Monitoring sirasinda kayit butonunu disable et ve tersi
+    // Monitoring/Testing sirasinda kayit butonunu disable et ve tersi
     // Preparing state'de de butonlar disabled
-    if (recordToggleBtn) recordToggleBtn.disabled = isMonitoring || isPreparing;
-    if (monitorToggleBtn) monitorToggleBtn.disabled = isRecording || isPreparing;
+    if (recordToggleBtn) recordToggleBtn.disabled = isMonitoring || isTesting || isPreparing;
+    if (monitorToggleBtn) monitorToggleBtn.disabled = isRecording || isTesting || isPreparing;
 
-    // Aktif islem sirasinda kayit tarafini tamamen kilitle (recording VEYA monitoring)
-    const disableRecordingUi = isMonitoring || isRecording;
+    // Test butonu state'leri
+    if (testBtn) {
+      // Test sirasinda aktif, diger islemlerde disabled
+      testBtn.classList.toggle('recording', isTestRecording);
+      testBtn.classList.toggle('playback', isTestPlayback);
+      testBtn.classList.toggle('preparing', isPreparing && !isRecording && !isMonitoring);
+      testBtn.disabled = isRecording || isMonitoring || isPreparing;
+
+      // Test buton text
+      const testBtnText = testBtn.querySelector('.btn-text');
+      if (testBtnText) {
+        if (isPreparing && !isRecording && !isMonitoring) {
+          testBtnText.textContent = 'Preparing...';
+        } else if (isTestRecording) {
+          testBtnText.textContent = 'Stop Test';
+        } else if (isTestPlayback) {
+          testBtnText.textContent = 'Stop';
+        } else {
+          testBtnText.textContent = 'Test';
+        }
+      }
+    }
+
+    // Aktif islem sirasinda kayit tarafini tamamen kilitle (recording VEYA monitoring VEYA testing)
+    const disableRecordingUi = isMonitoring || isRecording || isTesting;
     pipelineContainer?.classList.toggle('ui-disabled', !isIdle);
     encoderContainer?.classList.toggle('ui-disabled', !isIdle);
     timesliceContainer?.classList.toggle('ui-disabled', disableRecordingUi);

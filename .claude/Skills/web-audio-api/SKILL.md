@@ -109,7 +109,6 @@ ms.addEventListener('sourceopen', () => {
 ```
 - `decodeAudioData` partial blob'u decode edemez
 - `sb.updating` kontrolu sart (QuotaExceededError)
-- Detay: `js/modules/Monitor.js` (startCodecSimulated)
 
 ## Temizlik
 

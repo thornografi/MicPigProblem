@@ -209,7 +209,7 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: var(--space-sm-plus) var(--space-md);
+  padding: 10px var(--space-md);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -416,8 +416,8 @@
 .status {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs-plus);
-  padding: var(--space-xs) var(--space-md-minus);
+  gap: 6px;
+  padding: var(--space-xs) 12px;
   border-radius: var(--label-radius);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -547,7 +547,7 @@
 .unified-tips {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm-plus);
+  gap: 10px;
   padding-left: var(--space-lg);
   border-left: 1px solid var(--glass-border);
   /* Grid ile esit bolunecek - sabit genislik yok */
@@ -747,11 +747,6 @@
   }
 }
 
-/* Player Row - border/padding adjacent sibling pattern ile yönetiliyor */
-.unified-row-player {
-  /* layout-specific styles only */
-}
-
 .unified-row-player .recording-player {
   width: 100%;
 }
@@ -941,8 +936,7 @@
 /* Layout only - sadece yerleşim */
 .button-row {
   display: flex;
-  gap: var(--space-sm);
-  justify-content: center;
+  gap: var(--space-xl);
   align-items: center;
 }
 
@@ -981,7 +975,6 @@
 /* .btn'den miras: display, align-items, justify-content, gap */
 .btn-action {
   flex: 1;
-  min-width: 140px;
   /* Sabit yükseklik - ikon boyutundan bağımsız tutarlılık */
   min-height: var(--btn-action-height);
   background: var(--gradient-neon-circle);
@@ -1046,6 +1039,81 @@
 .btn-monitor.active .icon-play { display: none; }
 .btn-monitor.active .icon-stop { display: block; }
 
+/* ========== TEST BUTTON (Variant) ========== */
+/* Test butonu - 7sn loopback test */
+.btn-test {
+  position: relative;
+}
+
+/* Test ikonu toggle */
+.btn-test .icon-stop { display: none; }
+.btn-test.recording .icon-play { display: none; }
+.btn-test.recording .icon-stop { display: block; }
+.btn-test.playback .icon-play { display: none; }
+.btn-test.playback .icon-stop { display: block; }
+
+/* Test recording state - neon aktif */
+.btn-test.recording {
+  background: var(--gradient-neon-circle);
+  color: white;
+  box-shadow: 0 0 25px rgba(var(--color-pink-rgb), 0.5),
+              0 0 45px rgba(var(--color-purple-rgb), 0.35);
+}
+
+/* Test playback state - pulse animasyonu */
+.btn-test.playback {
+  background: var(--gradient-neon-circle);
+  color: white;
+  animation: test-playback-pulse 1s ease-in-out infinite;
+}
+
+@keyframes test-playback-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(var(--color-pink-rgb), 0.4),
+                0 0 30px rgba(var(--color-purple-rgb), 0.25);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(var(--color-pink-rgb), 0.6),
+                0 0 50px rgba(var(--color-purple-rgb), 0.4);
+  }
+}
+
+/* Test preparing state */
+.btn-test.preparing {
+  background: var(--gradient-neon-circle);
+  color: white;
+  cursor: wait;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.btn-test.preparing .icon-play { display: none; }
+.btn-test.preparing .icon-stop { display: none; }
+
+/* Test countdown badge - sağ üst köşe */
+.test-countdown {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--accent-danger);
+  color: white;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  border-radius: 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.5);
+  z-index: 1;
+}
+
+.btn-test.recording .test-countdown {
+  display: flex;
+}
 
 /* ========== RECORDING TIMER ========== */
 /* Sadece sayac - buton gorunumu kaldirildi */
@@ -1238,7 +1306,7 @@
 .profile-badge {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-xs-plus) 14px;
+  padding: 6px 14px;
   background: var(--gradient-accent-mid);
   border: 1px solid rgba(var(--color-orange-rgb), 0.25);
   border-radius: var(--radius-full);
@@ -1412,7 +1480,7 @@
 
 .player-progress-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr var(--player-time-width);
   grid-template-rows: auto auto;
   gap: var(--space-xs) var(--space-md);
   align-items: center;
@@ -1449,28 +1517,28 @@
 .player-time {
   grid-column: 2;
   grid-row: 1;
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   color: var(--text-muted);
-  min-width: 80px;
-  text-align: right;
-  padding-right: var(--space-md);
+  text-align: center;
   font-family: var(--font-mono);
   font-weight: 500;
+  padding: 0;
 }
 
 .btn-download {
   grid-column: 2;
   grid-row: 2;
-  justify-self: end;
+  width: 100%;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
   background: var(--bg-input);
   color: var(--text-primary);
   text-decoration: none;
   border-radius: var(--radius-md);
-  font-size: var(--fs-md);
+  font-size: var(--fs-xs);
   font-weight: 500;
   transition: all var(--transition-fast);
   border: 1px solid var(--border-primary);
@@ -1481,6 +1549,12 @@
   border-color: var(--color-orange);
   color: var(--color-orange);
   box-shadow: 0 0 12px rgba(var(--color-orange-rgb), 0.2);
+}
+
+.btn-download svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
 }
 
 .btn-download.disabled,
@@ -1745,7 +1819,7 @@ body.production .dev-console-toggle-btn {
 
 .btn-filter,
 .btn-export-small {
-  padding: var(--space-xs) var(--space-sm-plus);
+  padding: var(--space-xs) 10px;
   font-size: var(--fs-xs);
   font-weight: 500;
   background: var(--glass-bg);
@@ -1776,7 +1850,7 @@ body.production .dev-console-toggle-btn {
 }
 
 .btn-clear {
-  padding: var(--space-xs) var(--space-md-minus);
+  padding: var(--space-xs) 12px;
   font-size: var(--fs-xs);
   font-weight: 500;
   background: transparent;
@@ -2134,7 +2208,7 @@ body.production .dev-console-toggle-btn {
 
 .segment-btn {
   flex: 1;
-  padding: var(--space-xs-plus) var(--space-sm);
+  padding: 6px var(--space-sm);
   text-align: center;
   font-size: var(--fs-base);
   font-weight: 500;
@@ -2300,6 +2374,7 @@ label.option-disabled::after {
 
   .button-row {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .mic-dropdown {
@@ -2457,7 +2532,7 @@ label.option-disabled::after {
 }
 
 .custom-setting-item select {
-  padding: var(--space-xs-plus) var(--space-md-minus);
+  padding: 6px 12px;
   background: var(--bg-input);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
@@ -2531,12 +2606,20 @@ label.option-disabled::after {
 /* Unified içindeki kontroller */
 .unified-left .mic-selector-row {
   flex: 1;
-  max-width: 750px; /* 1.5x */
+  max-width: 500px;
 }
 
 .unified-left .button-row {
   width: 100%;
   max-width: 500px;
+}
+
+/* Spacer: refresh button ile hizalama için */
+.unified-left .button-row::after {
+  content: '';
+  width: 40px;
+  margin-left: var(--space-sm);
+  flex-shrink: 0;
 }
 
 
@@ -2760,7 +2843,8 @@ label.option-disabled::after {
    Yeni element eklendiginde OTOMATIK disabled olur - kod degisikligi GEREKMEZ */
 
 body[data-app-state="recording"],
-body[data-app-state="monitoring"] {
+body[data-app-state="monitoring"],
+body[data-app-state="testing"] {
   /* Tum interactive elementler disabled (whitelist haric) */
   button:not(.always-active),
   a:not(.always-active),

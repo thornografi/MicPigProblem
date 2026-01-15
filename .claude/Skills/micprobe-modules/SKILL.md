@@ -14,8 +14,7 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." 
 │  CALL Kategorisi (Discord, Zoom, WhatsApp/Telegram Arama)       │
 │  ───────────────────────────────────────────────────────────    │
 │  User clicks Monitor → MonitoringController.start()             │
-│    → LoopbackManager.setup() → WebRTC Loopback                  │
-│    → Monitor.startCodecSimulated() → Kendini duyma (1.7sn)      │
+│    → LoopbackManager.setup() → WebRTC Loopback → Kendini duyma  │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -63,7 +62,7 @@ js/
     ├── LoopbackManager.js       # WebRTC loopback setup
     ├── Recorder.js              # MediaRecorder + Pipeline Strategy
     ├── OpusWorkerHelper.js      # WASM Opus worker yonetimi
-    ├── Monitor.js               # Modlar: direct, standard, worklet, codec-simulated
+    ├── Monitor.js               # Modlar: direct, standard, worklet
     ├── Player.js                # Blob oynatma
     ├── VuMeter.js               # dB gostergesi
     ├── AudioEngine.js           # Ses motoru, AudioContext yonetimi
@@ -106,8 +105,17 @@ import monitoringController from './controllers/MonitoringController.js';
 await monitoringController.toggle();
 await monitoringController.start();  // Sinyal bekler, sonra UI gunceller
 await monitoringController.stop();
+
+// 7 saniyelik loopback test (call kategorisi)
+await monitoringController.toggleTest();
+await monitoringController.startTestRecording();  // Kayit baslar, hoparlor muted
+await monitoringController.stopTestRecording();   // Otomatik playback'e gecer
+await monitoringController.startTestPlayback();   // Kaydi oynatir
+await monitoringController.stopTestPlayback();    // Playback durdurur
+await monitoringController.cancelTest();          // Kayit sirasinda iptal
 ```
 **Emits:** `monitor:started`, `monitor:stopped`, `stream:started`, `stream:stopped`, `loopback:remoteStream`
+**Test Emits:** `test:recording-started`, `test:countdown`, `test:recording-stopped`, `test:playback-started`, `test:playback-stopped`, `test:completed`, `test:cancelled`
 **Ozellik:** `_waitForSignal()` - WebRTC codec hazir olana kadar UI bekler
 
 ### ProfileUIManager
@@ -203,9 +211,6 @@ Modlar:
 - `worklet` → Call kategorisi (WebRTC Loopback + AudioWorklet)
 - `direct`, `standard` → Record kategorisi veya non-loopback monitoring
 - `scriptprocessor` → **SADECE record kategorisi** (legacy profili, raw secenebilir). Call/arama modunda YASAK!
-- `codec-simulated` → Loopback monitoring icin (dahili mod)
-
-**Codec-Simulated:** Mic → MediaRecorder → MediaSource → Audio → DelayNode(1.7s) → Speaker
 
 **Onemli:** ScriptProcessorNode deprecated API'dir ve sadece eski web kayit sitelerini simule etmek icin kullanilir. Call kategorisinde (WebRTC loopback) asla kullanilamaz.
 
@@ -231,6 +236,13 @@ Recording (record):
 Monitoring (call):
   MonitoringController.start() → stream:started → loopback:remoteStream → monitor:started
   MonitoringController.stop()  → monitor:stopped → stream:stopped
+
+Test (call - 7sn loopback test):
+  startTestRecording() → stream:started → loopback:remoteStream → test:recording-started
+                       → test:countdown (her saniye) → stopTestRecording()
+  stopTestRecording()  → test:recording-stopped → stream:stopped → startTestPlayback()
+  startTestPlayback()  → test:playback-started → (playback biter) → test:completed
+  cancelTest()         → stream:stopped → test:cancelled
 ```
 
 ## Gelistirme
@@ -291,6 +303,14 @@ SettingTypeHandlers.register('newType', {
 | `log(msg, details)` | Merkezi log:webaudio emit |
 
 ### constants.js (js/modules/constants.js)
+
+| Sabit | Amac |
+|-------|------|
+| `AUDIO` | FFT_SIZE, MIN_DB, MAX_DB |
+| `DELAY` | DEFAULT_SECONDS (1.7), MAX_SECONDS (3.0) |
+| `TEST` | DURATION_MS (7000) - Test kayit suresi |
+| `SIGNAL` | MAX_WAIT_MS, POLL_INTERVAL_MS, RMS_THRESHOLD |
+| `LOOPBACK` | ICE_WAIT_MS |
 
 | Helper | Amac |
 |--------|------|

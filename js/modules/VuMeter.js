@@ -116,14 +116,27 @@ class VuMeter {
     // Resize handler'i yeniden ekle (DRY)
     this._ensureResizeHandler();
 
-    // AudioEngine'den hazir analyser al (pre-init sayesinde hizli)
+    // Lazy warmup - AudioEngine henuz warmup yapilmamissa yap
+    // Bu yol sadece Loopback/Monitor modunda kullanilir (kayit modunda pipeline analyser kullanilir)
+    if (!audioEngine.isWarmedUp) {
+      await audioEngine.warmup();
+    }
+
+    // AudioEngine'den hazir analyser al
     // Bu yol sadece Loopback modunda kullanilir (Local VU = HAM mikrofon)
     this.analyser = await audioEngine.connectStream(stream);
     this._pipelineDataArray = null; // AudioEngine kendi dataArray'ini kullanir
     this.update();
 
-    // AudioContext bilgisini gonder
+    // AudioContext bilgisini gonder (null kontrol ile)
     const ac = audioEngine.getContext();
+    if (!ac) {
+      eventBus.emit('log:error', {
+        message: 'VuMeter: AudioEngine context hazir degil',
+        details: { isWarmedUp: audioEngine.isWarmedUp }
+      });
+      return;
+    }
     eventBus.emit('vumeter:audiocontext', {
       sampleRate: ac.sampleRate,
       baseLatency: ac.baseLatency,
@@ -197,7 +210,7 @@ class VuMeter {
     this.remotePeakLevel = 0;
   }
 
-  // DRY: RMS hesaplama (update ve updateRemote icin ortak)
+  // DRY: RMS hesaplama (clipping tespiti icin hala kullanilabilir)
   calculateRMS(dataArray) {
     let sum = 0;
     for (let i = 0; i < dataArray.length; i++) {
@@ -205,6 +218,16 @@ class VuMeter {
       sum += val * val;
     }
     return Math.sqrt(sum / dataArray.length);
+  }
+
+  // DRY: Peak hesaplama (update ve updateRemote icin ortak)
+  calculatePeak(dataArray) {
+    let maxSample = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const val = Math.abs((dataArray[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE);
+      if (val > maxSample) maxSample = val;
+    }
+    return maxSample;
   }
 
   update() {
@@ -216,18 +239,13 @@ class VuMeter {
 
     // RMS ve maxSample hesapla
     const rms = this.calculateRMS(dataArray);
-    let maxSample = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const val = Math.abs((dataArray[i] - AUDIO.CENTER_VALUE) / AUDIO.CENTER_VALUE);
-      if (val > maxSample) maxSample = val;
-    }
+    const maxSample = this.calculatePeak(dataArray);
 
-    // dB hesapla (logaritmik skala)
-    // VU_METER.MIN_DB = 0%, 0dB = 100%
+    // dB hesapla - RMS tabanli (yumusak animasyon)
     const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
     const level = Math.max(0, Math.min(100, (dB - VU_METER.MIN_DB) / -VU_METER.MIN_DB * 100));
 
-    // Peak dB (clipping tespiti icin)
+    // Clipping tespiti (peak dB kullan - anlik tepe degeri)
     const peakdB = maxSample > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(maxSample) : VU_METER.MIN_DB;
     const isClipping = peakdB >= VU_METER.CLIPPING_THRESHOLD_DB;
 
@@ -263,7 +281,6 @@ class VuMeter {
       level,
       peak: this.peakLevel,
       dB: dB.toFixed(1),
-      peakdB: peakdB.toFixed(1),
       isClipping
     });
 
@@ -285,10 +302,10 @@ class VuMeter {
     }
     this.remoteAnalyser.getByteTimeDomainData(this.remoteDataArray);
 
-    // DRY: Ortak RMS hesaplama fonksiyonu kullan
+    // DRY: RMS hesaplama (local VU ile tutarli)
     const rms = this.calculateRMS(this.remoteDataArray);
 
-    // dB ve level hesapla
+    // dB ve level hesapla - RMS tabanli (yumusak animasyon)
     const dB = rms > VU_METER.RMS_THRESHOLD ? 20 * Math.log10(rms) : VU_METER.MIN_DB;
     const remoteLevel = Math.max(0, Math.min(100, (dB - VU_METER.MIN_DB) / -VU_METER.MIN_DB * 100));
 
@@ -341,10 +358,6 @@ class VuMeter {
     this.stopRemote();
 
     eventBus.emit('vumeter:stopped');
-  }
-
-  getAudioContext() {
-    return audioEngine.getContext();
   }
 }
 

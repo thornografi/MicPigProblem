@@ -24,10 +24,24 @@ UI, profil yeteneklerini (`canMonitor`, `canRecord`) okuyarak butonlari gosterir
 
 | Profil Tipi | canMonitor | canRecord | UI |
 |-------------|------------|-----------|-----|
-| call | true | false | Sadece Monitor |
+| call | true | false | Monitor + Test butonu |
 | record | false | true | Sadece Kayıt + Player |
 
 Not: Tüm `record` kategorisi profilleri (raw dahil) `canMonitor=false`.
+
+### Test Butonu (call kategorisi)
+
+7 saniyelik loopback test - Skype/Teams "Test your microphone" benzeri:
+
+| State | currentMode | UI Davranisi |
+|-------|-------------|--------------|
+| Idle | `null` | Test butonu "Test" yaziyor |
+| Recording | `test-recording` | Buton "Stop Test", countdown badge (7...1) |
+| Playback | `test-playback` | Buton "Stop", kayit oynatiliyor |
+
+**Body State:** `document.body.dataset.appState = 'testing'` (recording veya playback sirasinda)
+
+**Kilitleme:** Test sirasinda Monitor, Record, profil secimi disabled.
 
 ### Temel Kural
 
@@ -43,10 +57,16 @@ Not: Tüm `record` kategorisi profilleri (raw dahil) `canMonitor=false`.
 - Profil degistiginde drawer (sidebar) artik acilmiyor - ayarlar direkt panelden gorulur.
 - Kontrol: `js/ui/CustomSettingsPanelHandler.js` → `updatePanel()` metodu
 
-## Sayaç (Timer)
+## Sayaç (Timer) ve Countdown
 
+**Kayit Timer:**
 - Sayaç sadece **kayıt** icin anlamlidir.
 - Monitoring'da timer gosterilmez (kayit yok). `startTimer()` sadece kayit basladiginda cagrilir.
+
+**Test Countdown:**
+- Test sirasinda buton uzerinde countdown badge gosterilir (7...1)
+- `test:countdown` event'i her saniye emit edilir
+- Countdown badge: `#testCountdown` elementi
 
 ## Player / Progress Bar
 
@@ -87,6 +107,7 @@ Bu sayede UI guncellemeleri ve monitoring restart senkronize olur.
 - Profil logic: `js/modules/ProfileController.js` → `applyProfile()`
 - Timer: `js/modules/UIStateManager.js` → `startTimer()/stopTimer()`
 - Player: `js/modules/Player.js`
+- Test: `js/controllers/MonitoringController.js` → test metodlari
 - Stil: `css/style.css`
 
 ## CSS Responsive Breakpoint'ler

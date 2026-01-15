@@ -12,23 +12,15 @@
   /* Base palette - her iki view icin ortak */
   /* NOT: orange artik accent-text ile ayni (tema tutarliligi icin) */
   --color-orange: #C03FA4;
-  --color-orange-light: #d946a8;
   --color-purple: #a855f7;
   --color-purple-light: #c084fc;
-  --color-coral: #C03FA4; /* tema ile uyumlu */
+  --color-coral: #C03FA4;
   --color-pink: #d946a8;
-  --color-rose: #fb7185;
-  --color-magenta: #c026d3;
-  --brand-icon-color: var(--color-purple);
-  --brand-text-color: var(--color-orange);
 
   /* RGB values - rgba() icinde kullanmak icin */
   --color-orange-rgb: 192, 63, 164;
   --color-purple-rgb: 168, 85, 247;
-  --color-coral-rgb: 192, 63, 164;
   --color-pink-rgb: 217, 70, 168;
-  --color-rose-rgb: 251, 113, 133;
-  --color-magenta-rgb: 192, 38, 211;
   --color-white-rgb: 255, 255, 255;
   --color-black-rgb: 0, 0, 0;
 
@@ -42,10 +34,6 @@
   /* Background - Dark theme */
   --bg-primary: #0a0a0f;
   --bg-secondary: #12121a;
-  --bg-tertiary: #1a1028;
-  --bg-card: rgba(var(--color-white-rgb), 0.03);
-  --bg-card-solid: #1a1a24;
-  --bg-card-hover: rgba(var(--color-white-rgb), 0.05);
   --bg-input: rgba(var(--color-white-rgb), 0.05);
   --bg-elevated: rgba(var(--color-white-rgb), 0.08);
 
@@ -68,39 +56,7 @@
     #0f0f18 84%,
     #2d1b4e 92%,
     #2d1b4e 100%);
-  --gradient-bg-app: linear-gradient(145deg,
-    #0a0a0f 0%,
-    #0a0a0f 14%,
-    #0f0f18 20%,
-    #12121a 24%,
-    #151520 30%,
-    #0f0f18 36%,
-    #151520 40%,
-    #0f0f18 46%,
-    #12121a 50%,
-    #0f0f18 56%,
-    #151520 62%,
-    #0f0f18 68%,
-    #12121a 72%,
-    #151520 78%,
-    #0f0f18 84%,
-    #2d1b4e 92%,
-    #2d1b4e 100%);
   --gradient-hero: radial-gradient(ellipse at 50% 100%, rgba(var(--color-purple-rgb), 0.15) 0%, transparent 60%);
-  --gradient-subtle: radial-gradient(ellipse at 82% 18%,
-    rgba(var(--color-orange-rgb), 0.1) 0%,
-    rgba(var(--color-orange-rgb), 0.08) 26%,
-    rgba(var(--color-orange-rgb), 0.03) 44%,
-    transparent 58%,
-    rgba(var(--color-orange-rgb), 0.04) 74%,
-    transparent 90%),
-                     radial-gradient(ellipse at 18% 82%,
-    rgba(var(--color-purple-rgb), 0.08) 0%,
-    rgba(var(--color-purple-rgb), 0.06) 28%,
-    rgba(var(--color-purple-rgb), 0.025) 46%,
-    transparent 60%,
-    rgba(var(--color-purple-rgb), 0.035) 76%,
-    transparent 92%);
 
   /* Accent gradient opacity tokens (DRY) */
   --accent-grad-soft-alpha: 0.9;
@@ -119,43 +75,14 @@
   --shine-alpha: 0.1;
   --shine-strong-alpha: 0.15;
 
-  /* Primary accent gradient - HER YERDE KULLANILIR */
+  /* Primary accent gradient */
   --gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
-  --gradient-accent-warm: linear-gradient(135deg, var(--color-coral) 0%, var(--color-pink) 50%, var(--color-purple-light) 100%);
-
-  /* Audio wave gradient - navbar brand için rainbow flow */
-  --gradient-audio-wave: linear-gradient(135deg,
-    #f59e0b 0%,    /* Orange */
-    #fb7185 20%,   /* Rose */
-    #ec4899 40%,   /* Pink */
-    #8b5cf6 60%,   /* Purple */
-    #6366f1 80%,   /* Indigo */
-    #3b82f6 100%   /* Blue */
-  );
-
-  /* Neon brand gradient - sadece cool tonlar (Pink -> Purple -> Blue) */
-  --gradient-neon-brand: linear-gradient(135deg,
-    #ec4899 0%,    /* Pink */
-    #c026d3 25%,   /* Magenta */
-    #8b5cf6 50%,   /* Purple */
-    #6366f1 75%,   /* Indigo */
-    #3b82f6 100%   /* Blue */
-  );
-  --gradient-accent-soft: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-soft-alpha)),
-    rgba(var(--color-purple-rgb), var(--accent-grad-soft-alpha)));
 
   /* Neon circle gradient - mikrofon dairesi ve step numaralari icin ortak */
   --gradient-neon-circle: linear-gradient(160deg,
     rgba(var(--color-pink-rgb), 0.92) 0%,
     rgba(var(--color-purple-rgb), 0.92) 60%,
     rgba(59, 130, 246, 0.88) 100%);
-
-  /* Brand text gradient - ikonun bittigi yerden baslar (pink -> purple-light) */
-  --gradient-brand: linear-gradient(135deg, var(--color-pink) 0%, var(--color-purple-light) 100%);
-  --gradient-brand-hover: linear-gradient(135deg, var(--color-purple-light) 0%, var(--color-purple) 100%);
-  --glow-brand: 0 0 20px rgba(var(--color-orange-rgb), 0.4), 0 0 40px rgba(var(--color-purple-rgb), 0.3);
-  --glow-brand-hover: 0 0 25px rgba(var(--color-orange-rgb), 0.5), 0 0 50px rgba(var(--color-purple-rgb), 0.4);
 
   /* Muted accent gradients for backgrounds - DRY */
   --gradient-accent-muted: linear-gradient(135deg,
@@ -192,7 +119,6 @@
   --shadow-accent-orange-80: rgba(var(--color-orange-rgb), 0.8);
 
   /* Drop-shadow filters - icon/svg icin */
-  --glow-accent-xs: drop-shadow(0 0 4px var(--glow-accent-orange-50));
   --glow-accent-sm: drop-shadow(0 0 6px var(--glow-accent-orange-50));
   --glow-accent-md: drop-shadow(0 0 8px var(--glow-accent-orange-60)) drop-shadow(0 0 16px var(--glow-accent-purple-30));
   --glow-accent-lg: drop-shadow(0 0 12px var(--glow-accent-orange-60)) drop-shadow(0 0 20px var(--glow-accent-purple-30));
@@ -205,20 +131,13 @@
   --shadow-accent-glow: 0 0 12px var(--shadow-accent-orange-80), 0 0 20px var(--shadow-accent-orange-40);
   --shadow-purple-glow: 0 0 12px rgba(var(--color-purple-rgb), 0.8), 0 0 20px rgba(var(--color-purple-rgb), 0.4);
 
-  /* Accent colors - Unified */
+  /* Accent colors */
   --accent-primary: var(--color-coral);
-  --accent-primary-hover: #f06a48;
-  --accent-primary-muted: rgba(232, 93, 59, 0.15);
-  --accent-secondary: var(--color-purple-light);
-  --accent-secondary-muted: rgba(192, 132, 252, 0.15);
 
   /* Status colors */
   --accent-danger: #e53935;
-  --accent-danger-muted: rgba(229, 57, 53, 0.15);
   --accent-warning: #ff9800;
-  --accent-warning-muted: rgba(255, 152, 0, 0.15);
   --accent-success: #1db954;
-  --accent-success-muted: rgba(29, 185, 84, 0.15);
 
   /* VU Meter colors */
   --vu-green: #22c55e;
@@ -233,19 +152,11 @@
   /* Border colors */
   --border-primary: rgba(var(--color-white-rgb), 0.1);
   --border-secondary: rgba(var(--color-white-rgb), 0.05);
-  --border-glow: rgba(var(--color-purple-rgb), 0.3);
-  --border-glow-orange: rgba(var(--color-orange-rgb), 0.3);
 
   /* Glassmorphism */
   --glass-bg: rgba(var(--color-white-rgb), 0.03);
   --glass-bg-hover: rgba(var(--color-white-rgb), 0.06);
   --glass-border: rgba(var(--color-white-rgb), 0.08);
-
-  /* Landing Card (daha şeffaf glass surface) */
-  --glass-card-bg: rgba(var(--color-white-rgb), 0.03);
-  --glass-card-bg-hover: rgba(var(--color-white-rgb), 0.06);
-  --glass-card-border: rgba(var(--color-white-rgb), 0.063);
-  --glass-card-border-hover: rgba(var(--color-white-rgb), 0.105);
 
   /* Blur tokens - DRY (tum blur degerleri tek yerde) */
   --blur-xs: 4px;
@@ -263,10 +174,7 @@
   /* ========== SPACING ========== */
   --space-2xs: 2px;
   --space-xs: 4px;
-  --space-xs-plus: 6px;
   --space-sm: 8px;
-  --space-sm-plus: 10px;
-  --space-md-minus: 12px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
@@ -297,18 +205,6 @@
   --font-ui-accent: 'Rubik', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
 
-  /* Font sizes - rem (relative) */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
-  --text-4xl: 2.25rem;
-  --text-5xl: 3rem;
-  --text-6xl: 3.75rem;
-
   /* Font sizes - px (fixed scale for UI components) */
   --fs-2xs: 10px;
   --fs-xs: 12px;
@@ -332,14 +228,7 @@
 
   /* Glow effects - tutarli accent renkleri */
   --glow-accent: 0 0 25px rgba(192, 38, 211, 0.35);
-  --glow-accent-strong: 0 0 40px rgba(192, 38, 211, 0.55);
   --glow-purple: 0 0 25px rgba(192, 132, 252, 0.3);
-  --glow-purple-strong: 0 0 40px rgba(var(--color-purple-rgb), 0.4);
-  --glow-danger: 0 0 20px rgba(229, 57, 53, 0.4);
-
-  /* Legacy aliases (eski kod uyumlulugu) */
-  --shadow-glow: var(--glow-purple);
-  --shadow-glow-orange: var(--glow-accent);
 
   /* ========== Z-INDEX ========== */
   --z-dropdown: 100;
@@ -351,16 +240,12 @@
   --sidebar-width: 282px;
   --navbar-height: 72px;
   --sidebar-nav-top: 30px;
+  --player-time-width: 105px;
 
   /* Fluid Layout - ekran boyutuna göre ölçeklenir */
   --max-width: clamp(800px, 92vw, 1600px);
   --gap-fluid: clamp(20px, 3vw, 48px);
   --padding-fluid: clamp(20px, 3vw, 40px);
-
-  /* Breakpoints (reference tokens) */
-  --bp-lg: 1200px;
-  --bp-md: 900px;
-  --bp-sm: 768px;
 
   /* ========== UI STATES ========== */
   --opacity-disabled: 0.55;
@@ -529,7 +414,7 @@ body {
 }
 
 .legal-content h1 {
-  font-size: var(--text-3xl);
+  font-size: var(--fs-3xl);
   color: var(--text-primary);
   margin-bottom: var(--space-lg);
 }
@@ -556,7 +441,7 @@ body {
   gap: var(--space-xs);
   color: var(--text-muted);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   margin-bottom: var(--space-xl);
   transition: color var(--transition-fast);
 }
@@ -642,7 +527,7 @@ body {
 .site-footer-links a {
   color: var(--text-muted);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   transition: color var(--transition-fast);
   display: flex;
   align-items: center;
@@ -674,7 +559,7 @@ body {
 }
 
 .site-footer-meta {
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   color: var(--text-muted);
 }
 
@@ -694,7 +579,7 @@ body {
   gap: var(--space-xs);
   color: var(--text-muted);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--fs-base);
   transition: color var(--transition-fast);
 }
 
@@ -724,7 +609,7 @@ body {
   padding: var(--space-md) var(--space-xl);
   border: none;
   border-radius: var(--radius-lg);
-  font-size: var(--text-base);
+  font-size: var(--fs-lg);
   font-weight: 600;
   cursor: pointer;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);

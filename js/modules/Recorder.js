@@ -194,9 +194,9 @@ class Recorder {
       // Pipeline + Encoder kombinasyonuna gore label (DRY: Config.js labels kullanilabilir)
       const pipelineLabels = {
         direct: 'Direct',
-        standard: 'Standard',
-        scriptprocessor: 'ScriptProcessor',
-        worklet: 'AudioWorklet'
+        standard: 'Direct (WebAudio)',
+        scriptprocessor: 'ScriptProcessor (WebAudio)',
+        worklet: 'Worklet (WebAudio)'
       };
       const encoderLabels = {
         mediarecorder: 'MediaRecorder',

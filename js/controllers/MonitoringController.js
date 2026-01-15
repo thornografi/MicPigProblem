@@ -5,14 +5,24 @@
  */
 import eventBus from '../modules/EventBus.js';
 import loopbackManager from '../modules/LoopbackManager.js';
-import { DELAY } from '../modules/constants.js';
-import { stopStreamTracks } from '../modules/utils.js';
+import { DELAY, TEST } from '../modules/constants.js';
+import { stopStreamTracks, createMediaRecorder } from '../modules/utils.js';
 import { requestStream } from '../modules/StreamHelper.js';
 
 class MonitoringController {
   constructor() {
-    // State
+    // Monitoring state
     this.loopbackLocalStream = null;
+
+    // Test state
+    this.testTimerId = null;
+    this.testCountdownInterval = null;
+    this.testMediaRecorder = null;
+    this.testAudioBlob = null;
+    this.testAudioElement = null;
+    this.testAudioUrl = null;
+    this.testPhase = null;  // 'recording' | 'playback' | null
+    this.testChunks = [];
 
     // Dependency injection ile gelen fonksiyonlar
     this.deps = {
@@ -61,14 +71,13 @@ class MonitoringController {
     const useLoopback = this.deps.isLoopbackEnabled();
     const constraints = this.deps.getConstraints();
     const pipeline = useWebAudio ? this.deps.getPipeline() : 'direct';
-    const mediaBitrate = this.deps.getMediaBitrate();
 
     // Pipeline aciklamasi
-    const pipelineDesc = this._buildPipelineDescription(useLoopback, pipeline, mediaBitrate);
+    const pipelineDesc = this._buildPipelineDescription(useLoopback, pipeline);
 
     eventBus.emit('log:stream', {
       message: 'Monitor Baslat butonuna basildi',
-      details: { constraints, webAudioEnabled: useWebAudio, loopbackEnabled: useLoopback, mediaBitrate, pipeline, pipelineDesc }
+      details: { constraints, webAudioEnabled: useWebAudio, loopbackEnabled: useLoopback, pipeline, pipelineDesc }
     });
 
     try {
@@ -83,7 +92,7 @@ class MonitoringController {
       if (useLoopback) {
         await this._startLoopbackMonitoring(constraints, pipeline);
       } else {
-        await this._startNormalMonitoring(constraints, pipeline, mediaBitrate);
+        await this._startNormalMonitoring(constraints, pipeline);
       }
 
     } catch (err) {
@@ -140,17 +149,11 @@ class MonitoringController {
   /**
    * Normal monitoring (loopback kapali)
    */
-  async _startNormalMonitoring(constraints, pipeline, mediaBitrate) {
+  async _startNormalMonitoring(constraints, pipeline) {
     const monitor = this.deps.monitor;
     const useWebAudio = this.deps.isWebAudioEnabled();
 
-    if (mediaBitrate > 0) {
-      // CODEC-SIMULATED MODE
-      const timeslice = this.deps.getTimeslice();
-      const bufferSize = this.deps.getBufferSize();
-      eventBus.emit('log', `🎙️ Codec-simulated monitor baslatiliyor (${pipeline} ${mediaBitrate} bps, ${timeslice}ms)...`);
-      await monitor.startCodecSimulated(constraints, mediaBitrate, pipeline, timeslice, bufferSize);
-    } else if (useWebAudio) {
+    if (useWebAudio) {
       // WEBAUDIO MODE
       if (pipeline === 'direct') {
         await monitor.startDirect(constraints);
@@ -223,19 +226,262 @@ class MonitoringController {
     eventBus.emit('monitor:stopped', { mode: stoppedMode, loopback: true });
   }
 
+  // === TEST METODLARI ===
+
+  /**
+   * Test toggle (test butonuna tiklandiginda)
+   */
+  async toggleTest() {
+    if (this.testPhase === 'recording') {
+      await this.cancelTest();
+    } else if (this.testPhase === 'playback') {
+      await this.stopTestPlayback();
+    } else {
+      await this.startTestRecording();
+    }
+  }
+
+  /**
+   * Test kaydi baslat (7sn loopback buffer)
+   */
+  async startTestRecording() {
+    const constraints = this.deps.getConstraints();
+    const opusBitrate = this.deps.getOpusBitrate();
+
+    eventBus.emit('log:stream', {
+      message: 'Test kaydi baslatiliyor',
+      details: { constraints, opusBitrate, duration: TEST.DURATION_MS }
+    });
+
+    try {
+      // Player'i durdur
+      this.deps.player?.pause();
+
+      // Preparing state
+      this.deps.setIsPreparing(true);
+      this.deps.uiStateManager?.updateButtonStates();
+
+      // Mikrofon al
+      this.loopbackLocalStream = await requestStream(constraints);
+
+      // DRY: LoopbackManager.setup() dogrudan kullan
+      // NOT: startMonitorPlayback() CAGRILMIYOR - hoparlor muted
+      const remoteStream = await loopbackManager.setup(this.loopbackLocalStream, {
+        useWebAudio: this.deps.isWebAudioEnabled(),
+        opusBitrate
+      });
+
+      // DRY: createMediaRecorder helper kullan
+      this.testChunks = [];
+      this.testMediaRecorder = createMediaRecorder(remoteStream);
+      this.testMediaRecorder.ondataavailable = (e) => {
+        if (e.data.size) this.testChunks.push(e.data);
+      };
+      this.testMediaRecorder.start();
+
+      // State guncelle
+      this.testPhase = 'recording';
+      this.deps.setIsPreparing(false);
+      this.deps.setCurrentMode('test-recording');
+      this.deps.uiStateManager?.updateButtonStates();
+
+      // VU Meter icin event'ler
+      eventBus.emit('stream:started', this.loopbackLocalStream);
+      eventBus.emit('loopback:remoteStream', remoteStream);
+
+      // Timer baslat
+      this._startTestTimer();
+      eventBus.emit('test:recording-started', { durationMs: TEST.DURATION_MS });
+      eventBus.emit('log', `🎙️ Test kaydi basladi (${TEST.DURATION_MS / 1000}sn)`);
+
+    } catch (err) {
+      eventBus.emit('log:error', { message: 'Test kaydi baslatilamadi', details: { error: err.message } });
+      eventBus.emit('log', `❌ Test hatasi: ${err.message}`);
+      await this._cleanupTest();
+    }
+  }
+
+  /**
+   * Test kaydini durdur ve playback'e gec
+   */
+  async stopTestRecording() {
+    this._clearTestTimer();
+
+    eventBus.emit('log:stream', { message: 'Test kaydi durduruluyor' });
+
+    // MediaRecorder'i durdur
+    if (this.testMediaRecorder?.state !== 'inactive') {
+      this.testMediaRecorder.stop();
+    }
+
+    // onstop'u bekle
+    await new Promise(resolve => {
+      this.testMediaRecorder.onstop = () => {
+        this.testAudioBlob = new Blob(this.testChunks, { type: this.testMediaRecorder.mimeType || 'audio/webm' });
+        resolve();
+      };
+    });
+
+    // VU Meter event'leri
+    eventBus.emit('stream:stopped');
+
+    // DRY: LoopbackManager.cleanup() dogrudan kullan
+    await loopbackManager.cleanup();
+    stopStreamTracks(this.loopbackLocalStream);
+    this.loopbackLocalStream = null;
+
+    eventBus.emit('test:recording-stopped');
+    eventBus.emit('log', '📼 Test kaydi tamamlandi, playback basliyor...');
+
+    // Playback'e gec
+    await this.startTestPlayback();
+  }
+
+  /**
+   * Test playback baslat
+   */
+  async startTestPlayback() {
+    this.testPhase = 'playback';
+    this.deps.setCurrentMode('test-playback');
+    this.deps.uiStateManager?.updateButtonStates();
+
+    // Basit Audio element ile oynat
+    this.testAudioUrl = URL.createObjectURL(this.testAudioBlob);
+    this.testAudioElement = new Audio(this.testAudioUrl);
+
+    this.testAudioElement.onended = async () => {
+      eventBus.emit('log', '✅ Test tamamlandi');
+      await this._cleanupTest();
+      eventBus.emit('test:completed');
+    };
+
+    this.testAudioElement.onerror = async (e) => {
+      eventBus.emit('log:error', { message: 'Test playback hatasi', details: { error: e.message } });
+      await this._cleanupTest();
+    };
+
+    try {
+      await this.testAudioElement.play();
+      eventBus.emit('test:playback-started');
+      eventBus.emit('log', '🔊 Test playback basladi');
+    } catch (err) {
+      eventBus.emit('log:error', { message: 'Test play hatasi', details: { error: err.message } });
+      await this._cleanupTest();
+    }
+  }
+
+  /**
+   * Test playback durdur
+   */
+  async stopTestPlayback() {
+    if (this.testAudioElement) {
+      this.testAudioElement.pause();
+      this.testAudioElement.onended = null;
+      this.testAudioElement.onerror = null;
+    }
+    eventBus.emit('log', '⏹️ Test playback durduruldu');
+    await this._cleanupTest();
+    eventBus.emit('test:playback-stopped');
+  }
+
+  /**
+   * Test iptal (kayit sirasinda)
+   */
+  async cancelTest() {
+    this._clearTestTimer();
+
+    eventBus.emit('log:stream', { message: 'Test iptal ediliyor' });
+
+    if (this.testMediaRecorder?.state !== 'inactive') {
+      this.testMediaRecorder.stop();
+    }
+
+    // DRY: Mevcut cleanup fonksiyonlari kullan
+    eventBus.emit('stream:stopped');
+    await loopbackManager.cleanup();
+    stopStreamTracks(this.loopbackLocalStream);
+    this.loopbackLocalStream = null;
+
+    eventBus.emit('log', '🚫 Test iptal edildi');
+    await this._cleanupTest();
+    eventBus.emit('test:cancelled');
+  }
+
+  /**
+   * Test timer baslat
+   * @private
+   */
+  _startTestTimer() {
+    let remaining = TEST.DURATION_MS;
+
+    // Ilk countdown
+    eventBus.emit('test:countdown', { remainingSec: Math.ceil(remaining / 1000) });
+
+    // Countdown interval (her saniye)
+    this.testCountdownInterval = setInterval(() => {
+      remaining -= 1000;
+      const remainingSec = Math.ceil(remaining / 1000);
+      eventBus.emit('test:countdown', { remainingSec: remainingSec > 0 ? remainingSec : 0 });
+    }, 1000);
+
+    // Ana timer (7 sn sonra dur)
+    this.testTimerId = setTimeout(() => this.stopTestRecording(), TEST.DURATION_MS);
+  }
+
+  /**
+   * Test timer'larini temizle
+   * @private
+   */
+  _clearTestTimer() {
+    if (this.testTimerId) {
+      clearTimeout(this.testTimerId);
+      this.testTimerId = null;
+    }
+    if (this.testCountdownInterval) {
+      clearInterval(this.testCountdownInterval);
+      this.testCountdownInterval = null;
+    }
+  }
+
+  /**
+   * Test kaynaklarini temizle
+   * @private
+   */
+  async _cleanupTest() {
+    this._clearTestTimer();
+
+    this.testMediaRecorder = null;
+    this.testChunks = [];
+    this.testAudioBlob = null;
+
+    if (this.testAudioUrl) {
+      URL.revokeObjectURL(this.testAudioUrl);
+      this.testAudioUrl = null;
+    }
+
+    if (this.testAudioElement) {
+      this.testAudioElement.pause();
+      this.testAudioElement.onended = null;
+      this.testAudioElement.onerror = null;
+      this.testAudioElement = null;
+    }
+
+    this.testPhase = null;
+    this.deps.setCurrentMode(null);
+    this.deps.uiStateManager?.updateButtonStates();
+  }
+
   // === HELPER METODLAR ===
 
-  _buildPipelineDescription(useLoopback, pipeline, mediaBitrate) {
+  _buildPipelineDescription(useLoopback, pipeline) {
     const delayStr = `${DELAY.DEFAULT_SECONDS}sn Delay`;
-    const pipelineStr = pipeline === 'scriptprocessor' ? 'ScriptProcessor'
-                      : pipeline === 'worklet' ? 'AudioWorklet'
+    const pipelineStr = pipeline === 'scriptprocessor' ? 'ScriptProcessor (WebAudio)'
+                      : pipeline === 'worklet' ? 'Worklet (WebAudio)'
                       : pipeline === 'direct' ? 'Direct'
-                      : 'WebAudio';
+                      : 'Direct (WebAudio)';
 
     if (useLoopback) {
       return `WebRTC Loopback + ${pipelineStr} + ${delayStr} -> Speaker`;
-    } else if (mediaBitrate > 0) {
-      return `Codec-Simulated (${mediaBitrate}bps) + ${delayStr} -> Speaker`;
     } else {
       return `${pipelineStr} + ${delayStr} -> Speaker`;
     }

@@ -9,6 +9,22 @@ import { PROFILES, SETTINGS, PROFILE_TIPS } from './Config.js';
 import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder, shouldDisableTimeslice } from './utils.js';
 
 /**
+ * Dinamik kilit politikasi - DRY: Tek noktadan kilit kurallari
+ * @param {string} pipeline - Pipeline tipi (direct, standard, scriptprocessor, worklet)
+ * @param {boolean} loopback - Loopback aktif mi
+ * @param {string} encoder - Encoder tipi (mediarecorder, wasm-opus)
+ * @returns {Object} Kilit durumu haritasi { settingKey: isLocked }
+ */
+function getDynamicLockPolicy(pipeline, loopback, encoder) {
+  return {
+    buffer: !needsBufferSetting(pipeline),        // Sadece ScriptProcessor'da editable
+    mediaBitrate: loopback,                       // Loopback ON -> disabled (WebRTC varsa MediaRecorder bitrate anlamsiz)
+    bitrate: !loopback,                           // Loopback OFF -> disabled (WebRTC yoksa Opus bitrate anlamsiz)
+    timeslice: shouldDisableTimeslice(loopback, encoder)  // MediaRecorder yoksa disabled
+  };
+}
+
+/**
  * ProfileController class - Profil islemlerini yonetir
  */
 class ProfileController {
@@ -131,10 +147,16 @@ class ProfileController {
       if (elements.length === 0) return;
 
       if (setting.type === 'boolean') {
-        elements.forEach(el => el.checked = value);
+        elements.forEach(el => {
+          el.checked = value;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
       } else if (setting.type === 'enum') {
         const radio = elements.find(el => el.value == value);
-        if (radio) radio.checked = true;
+        if (radio) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       }
     });
 
@@ -232,19 +254,13 @@ class ProfileController {
 
     const loopback = this.elements.loopbackToggle?.checked ?? false;
     const pipeline = this.callbacks.getRadioValue('pipeline', 'standard');
-
-    // Kural 1: buffer sadece ScriptProcessor pipeline icin anlamli (AudioWorklet sabit 128)
-    this.callbacks.setSettingDisabled('buffer', !needsBufferSetting(pipeline));
-
-    // Kural 2: loopback ON -> mediaBitrate kilitle (WebRTC varsa MediaRecorder bitrate anlamsiz)
-    this.callbacks.setSettingDisabled('mediaBitrate', loopback);
-
-    // Kural 3: loopback OFF -> bitrate kilitle (WebRTC yoksa Opus bitrate anlamsiz)
-    this.callbacks.setSettingDisabled('bitrate', !loopback);
-
-    // Kural 4: MediaRecorder kullanilmiyorsa timeslice kilitle (DRY helper)
     const encoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
-    this.callbacks.setSettingDisabled('timeslice', shouldDisableTimeslice(loopback, encoder));
+
+    // DRY: Kilit politikasini tek noktadan al
+    const lockPolicy = getDynamicLockPolicy(pipeline, loopback, encoder);
+    Object.entries(lockPolicy).forEach(([key, isLocked]) => {
+      this.callbacks.setSettingDisabled(key, isLocked);
+    });
 
     // Kural 5: Encoder kilitleme - pipeline tipine gore
     // Worklet/ScriptProcessor -> WASM Opus (PCM erisimi var)
@@ -289,14 +305,11 @@ class ProfileController {
     const pipeline = this.callbacks.getRadioValue('pipeline', 'standard');
     const encoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
     const loopbackOn = loopbackToggle?.checked ?? false;
-    const dynamicLockMap = {
-      buffer: !needsBufferSetting(pipeline),  // Sadece ScriptProcessor pipeline'da editable
-      mediaBitrate: loopbackOn,            // Loopback ON -> disabled
-      bitrate: !loopbackOn,                // Loopback OFF -> disabled
-      timeslice: shouldDisableTimeslice(loopbackOn, encoder)  // DRY helper
-    };
 
-    Object.entries(dynamicLockMap).forEach(([key, isLocked]) => {
+    // DRY: Kilit politikasini tek noktadan al
+    const lockPolicy = getDynamicLockPolicy(pipeline, loopbackOn, encoder);
+
+    Object.entries(lockPolicy).forEach(([key, isLocked]) => {
       const element = customSettingsGrid.querySelector(`[data-setting="${key}"]`);
       if (element) {
         element.disabled = isLocked;

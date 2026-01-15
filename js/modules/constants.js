@@ -62,6 +62,11 @@ export const LOOPBACK = {
   ICE_WAIT_MS: 10000              // ICE baglanti timeout suresi (ms)
 };
 
+// === TEST (Loopback Test Ozelligi) ===
+export const TEST = {
+  DURATION_MS: 7000               // Test suresi (7 saniye)
+};
+
 // === HELPER FUNCTIONS ===
 
 /**

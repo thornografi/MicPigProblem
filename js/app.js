@@ -92,6 +92,8 @@ const deviceInfo = new DeviceInfo();
 // ============================================
 const recordToggleBtn = document.getElementById('recordToggle');
 const monitorToggleBtn = document.getElementById('monitorToggle');
+const testBtn = document.getElementById('testBtn');
+const testCountdownEl = document.getElementById('testCountdown');
 const loopbackToggle = document.getElementById('loopbackToggle');
 // NOT: webaudioToggle kaldirildi - artik mode ayari WebAudio durumunu belirliyor
 
@@ -258,6 +260,10 @@ function updateCategoryUI(profileId) {
   toggleDisplay(monitorToggleBtn, canMonitor, 'flex');
   toggleDisplay(recordToggleBtn, canRecord, 'flex');
 
+  // Test butonu - sadece call kategorisinde ve monitor yapabilen profillerde goster
+  const isCallCategory = category === 'call';
+  toggleDisplay(testBtn, isCallCategory && canMonitor, 'flex');
+
   // Player paneli - kayit yapabilen profillerde goster
   toggleDisplay(recordingPlayerPanelEl, canRecord);
 
@@ -340,10 +346,7 @@ function getOpusBitrate() {
 }
 
 function getTimeslice() {
-  // Profile degeri varsa onu kullan, yoksa UI'dan oku
-  const profile = PROFILES[profileSelector?.value];
-  const profileTimeslice = profile?.values?.timeslice;
-  if (profileTimeslice !== undefined) return profileTimeslice;
+  // UI'dan oku (profil degeri applyProfile'da set ediliyor)
   return getRadioValue('timeslice', 0, true);
 }
 
@@ -415,7 +418,7 @@ RadioGroupHandler.attachGroups({
   // Pipeline
   Pipeline: {
     radios: pipelineRadios,
-    labels: { direct: 'Direct', standard: 'Standard', scriptprocessor: 'ScriptProcessor', worklet: 'AudioWorklet' },
+    labels: { direct: 'Direct', standard: 'Direct (WebAudio)', scriptprocessor: 'ScriptProcessor (WebAudio)', worklet: 'Worklet (WebAudio)' },
     logCategory: 'log:webaudio',
     onChange: (pipeline) => {
       syncToCustomPanel('pipeline', pipeline);  // DRY: Custom Panel sync
@@ -506,18 +509,21 @@ RadioGroupHandler.attachToggle(loopbackToggle, 'WebRTC Loopback', {
 });
 
 // Profil degisikligi (hidden select - backward compatibility)
+// Named function - memory leak onleme (cleanup icin referans tutulabilir)
+async function handleProfileChange(e) {
+  try {
+    await profileController.applyProfile(e.target.value);
+    // updateScenarioCardSelection ProfileUIManager tarafindan yapiliyor
+  } catch (err) {
+    eventBus.emit('log:error', {
+      message: 'Profil degisikligi hatasi',
+      details: { profileId: e.target.value, error: err.message }
+    });
+  }
+}
+
 if (profileSelector) {
-  profileSelector.addEventListener('change', async (e) => {
-    try {
-      await profileController.applyProfile(e.target.value);
-      updateScenarioCardSelection(e.target.value);
-    } catch (err) {
-      eventBus.emit('log:error', {
-        message: 'Profil degisikligi hatasi',
-        details: { profileId: e.target.value, error: err.message }
-      });
-    }
-  });
+  profileSelector.addEventListener('change', handleProfileChange);
   // NOT: Baslangic profili uygulama, callbacks set edildikten sonra yapiliyor (line ~912)
 }
 
@@ -586,12 +592,14 @@ devConsoleCtrl.bindButtons(devConsoleToggle);
 devConsoleCtrl.bindCloseButtons(closeConsoleBtn);
 
 // ESC ile drawer/console kapat
-document.addEventListener('keydown', (e) => {
+// Named function - memory leak onleme (cleanup icin referans tutulabilir)
+function handleEscapeKey(e) {
   if (e.key === 'Escape') {
     settingsDrawerCtrl.close();
     devConsoleCtrl.close();
   }
-});
+}
+document.addEventListener('keydown', handleEscapeKey);
 
 // NOT: handleProfileSelect ve scenarioCards/navItems event listener'lari ProfileUIManager modülüne tasindi
 
@@ -634,8 +642,8 @@ profileController.setSettingContainers(settingContainers);
 profileController.setCallbacks({
   stopMonitoring,
   stopRecording,
-  startMonitoring: () => monitorToggleBtn.onclick(),
-  startRecording: () => recordToggleBtn.onclick(),
+  startMonitoring: () => monitoringController.start(),
+  startRecording: () => recordingController.start(),
   updateButtonStates: () => uiStateManager.updateButtonStates(),
   updateBufferInfo,
   updateTimesliceInfo,
@@ -655,6 +663,8 @@ profileController.setStateGetters({
 uiStateManager.init({
   recordToggleBtn,
   monitorToggleBtn,
+  testBtn,
+  testCountdownEl,
   loopbackToggle,
   ecCheckbox,
   nsCheckbox,
@@ -850,22 +860,41 @@ async function stopMonitoring() {
 }
 
 // ============================================
+// TEST (Loopback Test Ozelligi)
+// ============================================
+if (testBtn) {
+  testBtn.onclick = wrapAsyncHandler(
+    () => monitoringController.toggleTest(),
+    'Test toggle hatasi'
+  );
+}
+
+// Test countdown event listener
+eventBus.on('test:countdown', ({ remainingSec }) => {
+  if (testCountdownEl) {
+    testCountdownEl.textContent = remainingSec > 0 ? `${remainingSec}s` : '';
+  }
+});
+
+// Test tamamlandiginda/iptal edildiginde countdown temizle
+eventBus.on('test:completed', () => {
+  if (testCountdownEl) testCountdownEl.textContent = '';
+});
+eventBus.on('test:cancelled', () => {
+  if (testCountdownEl) testCountdownEl.textContent = '';
+});
+eventBus.on('test:playback-stopped', () => {
+  if (testCountdownEl) testCountdownEl.textContent = '';
+});
+
+// ============================================
 // BASLANGIC - PRE-INITIALIZATION
 // ============================================
 
-// AudioEngine ve Recorder'i onceden isit (Start butonunda hiz kazanimi)
+// Recorder'i onceden isit (Start butonunda hiz kazanimi)
+// NOT: AudioEngine warmup lazy - sadece Loopback/Monitor modlarinda gerektiginde yapilir
 async function initializeAudio() {
-  // Adim 1: AudioEngine warmup
-  try {
-    await audioEngine.warmup();
-  } catch (err) {
-    eventBus.emit('log:error', {
-      message: 'AudioEngine warmup hatasi (kritik degil)',
-      details: { error: err.message, step: 'audioEngine.warmup' }
-    });
-  }
-
-  // Adim 2: Recorder warmup
+  // Recorder warmup (Recording modu icin)
   try {
     await recorder.warmup();
   } catch (err) {
@@ -876,8 +905,8 @@ async function initializeAudio() {
   }
 
   eventBus.emit('log:system', {
-    message: 'Audio pre-initialization tamamlandi',
-    details: audioEngine.getState()
+    message: 'Audio pre-initialization tamamlandi (AudioEngine lazy)',
+    details: { recorderWarmedUp: recorder.isWarmedUp }
   });
 }
 
