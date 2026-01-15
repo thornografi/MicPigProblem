@@ -364,16 +364,16 @@
 
 /* Landing Card Base - DRY: feature-card ve step-card ortak stilleri */
 .landing-card {
-  background: var(--glass-card-bg);
-  border: 1px solid var(--glass-card-border);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: var(--space-2xl);
   transition: all var(--transition-normal);
 }
 
 .landing-card:hover {
-  background: var(--glass-card-bg-hover);
-  border-color: var(--glass-card-border-hover);
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border);
   transform: translateY(-2px);
 }
 

@@ -8,6 +8,9 @@ import eventBus from './EventBus.js';
 // Maksimum log sayisi - bellek korumasi
 const MAX_HISTORY = 1000;
 
+// Technical filtre icin kategori grubu (webaudio + stream + recorder)
+const TECHNICAL_CATEGORIES = ['webaudio', 'stream', 'recorder'];
+
 class Logger {
   constructor(elementId) {
     this.el = document.getElementById(elementId);
@@ -37,8 +40,12 @@ class Logger {
     }
 
     // Aktif filtre varsa ve kategori uyusmuyorsa gosterme
-    if (this.activeFilter && this.activeFilter !== category) {
-      return;
+    if (this.activeFilter) {
+      if (this.activeFilter === 'technical') {
+        if (!TECHNICAL_CATEGORIES.includes(category)) return;
+      } else if (this.activeFilter !== category) {
+        return;
+      }
     }
 
     this.appendToDisplay(formattedMessage, category);
@@ -77,7 +84,12 @@ class Logger {
     this.el.innerHTML = '';
 
     const filteredLogs = this.activeFilter
-      ? this.history.filter(h => h.category === this.activeFilter)
+      ? this.history.filter(h => {
+          if (this.activeFilter === 'technical') {
+            return TECHNICAL_CATEGORIES.includes(h.category);
+          }
+          return h.category === this.activeFilter;
+        })
       : this.history;
 
     filteredLogs.forEach(h => {
@@ -115,7 +127,12 @@ class Logger {
 
   getFilteredHistory() {
     return this.activeFilter
-      ? this.history.filter(h => h.category === this.activeFilter)
+      ? this.history.filter(h => {
+          if (this.activeFilter === 'technical') {
+            return TECHNICAL_CATEGORIES.includes(h.category);
+          }
+          return h.category === this.activeFilter;
+        })
       : this.history;
   }
 

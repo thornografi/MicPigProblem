@@ -481,6 +481,20 @@ RadioGroupHandler.attachGroups({
     logCategory: 'log:recorder',
     formatValue: (v) => v === 0 ? 'Off' : `${v / 1000}k`,
     onChange: (mediaBitrate) => syncToCustomPanel('mediaBitrate', mediaBitrate)  // DRY: Custom Panel sync
+  },
+
+  // Sample Rate
+  'Sample Rate': {
+    radios: [...document.querySelectorAll('input[name="sampleRate"]')],
+    logCategory: 'log:audio',
+    formatValue: (v) => `${v} Hz`
+  },
+
+  // Channel Count
+  'Channel Count': {
+    radios: [...document.querySelectorAll('input[name="channelCount"]')],
+    logCategory: 'log:audio',
+    formatValue: (v) => v === 1 ? 'Mono' : 'Stereo'
   }
 });
 
