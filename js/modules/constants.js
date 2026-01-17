@@ -23,6 +23,11 @@ export const BUFFER = {
   WARNING_THRESHOLD: 1024         // Dusuk buffer uyari esigi
 };
 
+// === OPUS ===
+export const OPUS = {
+  FRAME_SIZE: 960                 // Opus frame size: 20ms @ 48kHz = 960 samples
+};
+
 // === VU METER ===
 export const VU_METER = {
   RMS_THRESHOLD: 0.0001,          // dB hesaplama icin minimum RMS

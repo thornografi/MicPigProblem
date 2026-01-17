@@ -140,6 +140,28 @@ export function createMediaRecorder(stream, options = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Error Message Helper (DRY - getUserMedia hatalari)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * getUserMedia hata kodlarini kullanici dostu mesaja cevir
+ * DRY: Recorder, Monitor, MonitoringController ayni mapping'i kullanir
+ * @param {Error} err - getUserMedia veya MediaRecorder hatasi
+ * @returns {string} - Kullanici dostu hata mesaji
+ */
+export function getStreamErrorMessage(err) {
+  const errorMap = {
+    NotAllowedError: 'Microphone permission denied',
+    NotFoundError: 'Microphone not found',
+    NotReadableError: 'Microphone is being used by another application',
+    OverconstrainedError: 'Unsupported microphone setting',
+    AbortError: 'Microphone access was aborted',
+    SecurityError: 'Microphone access blocked by security policy'
+  };
+  return errorMap[err.name] || err.message;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Pipeline & Encoder Helper Functions (DRY - OCP)
 // ═══════════════════════════════════════════════════════════════
 
@@ -268,3 +290,51 @@ SettingTypeHandlers.register('enum', {
     </div>`;
   }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Activator Audio Helper Functions (DRY - WebRTC Remote Stream)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Chrome/WebRTC: Remote stream'i aktive etmek icin Audio element olustur ve play et
+ * NOT: Chrome'da MediaStream, bir Audio element'te play() cagrilmadan aktif olmuyor
+ * DRY: LoopbackManager ve MonitoringController ayni pattern'i kullaniyor
+ * @param {MediaStream} remoteStream - WebRTC remote stream
+ * @param {string} context - Log mesajlari icin context (ornek: 'Loopback Monitor', 'Test')
+ * @returns {Promise<HTMLAudioElement>} - Olusturulan activator audio element
+ */
+export async function createAndPlayActivatorAudio(remoteStream, context = 'loopback') {
+  const audio = document.createElement('audio');
+  audio.srcObject = remoteStream;
+  audio.muted = true;
+  audio.volume = 0;
+  audio.playsInline = true;
+
+  try {
+    await audio.play();
+    eventBus.emit('log:stream', {
+      message: `${context}: Activator audio baslatildi`,
+      details: { paused: audio.paused, muted: audio.muted }
+    });
+  } catch (err) {
+    eventBus.emit('log:warning', {
+      message: `${context}: Activator audio hatasi (devam ediliyor)`,
+      details: { error: err.message }
+    });
+  }
+
+  return audio;
+}
+
+/**
+ * Activator audio element'i temizle
+ * DRY: Ayni temizlik mantigi birden fazla yerde tekrarlaniyor
+ * @param {HTMLAudioElement|null} audio - Temizlenecek audio element
+ */
+export function cleanupActivatorAudio(audio) {
+  if (!audio) return;
+  try {
+    audio.pause();
+    audio.srcObject = null;
+  } catch { /* ignore */ }
+}

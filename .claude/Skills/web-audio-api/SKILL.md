@@ -158,9 +158,39 @@ await ac.close();
 URL.revokeObjectURL(blobUrl);
 ```
 
+## Effect Decorator Pattern
+
+Pipeline'lara runtime'da efekt eklemek icin Decorator Pattern:
+
+```javascript
+import { JitterEffect, PacketLossEffect } from '../pipelines/effects/index.js';
+
+const withJitter = new JitterEffect(basePipeline, { maxDelay: 0.15 });
+```
+
+Detay: `micprobe-modules` skill'ine bak → "Effect Decorator Pattern" bolumu
+
 ## Kritik Kurallar
 
 1. `AudioContext` → User gesture sonrasi, `suspended` ise `resume()` cagir
 2. `AnalyserNode` → Destination'a baglanmadan da calisir
 3. Sample rate uyumsuzlugu → Ses hizlanir/yavaslar (AudioContext options ile esle)
 4. WebRTC remote stream → Direkt Web Audio'ya baglanmaz, once Audio element ile "aktive" et
+
+### Remote Stream Aktivasyonu (DRY)
+
+Chrome'da WebRTC remote stream'i dogrudan Web Audio'ya baglamak sorunlu olabilir. Helper kullan:
+
+```javascript
+import { createAndPlayActivatorAudio, cleanupActivatorAudio } from './utils.js';
+
+// Aktivasyon (muted audio element ile)
+const activator = await createAndPlayActivatorAudio(remoteStream, 'Context');
+
+// Web Audio graph kur...
+
+// Temizlik
+cleanupActivatorAudio(activator);
+```
+
+Detay: `micprobe-loopback` skill'ine bak

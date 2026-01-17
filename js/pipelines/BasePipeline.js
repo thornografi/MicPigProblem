@@ -10,6 +10,7 @@
  */
 import eventBus from '../modules/EventBus.js';
 import { createOpusWorker, isWasmOpusSupported } from '../modules/OpusWorkerHelper.js';
+import { AUDIO } from '../modules/constants.js';
 
 export default class BasePipeline {
   constructor(audioContext, sourceNode, destinationNode) {
@@ -33,15 +34,12 @@ export default class BasePipeline {
 
   /**
    * VU Meter icin AnalyserNode olustur
-   * constants.js'deki AUDIO sabitleri ile tutarli
    * @returns {AnalyserNode}
    */
   createAnalyser() {
-    // Import yerine dogrudan deger kullan (circular dependency onleme)
-    // Bu degerler constants.js AUDIO ile eslestirilmeli
     this.analyserNode = this.audioContext.createAnalyser();
-    this.analyserNode.fftSize = 256; // AUDIO.FFT_SIZE
-    this.analyserNode.smoothingTimeConstant = 0.3; // AUDIO.SMOOTHING_TIME_CONSTANT
+    this.analyserNode.fftSize = AUDIO.FFT_SIZE;
+    this.analyserNode.smoothingTimeConstant = AUDIO.SMOOTHING_TIME_CONSTANT;
     return this.analyserNode;
   }
 

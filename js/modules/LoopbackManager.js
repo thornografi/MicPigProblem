@@ -5,7 +5,7 @@
  */
 
 import eventBus from './EventBus.js';
-import { createAudioContext, getAudioContextOptions, stopStreamTracks } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createAndPlayActivatorAudio, cleanupActivatorAudio } from './utils.js';
 import { DELAY, SIGNAL, BUFFER, LOOPBACK } from './constants.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
 
@@ -472,37 +472,35 @@ class LoopbackManager {
 
   /**
    * Monitor playback kaynaklarini temizle
+   * DRY: Loop pattern ile node disconnect (Monitor.js ile tutarli)
    */
   async cleanupMonitorPlayback() {
-    if (this.monitorProc) {
-      try {
-        this.monitorProc.disconnect();
-      } catch { /* ignore */ }
+    // ScriptProcessor onaudioprocess temizle
+    if (this.monitorProc?.onaudioprocess) {
       this.monitorProc.onaudioprocess = null;
-      this.monitorProc = null;
     }
 
-    if (this.monitorWorklet) {
-      try {
-        this.monitorWorklet.disconnect();
-      } catch { /* ignore */ }
-      this.monitorWorklet = null;
-    }
+    // DRY: Tum node'lari tek loop ile disconnect et
+    const nodes = [
+      this.monitorProc,
+      this.monitorWorklet,
+      this.monitorDelay,
+      this.monitorSrc
+    ];
 
-    if (this.monitorDelay) {
-      try {
-        this.monitorDelay.disconnect();
-      } catch { /* ignore */ }
-      this.monitorDelay = null;
-    }
+    nodes.forEach(node => {
+      if (node) {
+        try { node.disconnect(); } catch { /* ignore */ }
+      }
+    });
 
-    if (this.monitorSrc) {
-      try {
-        this.monitorSrc.disconnect();
-      } catch { /* ignore */ }
-      this.monitorSrc = null;
-    }
+    // Node referanslarini temizle
+    this.monitorProc = null;
+    this.monitorWorklet = null;
+    this.monitorDelay = null;
+    this.monitorSrc = null;
 
+    // AudioContext kapat
     if (this.monitorCtx) {
       try {
         const prevState = this.monitorCtx.state;
@@ -521,13 +519,9 @@ class LoopbackManager {
       }
     }
 
-    if (window._loopbackMonitorActivatorAudio) {
-      try {
-        window._loopbackMonitorActivatorAudio.pause();
-        window._loopbackMonitorActivatorAudio.srcObject = null;
-      } catch { /* ignore */ }
-      window._loopbackMonitorActivatorAudio = null;
-    }
+    // DRY: Activator audio temizle
+    cleanupActivatorAudio(window._loopbackMonitorActivatorAudio);
+    window._loopbackMonitorActivatorAudio = null;
 
     this.monitorMode = null;
   }
@@ -558,26 +552,8 @@ class LoopbackManager {
 
     this.monitorMode = safeMode;
 
-    // Chrome/WebRTC: Remote stream'i WebAudio'ya baglamadan once Audio element ile aktive et
-    const activatorAudio = document.createElement('audio');
-    activatorAudio.srcObject = remoteStream;
-    activatorAudio.muted = true;
-    activatorAudio.volume = 0;
-    activatorAudio.playsInline = true;
-    window._loopbackMonitorActivatorAudio = activatorAudio;
-
-    try {
-      await activatorAudio.play();
-      eventBus.emit('log:webaudio', {
-        message: 'Loopback Monitor: Activator audio baslatildi',
-        details: { paused: activatorAudio.paused, muted: activatorAudio.muted }
-      });
-    } catch (playErr) {
-      eventBus.emit('log:error', {
-        message: 'Loopback Monitor: Activator audio play hatasi (devam ediliyor)',
-        details: { error: playErr.message }
-      });
-    }
+    // DRY: Chrome/WebRTC activator audio helper kullan
+    window._loopbackMonitorActivatorAudio = await createAndPlayActivatorAudio(remoteStream, 'Loopback Monitor');
 
     // Remote track sample rate (varsa) ile context olustur
     const acOptions = getAudioContextOptions(remoteStream);

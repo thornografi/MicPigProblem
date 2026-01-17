@@ -267,12 +267,6 @@ function updateCategoryUI(profileId) {
   // Player paneli - kayit yapabilen profillerde goster
   toggleDisplay(recordingPlayerPanelEl, canRecord);
 
-  // Controls row layout
-  const controlsRow = document.querySelector('.controls-row');
-  if (controlsRow) {
-    controlsRow.classList.toggle('call-mode', !canRecord);
-  }
-
   // Remote VU container - loopback aktifse goster
   const remoteVuContainer = document.getElementById('remoteVuContainer');
   toggleDisplay(remoteVuContainer, loopbackValue === true);

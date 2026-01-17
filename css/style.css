@@ -450,6 +450,13 @@
   --status-shadow: 0 0 15px rgba(var(--color-orange-rgb), 0.25);
 }
 
+.status-testing {
+  --status-bg: var(--accent-info-muted, rgba(33, 150, 243, 0.15));
+  --status-border: rgba(33, 150, 243, 0.3);
+  --status-color: var(--accent-info, #2196f3);
+  --status-shadow: 0 0 12px rgba(33, 150, 243, 0.2);
+}
+
 .status-dot {
   width: 6px;
   height: 6px;
@@ -1016,9 +1023,8 @@
               0 0 45px rgba(var(--color-purple-rgb), 0.35);
 }
 
-/* ========== RECORD BUTTON (Variant) ========== */
-/* Record'a özgü state: preparing - tema ile uyumlu */
-.btn-record.preparing {
+/* Preparing state - ortak (DRY) */
+.btn-action.preparing {
   background: var(--gradient-neon-circle);
   color: white;
   cursor: wait;
@@ -1026,11 +1032,13 @@
   opacity: 0.7;
 }
 
+/* ========== RECORD BUTTON (Variant) ========== */
+
 /* Record ikonu toggle */
 .btn-record .icon-square { display: none; }
 .btn-record.active .icon-circle { display: none; }
 .btn-record.active .icon-square { display: block; }
-.btn-record.preparing .icon-circle { display: none; }
+.btn-record.preparing .icon-circle,
 .btn-record.preparing .icon-square { display: none; }
 
 /* ========== MONITOR BUTTON (Variant) ========== */
@@ -1052,18 +1060,14 @@
 .btn-test.playback .icon-play { display: none; }
 .btn-test.playback .icon-stop { display: block; }
 
-/* Test recording state - neon aktif */
+/* Test recording state - .btn-action.active ile ayni box-shadow */
 .btn-test.recording {
-  background: var(--gradient-neon-circle);
-  color: white;
   box-shadow: 0 0 25px rgba(var(--color-pink-rgb), 0.5),
               0 0 45px rgba(var(--color-purple-rgb), 0.35);
 }
 
 /* Test playback state - pulse animasyonu */
 .btn-test.playback {
-  background: var(--gradient-neon-circle);
-  color: white;
   animation: test-playback-pulse 1s ease-in-out infinite;
 }
 
@@ -1078,16 +1082,8 @@
   }
 }
 
-/* Test preparing state */
-.btn-test.preparing {
-  background: var(--gradient-neon-circle);
-  color: white;
-  cursor: wait;
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-.btn-test.preparing .icon-play { display: none; }
+/* Test preparing - ikon gizle (base .btn-action.preparing'den miras) */
+.btn-test.preparing .icon-play,
 .btn-test.preparing .icon-stop { display: none; }
 
 /* Test countdown badge - sağ üst köşe */
@@ -1191,28 +1187,25 @@
 }
 
 .vu-meter-bar {
+  /* Parametrik gradient renkleri - DRY */
+  --vu-color-start: var(--vu-green);
+  --vu-color-mid: var(--vu-yellow);
+  --vu-color-high: #f97316;
+  --vu-color-max: var(--accent-danger);
+
   height: 100%;
   width: 0;
-  background: linear-gradient(
-    90deg,
-    var(--vu-green) 0%,
-    var(--vu-green) 45%,       /* yesil */
-    var(--vu-yellow) 70%,      /* sari */
-    #f97316 88%,               /* turuncu (gercek turuncu) */
-    var(--accent-danger) 100%  /* kirmizi sadece maksimumda */
-  );
-  /* Gradyan container genisliginde sabit kalsin */
+  background: linear-gradient(90deg,
+    var(--vu-color-start) 0% 45%,
+    var(--vu-color-mid) 70%,
+    var(--vu-color-high) 88%,
+    var(--vu-color-max) 100%);
   background-size: 500px 100%;
   background-position: left;
   background-repeat: no-repeat;
   border-radius: var(--radius-sm);
   transition: width 0.12s ease-out;
   will-change: width;
-}
-
-/* Glossy highlight - bar artik maske, bu efekt kaldirildi */
-.vu-meter-bar::before {
-  display: none;
 }
 
 .vu-meter-peak {
@@ -1228,19 +1221,11 @@
   z-index: 3;
 }
 
-/* Remote VU Meter (Codec sonrasi - Loopback'te gorunur) */
+/* Remote VU Meter - sadece renk override */
 .remote-bar {
-  background: linear-gradient(
-    90deg,
-    var(--vu-purple) 0%,
-    var(--vu-purple) 45%,          /* mor */
-    var(--color-purple-light) 70%, /* acik mor - daha erken baslar */
-    var(--accent-warning) 88%,     /* turuncu */
-    var(--accent-danger) 100%      /* kirmizi sadece maksimumda */
-  );
-  background-size: 500px 100%;
-  background-position: left;
-  background-repeat: no-repeat;
+  --vu-color-start: var(--vu-purple);
+  --vu-color-mid: var(--color-purple-light);
+  --vu-color-high: var(--accent-warning);
 }
 
 /* Remote dot - #remoteVuContainer context ile specificity artırıldı */
@@ -1570,16 +1555,16 @@
   padding: var(--space-lg);
 }
 
-/* ========== DEV CONSOLE SLIDE DRAWER ========== */
-/* Sağdan açılan tam boy developer console */
-
-.dev-console-drawer {
+/* ========== DRAWER BASE (Ortak Stiller) ========== */
+/* Sağdan açılan drawer'lar için ortak base - DRY */
+.drawer-base {
+  --drawer-width: 400px;
   position: fixed;
   top: 0;
-  right: -420px;
-  width: 420px;
+  right: calc(-1 * var(--drawer-width));
+  width: var(--drawer-width);
   height: 100vh;
-  background: linear-gradient(180deg, rgba(10, 10, 15, 0.98) 0%, rgba(18, 18, 26, 0.95) 100%);
+  background: rgba(10, 10, 15, 0.95);
   backdrop-filter: blur(var(--blur-lg));
   -webkit-backdrop-filter: blur(var(--blur-lg));
   border-left: 1px solid var(--glass-border);
@@ -1587,12 +1572,18 @@
   display: flex;
   flex-direction: column;
   transition: right 0.3s ease;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
 }
 
-/* Açık durum */
-.dev-console-drawer.open {
+.drawer-base.open {
   right: 0;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ========== DEV CONSOLE DRAWER ========== */
+.dev-console-drawer {
+  --drawer-width: 420px;
+  background: linear-gradient(180deg, rgba(10, 10, 15, 0.98) 0%, rgba(18, 18, 26, 0.95) 100%);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
 }
 
 /* Drawer sol kenar gradient çizgi */
@@ -1910,25 +1901,9 @@ body.production .dev-console-toggle-btn {
 }
 
 /* ========== SETTINGS DRAWER ========== */
+/* .drawer-base'den miras - sadece variant stillleri */
 .settings-drawer {
-  position: fixed;
-  top: 0;
-  right: -400px;
-  width: 400px;
-  height: 100vh;
-  background: rgba(10, 10, 15, 0.95);
-  backdrop-filter: blur(var(--blur-lg));
-  -webkit-backdrop-filter: blur(var(--blur-lg));
-  border-left: 1px solid var(--glass-border);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  transition: right 0.3s ease;
-}
-
-.settings-drawer.open {
-  right: 0;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
+  /* Default width kullanir (400px) - drawer-base'den */
 }
 
 .drawer-overlay {
@@ -2844,7 +2819,8 @@ label.option-disabled::after {
 
 body[data-app-state="recording"],
 body[data-app-state="monitoring"],
-body[data-app-state="testing"] {
+body[data-app-state="testing"],
+body[data-app-state="preparing"] {
   /* Tum interactive elementler disabled (whitelist haric) */
   button:not(.always-active),
   a:not(.always-active),
@@ -2872,6 +2848,14 @@ body[data-app-state="testing"] {
   pointer-events: auto !important;
   opacity: 1 !important;
   cursor: pointer !important;
+}
+
+/* Disabled butonlar - always-active olsa bile disabled görünümü almalı */
+.always-active:disabled,
+.always-active[disabled] {
+  pointer-events: none !important;
+  opacity: var(--opacity-disabled) !important;
+  cursor: not-allowed !important;
 }
 
 /* ========== MOBILE SMALL (480px) RESPONSIVE ========== */

@@ -19,9 +19,7 @@ import BasePipeline from './BasePipeline.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from '../modules/WorkletHelper.js';
 import { usesWasmOpus } from '../modules/utils.js';
 import eventBus from '../modules/EventBus.js';
-
-// Opus frame size: 20ms @ 48kHz = 960 samples
-const OPUS_FRAME_SIZE = 960;
+import { OPUS } from '../modules/constants.js';
 
 export default class WorkletPipeline extends BasePipeline {
   constructor(audioContext, sourceNode, destinationNode) {
@@ -66,7 +64,7 @@ export default class WorkletPipeline extends BasePipeline {
     const opusBitrate = await this._initOpusWorker(mediaBitrate);
 
     // Accumulator buffer olustur (128 sample -> 960 sample biriktir)
-    this.accumulator = new Float32Array(OPUS_FRAME_SIZE);
+    this.accumulator = new Float32Array(OPUS.FRAME_SIZE);
     this.accumulatorIndex = 0;
 
     // Worklet'e PCM gonderimini ac
@@ -101,7 +99,7 @@ export default class WorkletPipeline extends BasePipeline {
 
     this.log('AudioWorklet + WASM Opus grafigi baglandi (fan-out)', {
       graph: 'Source -> Worklet -> [AnalyserNode (VU) + MuteGain -> Destination]',
-      frameSize: OPUS_FRAME_SIZE,
+      frameSize: OPUS.FRAME_SIZE,
       bitrate: opusBitrate,
       encoderType: this.opusWorker.encoderType
     });
@@ -121,7 +119,7 @@ export default class WorkletPipeline extends BasePipeline {
         this.accumulator[this.accumulatorIndex++] = pcmData[i];
 
         // Frame doldu, encode et
-        if (this.accumulatorIndex >= OPUS_FRAME_SIZE) {
+        if (this.accumulatorIndex >= OPUS.FRAME_SIZE) {
           this.opusWorker.encode(this.accumulator.slice(), false);
           this.accumulatorIndex = 0;
         }
@@ -192,7 +190,7 @@ export default class WorkletPipeline extends BasePipeline {
     // Kalan accumulator verisini gonder (padding ile)
     if (this.accumulatorIndex > 0) {
       // Kalan kismi sifirla (silence padding)
-      for (let i = this.accumulatorIndex; i < OPUS_FRAME_SIZE; i++) {
+      for (let i = this.accumulatorIndex; i < OPUS.FRAME_SIZE; i++) {
         this.accumulator[i] = 0;
       }
       this.opusWorker.encode(this.accumulator.slice(), false);

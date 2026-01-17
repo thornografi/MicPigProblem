@@ -36,6 +36,38 @@ record: Recording + Playback
 - **WebRTC/Loopback** → `micprobe-loopback` skill'ine bak
 - **Profil kategorileri** → `micprobe-modules` skill'ine bak
 - **UI mod davranisi** → `micprobe-ui-state` skill'ine bak
+- **Browser Testing** → CLAUDE.md "Browser Testing" bölümüne bak
+
+---
+
+## Browser Testing (Chrome Extension)
+
+> **KRİTİK:** Tarayıcı testi için DAIMA `http://localhost:8080` kullan!
+
+```
+✅ DOĞRU: http://localhost:8080
+❌ YANLIŞ: file:///C:/... veya C:/Users/...
+```
+
+### Bağlantı Sırası
+
+```
+1. tabs_context_mcp(createIfEmpty: true) → Tab al
+2. Mevcut tab'da localhost:8080 açık mı? → AÇIKSA kullan
+3. navigate(tabId, "http://localhost:8080") → Sayfaya git
+4. screenshot / read_page / find → Test et
+```
+
+### Server Durumu
+
+| Tray Icon | Durum | Aksiyon |
+|-----------|-------|---------|
+| 🟢 Yeşil | Çalışıyor | Direkt bağlan |
+| 🔴 Kırmızı | Kapalı | Hook otomatik başlatır |
+
+**Hook:** Yanlış URL yazsan bile (`file://`, `C:/`) otomatik `localhost:8080`'e çevirir.
+
+**Detaylı bilgi:** CLAUDE.md → "Browser Testing" bölümü
 
 ---
 

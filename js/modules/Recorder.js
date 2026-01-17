@@ -5,7 +5,7 @@
  */
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
-import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder, getStreamErrorMessage } from './utils.js';
 import { BUFFER, bytesToKB } from './constants.js';
 import { createPipeline, isPipelineSupported } from '../pipelines/PipelineFactory.js';
 
@@ -400,16 +400,11 @@ class Recorder {
 
   /**
    * Hata mesajini kullanici dostu formata cevir
+   * DRY: utils.js getStreamErrorMessage() helper kullaniliyor
    * @private
    */
   _getErrorMessage(err) {
-    const errorMap = {
-      NotAllowedError: 'Microphone permission denied',
-      NotFoundError: 'Microphone not found',
-      NotReadableError: 'Microphone is being used by another application',
-      OverconstrainedError: 'Unsupported microphone setting'
-    };
-    return errorMap[err.name] || err.message;
+    return getStreamErrorMessage(err);
   }
 
   async cleanupWebAudio(forceClose = false) {

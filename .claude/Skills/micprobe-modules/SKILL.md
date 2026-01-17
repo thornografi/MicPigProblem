@@ -42,7 +42,15 @@ js/
 │   ├── DirectPipeline.js        # WebAudio bypass
 │   ├── StandardPipeline.js      # Source -> Destination
 │   ├── ScriptProcessorPipeline.js # ScriptProcessor + WASM Opus
-│   └── WorkletPipeline.js       # AudioWorkletNode
+│   ├── WorkletPipeline.js       # AudioWorkletNode
+│   └── effects/                 # Decorator Pattern (OCP)
+│       ├── index.js             # Effect exports + factory
+│       ├── EffectDecorator.js   # Abstract decorator base
+│       ├── JitterEffect.js      # Network jitter simulation
+│       └── PacketLossEffect.js  # Packet loss simulation
+├── tests/                       # Browser-based unit tests
+│   ├── TestRunner.js            # Minimal test framework
+│   └── pipelines.test.js        # Pipeline unit tests
 ├── ui/
 │   ├── ProfileUIManager.js      # Profil UI, scenario cards
 │   ├── CustomSettingsPanelHandler.js # Ozel ayarlar paneli
@@ -270,10 +278,13 @@ Test (call - 7sn loopback test):
 | `createAudioContext(opts)` | AudioContext factory + resume |
 | `getAudioContextOptions(stream)` | Sample rate matching |
 | `createMediaRecorder(stream, opts)` | MimeType fallback |
+| `getStreamErrorMessage(err)` | getUserMedia hata mesaji cevirisi |
 | `wrapAsyncHandler(fn, msg)` | Async try-catch wrapper |
 | `toggleDisplay(el, show, display)` | DOM visibility |
 | `formatTime(seconds)` | MM:SS format |
 | `getBestAudioMimeType()` | Tarayici destekli mimeType |
+| `createAndPlayActivatorAudio(stream, ctx)` | Chrome/WebRTC remote stream aktivasyonu |
+| `cleanupActivatorAudio(audio)` | Activator audio element temizligi |
 
 ### Pipeline Helper'lari (utils.js)
 
@@ -306,8 +317,10 @@ SettingTypeHandlers.register('newType', {
 
 | Sabit | Amac |
 |-------|------|
-| `AUDIO` | FFT_SIZE, MIN_DB, MAX_DB |
+| `AUDIO` | FFT_SIZE, SMOOTHING_TIME_CONSTANT, DEFAULT_SAMPLE_RATE |
 | `DELAY` | DEFAULT_SECONDS (1.7), MAX_SECONDS (3.0) |
+| `BUFFER` | DEFAULT_SIZE (4096), WARNING_THRESHOLD |
+| `OPUS` | FRAME_SIZE (960) - 20ms @ 48kHz |
 | `TEST` | DURATION_MS (7000) - Test kayit suresi |
 | `SIGNAL` | MAX_WAIT_MS, POLL_INTERVAL_MS, RMS_THRESHOLD |
 | `LOOPBACK` | ICE_WAIT_MS |
@@ -319,3 +332,33 @@ SettingTypeHandlers.register('newType', {
 | `calculateLatencyMs(sampleRate, bufferSize)` | Gecikme hesaplama |
 | `bitrateToKbps(bps)` | Bitrate format |
 | `bytesToKB(bytes)` | Boyut format |
+
+---
+
+## Effect Decorator Pattern (Gelecek Ozellik)
+
+Pipeline'lara runtime'da efekt eklemek icin Decorator Pattern altyapisi.
+
+```javascript
+import { JitterEffect, PacketLossEffect, applyEffects } from '../pipelines/effects/index.js';
+const withJitter = new JitterEffect(basePipeline, { maxDelay: 0.15 });
+// veya toplu: applyEffects(pipeline, [{ type: 'jitter', options: {...} }])
+```
+
+| Efekt | Amac | Ayarlar |
+|-------|------|---------|
+| `JitterEffect` | Network gecikme | `minDelay`, `maxDelay`, `interval` |
+| `PacketLossEffect` | Paket kaybi | `lossRate`, `burstLength` |
+
+**Yeni efekt:** `EffectDecorator` extend et, `_setupEffect()` implement et, `effects/index.js`'e ekle
+
+---
+
+## Unit Test Altyapisi
+
+Browser-based minimal test framework. Console'da calistir:
+```javascript
+import('./js/tests/pipelines.test.js').then(m => m.runPipelineTests())
+```
+
+Yeni test: `TestRunner` import et, `runner.test('desc', async () => { assert.equal(...) })`, `runner.run()`

@@ -140,8 +140,9 @@ class UIStateManager {
     const isTesting = isTestRecording || isTestPlayback;
 
     // Global UI state - CSS whitelist yaklaşımı için
-    // body[data-app-state="recording/monitoring/testing"] tüm interactive elementleri disable eder
-    const appState = isIdle ? 'idle'
+    // body[data-app-state="recording/monitoring/testing/preparing"] tüm interactive elementleri disable eder
+    // isPreparing önce kontrol edilir - preparing sırasında diğer state'ler henüz set edilmemiş olabilir
+    const appState = isPreparing ? 'preparing'
       : isRecording ? 'recording'
       : isMonitoring ? 'monitoring'
       : isTesting ? 'testing'
@@ -173,30 +174,33 @@ class UIStateManager {
     recordToggleBtn?.classList.toggle('active', isRecording && !isPreparing);
     monitorToggleBtn?.classList.toggle('active', isMonitoring && !isPreparing);
 
-    // Preparing state kontrolü
-    recordToggleBtn?.classList.toggle('preparing', isPreparing && !isMonitoring);
-    monitorToggleBtn?.classList.toggle('preparing', isPreparing && !isRecording);
+    // Preparing state kontrolü - sadece ilgili buton preparing görünsün
+    // Mode artık preparing başında set ediliyor, bu yüzden isPreparing && isX doğru çalışır
+    recordToggleBtn?.classList.toggle('preparing', isPreparing && isRecording);
+    monitorToggleBtn?.classList.toggle('preparing', isPreparing && isMonitoring);
 
     // Monitoring/Testing sirasinda kayit butonunu disable et ve tersi
-    // Preparing state'de de butonlar disabled
-    if (recordToggleBtn) recordToggleBtn.disabled = isMonitoring || isTesting || isPreparing;
-    if (monitorToggleBtn) monitorToggleBtn.disabled = isRecording || isTesting || isPreparing;
+    // Kendi preparing'i sirasinda buton aktif kalmali (iptal edebilsin), baskasinin preparing'inde disabled
+    if (recordToggleBtn) recordToggleBtn.disabled = isMonitoring || isTesting || (isPreparing && !isRecording);
+    if (monitorToggleBtn) monitorToggleBtn.disabled = isRecording || isTesting || (isPreparing && !isMonitoring);
 
     // Test butonu state'leri
     if (testBtn) {
       // Test sirasinda aktif, diger islemlerde disabled
-      testBtn.classList.toggle('recording', isTestRecording);
+      testBtn.classList.toggle('recording', isTestRecording && !isPreparing);
       testBtn.classList.toggle('playback', isTestPlayback);
-      testBtn.classList.toggle('preparing', isPreparing && !isRecording && !isMonitoring);
-      testBtn.disabled = isRecording || isMonitoring || isPreparing;
+      testBtn.classList.toggle('preparing', isPreparing && isTesting);
+      // Test butonu: recording/monitoring sırasında veya kendi preparing'i dışındaki preparing'lerde disabled
+      testBtn.disabled = isRecording || isMonitoring || (isPreparing && !isTesting);
 
       // Test buton text
+      // Skype/Zoom pattern: Recording -> "Done" (erken bitir), Playback -> "Stop"
       const testBtnText = testBtn.querySelector('.btn-text');
       if (testBtnText) {
-        if (isPreparing && !isRecording && !isMonitoring) {
+        if (isPreparing && isTesting) {
           testBtnText.textContent = 'Preparing...';
         } else if (isTestRecording) {
-          testBtnText.textContent = 'Stop Test';
+          testBtnText.textContent = 'Done';  // Kullanici konusmayi bitirdi, playback'e gec
         } else if (isTestPlayback) {
           testBtnText.textContent = 'Stop';
         } else {
@@ -330,19 +334,19 @@ class UIStateManager {
     const selectedPipeline = document.querySelector('input[name="pipeline"]:checked')?.value;
     this.radioGroups.bufferSize.forEach(r => r.disabled = shouldBeDisabled('buffer') || !needsBufferSetting(selectedPipeline));
 
-    // Buton text'lerini guncelle
+    // Buton text'lerini guncelle - sadece ilgili buton "Preparing..." göstersin
     const recordBtnText = recordToggleBtn?.querySelector('.btn-text');
     const monitorBtnText = monitorToggleBtn?.querySelector('.btn-text');
 
     if (recordBtnText) {
-      if (isPreparing && !isMonitoring) {
+      if (isPreparing && isRecording) {
         recordBtnText.textContent = 'Preparing...';
       } else {
         recordBtnText.textContent = isRecording ? 'Stop' : 'Record';
       }
     }
     if (monitorBtnText) {
-      if (isPreparing && !isRecording) {
+      if (isPreparing && isMonitoring) {
         monitorBtnText.textContent = 'Preparing...';
       } else {
         monitorBtnText.textContent = isMonitoring ? 'Stop' : 'Monitor';

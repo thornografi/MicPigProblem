@@ -185,14 +185,12 @@
 
         <div class="hero-buttons">
           <button class="btn btn--primary" onclick="showAppView()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-            Get Started
+            <svg viewBox="0 0 24 24" fill="currentColor"><use href="#icon-mic"/></svg>
+            Launch Mic Probe
           </button>
           <a href="#features" class="btn btn--secondary">
-            Learn More
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            See Features
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
             </svg>
           </a>
@@ -564,7 +562,7 @@
 
 
       <!-- Dev Console Slide Panel (from right) -->
-      <div class="dev-console-drawer" id="devConsole">
+      <div class="drawer-base dev-console-drawer" id="devConsole">
         <div class="dev-console-drawer-header">
           <div class="drawer-title">
             <svg class="toggle-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
@@ -610,7 +608,7 @@
       </button>
 
       <!-- Settings Drawer -->
-      <div id="settingsDrawer" class="settings-drawer">
+      <div id="settingsDrawer" class="drawer-base settings-drawer">
         <div class="drawer-header">
           <h3>Advanced Settings</h3>
           <button class="btn-close-drawer" id="closeDrawer">

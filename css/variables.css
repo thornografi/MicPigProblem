@@ -58,23 +58,6 @@
     #2d1b4e 100%);
   --gradient-hero: radial-gradient(ellipse at 50% 100%, rgba(var(--color-purple-rgb), 0.15) 0%, transparent 60%);
 
-  /* Accent gradient opacity tokens (DRY) */
-  --accent-grad-soft-alpha: 0.9;
-  --accent-grad-muted-orange-alpha: 0.15;
-  --accent-grad-muted-purple-alpha: 0.1;
-  --accent-grad-subtle-orange-alpha: 0.05;
-  --accent-grad-subtle-purple-alpha: 0.03;
-  --accent-grad-faint-orange-alpha: 0.03;
-  --accent-grad-faint-purple-alpha: 0.02;
-  --accent-grad-hover-orange-alpha: 0.1;
-  --accent-grad-hover-purple-alpha: 0.06;
-  --accent-grad-strong-orange-alpha: 0.2;
-  --accent-grad-strong-purple-alpha: 0.15;
-  --accent-grad-mid-orange-alpha: 0.12;
-  --accent-grad-mid-purple-alpha: 0.08;
-  --shine-alpha: 0.1;
-  --shine-strong-alpha: 0.15;
-
   /* Primary accent gradient */
   --gradient-accent: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
 
@@ -84,51 +67,42 @@
     rgba(var(--color-purple-rgb), 0.92) 60%,
     rgba(59, 130, 246, 0.88) 100%);
 
-  /* Muted accent gradients for backgrounds - DRY */
-  --gradient-accent-muted: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-muted-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-muted-purple-alpha)) 100%);
-
   /* Glass shine overlay - button ::before icin */
-  --gradient-shine: linear-gradient(135deg, rgba(var(--color-white-rgb), var(--shine-alpha)), transparent);
-  --gradient-shine-strong: linear-gradient(135deg, rgba(var(--color-white-rgb), var(--shine-strong-alpha)), transparent);
-  --gradient-accent-subtle: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-subtle-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-subtle-purple-alpha)) 100%);
+  --gradient-shine: linear-gradient(135deg, rgba(var(--color-white-rgb), 0.1), transparent);
+  --gradient-shine-strong: linear-gradient(135deg, rgba(var(--color-white-rgb), 0.15), transparent);
+
+  /* Accent gradients for backgrounds - 6 seviye yeterli */
+  /* faint < subtle < hover < muted < mid < strong */
   --gradient-accent-faint: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-faint-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-faint-purple-alpha)) 100%);
+    rgba(var(--color-orange-rgb), 0.03) 0%,
+    rgba(var(--color-purple-rgb), 0.02) 100%);
+  --gradient-accent-subtle: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), 0.05) 0%,
+    rgba(var(--color-purple-rgb), 0.03) 100%);
   --gradient-accent-hover: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-hover-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-hover-purple-alpha)) 100%);
-  --gradient-accent-strong: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-strong-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-strong-purple-alpha)) 100%);
+    rgba(var(--color-orange-rgb), 0.1) 0%,
+    rgba(var(--color-purple-rgb), 0.06) 100%);
+  --gradient-accent-muted: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), 0.15) 0%,
+    rgba(var(--color-purple-rgb), 0.1) 100%);
   --gradient-accent-mid: linear-gradient(135deg,
-    rgba(var(--color-orange-rgb), var(--accent-grad-mid-orange-alpha)) 0%,
-    rgba(var(--color-purple-rgb), var(--accent-grad-mid-purple-alpha)) 100%);
+    rgba(var(--color-orange-rgb), 0.12) 0%,
+    rgba(var(--color-purple-rgb), 0.08) 100%);
+  --gradient-accent-strong: linear-gradient(135deg,
+    rgba(var(--color-orange-rgb), 0.2) 0%,
+    rgba(var(--color-purple-rgb), 0.15) 100%);
 
   /* ========== GLOW & SHADOW SYSTEM ========== */
-  /* Shared accent glow colors - DRY */
-  --glow-accent-orange-50: rgba(var(--color-orange-rgb), 0.5);
-  --glow-accent-orange-60: rgba(var(--color-orange-rgb), 0.6);
-  --glow-accent-orange-80: rgba(var(--color-orange-rgb), 0.8);
-  --glow-accent-purple-30: rgba(var(--color-purple-rgb), 0.3);
-  --glow-accent-purple-40: rgba(var(--color-purple-rgb), 0.4);
-  --shadow-accent-orange-40: rgba(var(--color-orange-rgb), 0.4);
-  --shadow-accent-orange-80: rgba(var(--color-orange-rgb), 0.8);
-
-  /* Drop-shadow filters - icon/svg icin */
-  --glow-accent-sm: drop-shadow(0 0 6px var(--glow-accent-orange-50));
-  --glow-accent-md: drop-shadow(0 0 8px var(--glow-accent-orange-60)) drop-shadow(0 0 16px var(--glow-accent-purple-30));
-  --glow-accent-lg: drop-shadow(0 0 12px var(--glow-accent-orange-60)) drop-shadow(0 0 20px var(--glow-accent-purple-30));
-  --glow-accent-xl: drop-shadow(0 0 16px var(--glow-accent-orange-80)) drop-shadow(0 0 24px var(--glow-accent-purple-40));
+  /* Drop-shadow filters - icon/svg icin (sm < md < lg < xl) */
+  --glow-accent-sm: drop-shadow(0 0 6px rgba(var(--color-orange-rgb), 0.5));
+  --glow-accent-md: drop-shadow(0 0 8px rgba(var(--color-orange-rgb), 0.6)) drop-shadow(0 0 16px rgba(var(--color-purple-rgb), 0.3));
+  --glow-accent-lg: drop-shadow(0 0 12px rgba(var(--color-orange-rgb), 0.6)) drop-shadow(0 0 20px rgba(var(--color-purple-rgb), 0.3));
+  --glow-accent-xl: drop-shadow(0 0 16px rgba(var(--color-orange-rgb), 0.8)) drop-shadow(0 0 24px rgba(var(--color-purple-rgb), 0.4));
 
   /* Box-shadow - container/card icin */
-  --shadow-accent-sm: 0 0 8px var(--shadow-accent-orange-40);
-  --shadow-accent-md: 0 0 12px var(--shadow-accent-orange-40);
-  --shadow-accent-lg: 0 0 15px var(--shadow-accent-orange-40);
-  --shadow-accent-glow: 0 0 12px var(--shadow-accent-orange-80), 0 0 20px var(--shadow-accent-orange-40);
+  --shadow-accent-md: 0 0 12px rgba(var(--color-orange-rgb), 0.4);
+  --shadow-accent-lg: 0 0 15px rgba(var(--color-orange-rgb), 0.4);
+  --shadow-accent-glow: 0 0 12px rgba(var(--color-orange-rgb), 0.8), 0 0 20px rgba(var(--color-orange-rgb), 0.4);
   --shadow-purple-glow: 0 0 12px rgba(var(--color-purple-rgb), 0.8), 0 0 20px rgba(var(--color-purple-rgb), 0.4);
 
   /* Accent colors */

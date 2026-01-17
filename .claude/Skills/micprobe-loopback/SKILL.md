@@ -27,16 +27,20 @@ Guvenli yol:
 3. Sonra Web Audio graph kur
 
 ```javascript
-// LoopbackManager.js - Activator pattern
-const activatorAudio = document.createElement('audio');
-activatorAudio.srcObject = remoteStream;
-activatorAudio.muted = true;
-activatorAudio.volume = 0;
-await activatorAudio.play();
+// DRY: utils.js helper'larini kullan
+import { createAndPlayActivatorAudio, cleanupActivatorAudio } from './utils.js';
+
+// Aktivasyon
+const activatorAudio = await createAndPlayActivatorAudio(remoteStream, 'Loopback Monitor');
 // Simdi Web Audio graph kurulabilir
+
+// Temizlik
+cleanupActivatorAudio(activatorAudio);
 ```
 
-**Cleanup:** `window._loopbackMonitorActivatorAudio` global'de tutulur, `cleanupMonitorPlayback()` icinde temizlenir.
+**Helper'lar (utils.js):**
+- `createAndPlayActivatorAudio(stream, context)` - Audio element olustur, play() cagir, log emit et
+- `cleanupActivatorAudio(audio)` - pause() + srcObject = null
 
 ## Gecikme (Monitoring)
 

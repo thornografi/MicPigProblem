@@ -14,7 +14,8 @@ class StatusManager {
       recording: { class: 'status-recording', text: 'Recording' },
       monitoring: { class: 'status-monitoring', text: 'Monitor Active' },
       webaudio: { class: 'status-webaudio', text: 'WebAudio Active' },
-      loopback: { class: 'status-loopback', text: 'WebRTC Loopback' }
+      loopback: { class: 'status-loopback', text: 'WebRTC Loopback' },
+      testing: { class: 'status-testing', text: 'Testing' }
     };
 
     // Inline CSS vars allow new status colors without touching CSS.
@@ -42,6 +43,13 @@ class StatusManager {
     eventBus.on('monitor:stopped', () => this.setStatus('idle'));
     eventBus.on('loopback:started', () => this.setStatus('loopback'));
     eventBus.on('loopback:stopped', () => this.setStatus('idle'));
+
+    // Test event'leri
+    eventBus.on('test:recording-started', () => this.setStatus('testing'));
+    eventBus.on('test:playback-started', () => this.setStatus('testing'));
+    eventBus.on('test:completed', () => this.setStatus('idle'));
+    eventBus.on('test:cancelled', () => this.setStatus('idle'));
+    eventBus.on('test:playback-stopped', () => this.setStatus('idle'));
   }
 
   setStatus(status) {

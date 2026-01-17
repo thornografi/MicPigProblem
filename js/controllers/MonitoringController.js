@@ -6,7 +6,7 @@
 import eventBus from '../modules/EventBus.js';
 import loopbackManager from '../modules/LoopbackManager.js';
 import { DELAY, TEST } from '../modules/constants.js';
-import { stopStreamTracks, createMediaRecorder } from '../modules/utils.js';
+import { stopStreamTracks, createMediaRecorder, createAndPlayActivatorAudio, cleanupActivatorAudio } from '../modules/utils.js';
 import { requestStream } from '../modules/StreamHelper.js';
 
 class MonitoringController {
@@ -21,6 +21,7 @@ class MonitoringController {
     this.testAudioBlob = null;
     this.testAudioElement = null;
     this.testAudioUrl = null;
+    this.testActivatorAudio = null;  // Chrome/WebRTC activator
     this.testPhase = null;  // 'recording' | 'playback' | null
     this.testChunks = [];
 
@@ -84,7 +85,8 @@ class MonitoringController {
       // Player'i durdur
       this.deps.player?.pause();
 
-      // Preparing state
+      // Preparing state - mode'u hemen set et (UI hangi butonun preparing oldugunu bilsin)
+      this.deps.setCurrentMode('monitoring');
       this.deps.setIsPreparing(true);
       this.deps.uiStateManager?.updateButtonStates();
       this.deps.uiStateManager?.showPreparingState();
@@ -133,9 +135,8 @@ class MonitoringController {
       bufferSize: this.deps.getBufferSize()
     });
 
-    // UI guncelle
+    // UI guncelle - mode zaten set edildi, sadece preparing'i kapat
     this.deps.setIsPreparing(false);
-    this.deps.setCurrentMode('monitoring');
     this.deps.uiStateManager?.updateButtonStates();
     this.deps.uiStateManager?.hidePreparingState();
 
@@ -168,9 +169,8 @@ class MonitoringController {
       await monitor.startDirect(constraints);
     }
 
-    // UI guncelle
+    // UI guncelle - mode zaten set edildi, sadece preparing'i kapat
     this.deps.setIsPreparing(false);
-    this.deps.setCurrentMode('monitoring');
     this.deps.uiStateManager?.updateButtonStates();
     this.deps.uiStateManager?.hidePreparingState();
   }
@@ -230,10 +230,12 @@ class MonitoringController {
 
   /**
    * Test toggle (test butonuna tiklandiginda)
+   * Skype/Zoom pattern: Kayit sirasinda tiklanirsa erken durdur ve playback'e gec
    */
   async toggleTest() {
     if (this.testPhase === 'recording') {
-      await this.cancelTest();
+      // Erken durdur -> playback'e gec (iptal degil)
+      await this.stopTestRecording();
     } else if (this.testPhase === 'playback') {
       await this.stopTestPlayback();
     } else {
@@ -257,7 +259,8 @@ class MonitoringController {
       // Player'i durdur
       this.deps.player?.pause();
 
-      // Preparing state
+      // Preparing state - mode'u hemen set et (UI hangi butonun preparing oldugunu bilsin)
+      this.deps.setCurrentMode('test-recording');
       this.deps.setIsPreparing(true);
       this.deps.uiStateManager?.updateButtonStates();
 
@@ -271,6 +274,9 @@ class MonitoringController {
         opusBitrate
       });
 
+      // DRY: Chrome/WebRTC activator audio helper kullan
+      this.testActivatorAudio = await createAndPlayActivatorAudio(remoteStream, 'Test');
+
       // DRY: createMediaRecorder helper kullan
       this.testChunks = [];
       this.testMediaRecorder = createMediaRecorder(remoteStream);
@@ -279,10 +285,9 @@ class MonitoringController {
       };
       this.testMediaRecorder.start();
 
-      // State guncelle
+      // State guncelle - mode zaten set edildi, sadece preparing'i kapat
       this.testPhase = 'recording';
       this.deps.setIsPreparing(false);
-      this.deps.setCurrentMode('test-recording');
       this.deps.uiStateManager?.updateButtonStates();
 
       // VU Meter icin event'ler
@@ -297,6 +302,8 @@ class MonitoringController {
     } catch (err) {
       eventBus.emit('log:error', { message: 'Test kaydi baslatilamadi', details: { error: err.message } });
       eventBus.emit('log', `❌ Test hatasi: ${err.message}`);
+      // Preparing flag'i temizle (UI "Preparing" durumunda takilmasin)
+      this.deps.setIsPreparing(false);
       await this._cleanupTest();
     }
   }
@@ -309,18 +316,22 @@ class MonitoringController {
 
     eventBus.emit('log:stream', { message: 'Test kaydi durduruluyor' });
 
+    // onstop handler'i ONCE set et, SONRA stop() cagir (race condition fix)
+    const stopPromise = new Promise(resolve => {
+      this.testMediaRecorder.onstop = () => {
+        this.testAudioBlob = new Blob(this.testChunks, { type: this.testMediaRecorder.mimeType || 'audio/webm' });
+        eventBus.emit('log', `📊 MediaRecorder onstop: ${this.testChunks.length} chunk, ${this.testAudioBlob.size} bytes`);
+        resolve();
+      };
+    });
+
     // MediaRecorder'i durdur
     if (this.testMediaRecorder?.state !== 'inactive') {
       this.testMediaRecorder.stop();
     }
 
     // onstop'u bekle
-    await new Promise(resolve => {
-      this.testMediaRecorder.onstop = () => {
-        this.testAudioBlob = new Blob(this.testChunks, { type: this.testMediaRecorder.mimeType || 'audio/webm' });
-        resolve();
-      };
-    });
+    await stopPromise;
 
     // VU Meter event'leri
     eventBus.emit('stream:stopped');
@@ -341,9 +352,25 @@ class MonitoringController {
    * Test playback baslat
    */
   async startTestPlayback() {
+    // Blob kontrolu
+    if (!this.testAudioBlob || this.testAudioBlob.size === 0) {
+      eventBus.emit('log:error', {
+        message: 'Test playback hatasi: Ses verisi yok',
+        details: { blobExists: !!this.testAudioBlob, blobSize: this.testAudioBlob?.size || 0, chunksCount: this.testChunks?.length || 0 }
+      });
+      eventBus.emit('log', '❌ Test kaydı boş - ses verisi alınamadı');
+      await this._cleanupTest();
+      return;
+    }
+
     this.testPhase = 'playback';
     this.deps.setCurrentMode('test-playback');
     this.deps.uiStateManager?.updateButtonStates();
+
+    eventBus.emit('log:stream', {
+      message: 'Test playback baslatiliyor',
+      details: { blobSize: this.testAudioBlob.size, blobType: this.testAudioBlob.type }
+    });
 
     // Basit Audio element ile oynat
     this.testAudioUrl = URL.createObjectURL(this.testAudioBlob);
@@ -356,7 +383,14 @@ class MonitoringController {
     };
 
     this.testAudioElement.onerror = async (e) => {
-      eventBus.emit('log:error', { message: 'Test playback hatasi', details: { error: e.message } });
+      // Audio element error event'i MediaError objesi dondurur
+      const mediaError = this.testAudioElement?.error;
+      const errorCode = mediaError?.code;
+      const errorMsg = mediaError?.message || 'Unknown error';
+      eventBus.emit('log:error', {
+        message: 'Test playback hatasi',
+        details: { errorCode, errorMsg, blobType: this.testAudioBlob?.type }
+      });
       await this._cleanupTest();
     };
 
@@ -365,7 +399,10 @@ class MonitoringController {
       eventBus.emit('test:playback-started');
       eventBus.emit('log', '🔊 Test playback basladi');
     } catch (err) {
-      eventBus.emit('log:error', { message: 'Test play hatasi', details: { error: err.message } });
+      eventBus.emit('log:error', {
+        message: 'Test play hatasi',
+        details: { error: err.message, name: err.name, blobSize: this.testAudioBlob?.size }
+      });
       await this._cleanupTest();
     }
   }
@@ -465,6 +502,10 @@ class MonitoringController {
       this.testAudioElement.onerror = null;
       this.testAudioElement = null;
     }
+
+    // DRY: Activator audio temizle
+    cleanupActivatorAudio(this.testActivatorAudio);
+    this.testActivatorAudio = null;
 
     this.testPhase = null;
     this.deps.setCurrentMode(null);

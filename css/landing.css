@@ -137,7 +137,7 @@
 .hero-buttons {
   display: flex;
   gap: var(--space-lg);
-  margin-bottom: clamp(48px, 8vw, 96px);
+  margin-bottom: clamp(32px, 5vw, 56px);
 }
 
 .hero-buttons .btn {
@@ -161,8 +161,8 @@
 }
 
 .hero-buttons .btn--primary svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .hero-buttons .btn--secondary {

@@ -7,7 +7,7 @@ import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from './WorkletHelper.js';
 import { createAudioContext, stopStreamTracks } from './utils.js';
-import { DELAY, BUFFER } from './constants.js';
+import { DELAY, BUFFER, AUDIO } from './constants.js';
 
 class Monitor {
   constructor() {
@@ -33,10 +33,10 @@ class Monitor {
    * @returns {AnalyserNode}
    */
   _createAnalyser(sourceNode, mode = '') {
-    // constants.js AUDIO sabitleri ile tutarli (BasePipeline.createAnalyser ile ayni)
+    // DRY: BasePipeline.createAnalyser() ile ayni constants kullaniliyor
     this.analyserNode = this.audioContext.createAnalyser();
-    this.analyserNode.fftSize = 256; // AUDIO.FFT_SIZE
-    this.analyserNode.smoothingTimeConstant = 0.3; // AUDIO.SMOOTHING_TIME_CONSTANT
+    this.analyserNode.fftSize = AUDIO.FFT_SIZE;
+    this.analyserNode.smoothingTimeConstant = AUDIO.SMOOTHING_TIME_CONSTANT;
 
     // Fan-out: sourceNode -> analyser (VU icin)
     sourceNode.connect(this.analyserNode);

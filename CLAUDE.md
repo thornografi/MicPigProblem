@@ -113,9 +113,12 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 | Stream durdur | `stopStreamTracks(stream)` | `stopStreamTracks(this.stream)` |
 | AudioContext | `createAudioContext(opts)` | `await createAudioContext({sampleRate})` |
 | MediaRecorder | `createMediaRecorder(stream, opts)` | `createMediaRecorder(stream, {audioBitsPerSecond})` |
+| Stream hata mesaji | `getStreamErrorMessage(err)` | `getStreamErrorMessage(err)` → "Microphone permission denied" |
 | Async error wrap | `wrapAsyncHandler(fn, msg)` | `btn.onclick = wrapAsyncHandler(handler, 'Error')` |
 | DOM visibility | `toggleDisplay(el, show)` | `toggleDisplay(panel, true, 'flex')` |
 | Zaman format | `formatTime(seconds)` | `formatTime(125)` → "2:05" |
+| Activator audio olustur | `createAndPlayActivatorAudio(stream, ctx)` | `await createAndPlayActivatorAudio(remoteStream, 'Loopback')` |
+| Activator audio temizle | `cleanupActivatorAudio(audio)` | `cleanupActivatorAudio(this.activatorAudio)` |
 
 ### Pipeline & Encoder Helper'lari (utils.js)
 
@@ -216,3 +219,84 @@ SORU: Ayni mantik 2+ yerde tekrarlaniyor mu?
 [ ] DRY kontrolu yaptim (tekrar eden kod yok)
 [ ] Skill güncellemesi gerekip gerekmediğini kontrol ettim ve gerekiyorsa güncelledim
 `
+
+---
+
+## Browser Testing (Chrome Extension)
+
+> **KRİTİK:** Bu projeyi tarayıcıda test ederken DAIMA `localhost:8080` kullan!
+
+### Bağlantı Kuralları
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ✅ DOĞRU                          ❌ YANLIŞ                    │
+│  ─────────────────                 ──────────────────           │
+│  http://localhost:8080             file:///C:/...               │
+│  http://localhost:8080/index.html  C:/Users/.../index.html      │
+│  http://127.0.0.1:8080             c//users/... (malformed)     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Server Yönetimi
+
+| Durum | Aksiyon |
+|-------|---------|
+| Server kapalı | Hook otomatik başlatır (2sn bekle) |
+| Server açık | Direkt bağlan |
+| Tray icon YEŞİL | Server çalışıyor ✓ |
+| Tray icon KIRMIZI | Server kapalı |
+
+**Manuel başlatma (gerekirse):**
+```powershell
+Start-Process pwsh -Args '-File "C:\Tools\powershell\LocalhostServerTray.ps1"' -WindowStyle Hidden
+```
+
+### Chrome Extension Kullanım Sırası
+
+```
+1. tabs_context_mcp(createIfEmpty: true)
+   └─→ Mevcut MCP tab group'u al veya yeni oluştur
+
+2. Mevcut tab'da localhost:8080 AÇIK MI kontrol et
+   └─→ AÇIKSA: O tab'ı kullan (yeni pencere AÇMA)
+   └─→ KAPALI: navigate ile localhost:8080'e git
+
+3. navigate(tabId, "http://localhost:8080")
+   └─→ Hook otomatik düzeltir (file:// veya C:/ yazsan bile)
+
+4. screenshot / read_page / find / form_input
+   └─→ Artık sayfa üzerinde çalışabilirsin
+```
+
+### Mevcut Tab Kullanımı (Yeni Pencere Açmamak İçin)
+
+```javascript
+// ÖNCELİKLE mevcut tab'ları kontrol et
+tabs_context_mcp → availableTabs içinde localhost:8080 var mı?
+
+// VARSA: O tabId'yi kullan
+navigate(existingTabId, "http://localhost:8080/profiles.html")
+
+// YOKSA: Yeni tab oluştur
+tabs_create_mcp → yeni tabId al
+navigate(newTabId, "http://localhost:8080")
+```
+
+### Test Profilleri (Hızlı Erişim)
+
+| Profil | URL |
+|--------|-----|
+| Ana sayfa | `http://localhost:8080` |
+| Discord sim | `http://localhost:8080` → Sidebar: Discord |
+| WhatsApp record | `http://localhost:8080` → Sidebar: WhatsApp Sesli Mesaj |
+| Raw recording | `http://localhost:8080` → Sidebar: Ham Kayıt |
+
+### Troubleshooting
+
+| Hata | Çözüm |
+|------|-------|
+| "Frame with ID 0 is showing error page" | Server kapalı - Tray'den başlat |
+| "No tabs available" | `tabs_context_mcp(createIfEmpty: true)` çağır |
+| Yanlış URL navigate | Hook düzeltir ama `localhost:8080` yaz |
+| Yeni pencere açılıyor | Aynı conversation'da kal, `tabs_context_mcp` tekrar çağırma |

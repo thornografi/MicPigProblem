@@ -68,7 +68,8 @@ class RecordingController {
       // Kayit baslarken oynaticiyi durdur
       this.deps.player?.pause();
 
-      // Preparing state
+      // Preparing state - mode'u hemen set et (UI hangi butonun preparing oldugunu bilsin)
+      this.deps.setCurrentMode('recording');
       this.deps.setIsPreparing(true);
       this.deps.uiStateManager?.updateButtonStates();
       this.deps.uiStateManager?.showPreparingState();
@@ -80,9 +81,8 @@ class RecordingController {
 
       await this.deps.recorder.start(constraints, pipeline, encoder, timeslice, bufferSize, mediaBitrate);
 
-      // UI guncelle
+      // UI guncelle - mode zaten set edildi, sadece preparing'i kapat
       this.deps.setIsPreparing(false);
-      this.deps.setCurrentMode('recording');
       this.deps.uiStateManager?.updateButtonStates();
       this.deps.uiStateManager?.hidePreparingState();
       this.deps.uiStateManager?.startTimer();
