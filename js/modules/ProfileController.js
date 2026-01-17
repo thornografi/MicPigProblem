@@ -114,8 +114,9 @@ class ProfileController {
     const lockedSettings = profile.lockedSettings || [];
     const editableSettings = profile.editableSettings || [];
 
-    // DeviceInfo panelini guncelle (bitrate gosterimi icin)
-    eventBus.emit('profile:changed', { profile: profileId, values, category: profile.category });
+    // NOT: profile:changed event'i DOM guncellendikten SONRA emit edilmeli
+    // Cunku dispatchEvent tetikledigi handler'lar DOM'dan deger okuyor
+    // Eger once emit edersek, sonraki dispatchEvent'ler yanlis degerle tekrar emit yapar
 
     // Aktif stream varsa restart gerekiyor mu kontrol et
     const currentMode = this.getState.currentMode();
@@ -159,6 +160,12 @@ class ProfileController {
         }
       }
     });
+
+    // DOM guncellendikten SONRA profile:changed emit et
+    // Bu siralama kritik: dispatchEvent'ler handler'lari tetikliyor ve
+    // o handler'lar DOM'dan deger okuyor - onlar bittikten sonra
+    // dogru Config degerlerini emit ediyoruz
+    eventBus.emit('profile:changed', { profile: profileId, values, category: profile.category });
 
     // Locked/Editable constraint'leri uygula
     this.applyProfileConstraints(profile);
