@@ -1,6 +1,7 @@
 /**
  * ScriptProcessorPipeline - ScriptProcessorNode ile audio isleme
  * OCP: Yeni pipeline eklemek icin BasePipeline'i extend et
+ * DRY: Opus worker islemleri BasePipeline'dan miras alinir
  *
  * Graph (WASM Opus):
  *   Source -> ScriptProcessor -> MuteGain -> AudioContext.destination
@@ -10,17 +11,10 @@
  *   Source -> ScriptProcessor -> Destination -> RecordStream
  */
 import BasePipeline from './BasePipeline.js';
-import eventBus from '../modules/EventBus.js';
-import { createOpusWorker, isWasmOpusSupported } from '../modules/OpusWorkerHelper.js';
 import { usesWasmOpus } from '../modules/utils.js';
 import { BUFFER } from '../modules/constants.js';
 
 export default class ScriptProcessorPipeline extends BasePipeline {
-  constructor(audioContext, sourceNode, destinationNode) {
-    super(audioContext, sourceNode, destinationNode);
-    this.opusWorker = null;
-  }
-
   get type() {
     return 'scriptprocessor';
   }
@@ -50,36 +44,16 @@ export default class ScriptProcessorPipeline extends BasePipeline {
 
   /**
    * WASM Opus encoder kurulumu
+   * DRY: Opus worker BasePipeline._initOpusWorker() ile olusturulur
    */
   async _setupWasmOpus(bufferSize, mediaBitrate) {
-    // WASM Opus destegi kontrolu
-    if (!isWasmOpusSupported()) {
-      throw new Error('WASM Opus desteklenmiyor');
-    }
-
-    // Opus worker olustur
-    const opusBitrate = mediaBitrate || 16000;
-    this.opusWorker = await createOpusWorker({
-      sampleRate: this.audioContext.sampleRate,
-      channels: 1,
-      bitrate: opusBitrate
-    });
-
-    this.opusWorker.onProgress = (progress) => {
-      eventBus.emit('opus:progress', progress);
-    };
-
-    this.opusWorker.onError = (error) => {
-      eventBus.emit('log:error', {
-        message: 'Opus encoder hatasi',
-        details: { error: error.message }
-      });
-    };
+    // DRY: Ortak Opus worker kurulumu
+    const opusBitrate = await this._initOpusWorker(mediaBitrate);
 
     // ScriptProcessor -> Opus Worker (PCM gonder)
     this.nodes.processor.onaudioprocess = (e) => {
-      // Guard: cleanup sonrasi gelen audio event'lerini yoksay
-      if (!this.opusWorker) {
+      // Guard: cleanup sonrasi veya worker yok ise event'leri yoksay
+      if (!this.opusWorker || !this.nodes.processor) {
         return;
       }
 
@@ -98,12 +72,8 @@ export default class ScriptProcessorPipeline extends BasePipeline {
     // Fan-out: Processor cikisindan VU Meter'a
     this.nodes.processor.connect(this.analyserNode);
 
-    // ScriptProcessor destination'a baglanmali - aksi halde onaudioprocess tetiklenmez
-    // Ses cikisini engellemek icin mute GainNode kullan
-    this.nodes.mute = this.audioContext.createGain();
-    this.nodes.mute.gain.value = 0;
-    this.nodes.processor.connect(this.nodes.mute);
-    this.nodes.mute.connect(this.audioContext.destination);
+    // DRY: Ortak MuteGain pattern
+    this._createMuteGain(this.nodes.processor);
 
     this.log('ScriptProcessor + WASM Opus grafigi baglandi (fan-out)', {
       graph: `Source -> Processor -> [AnalyserNode (VU) + MuteGain -> Destination]`,
@@ -141,6 +111,7 @@ export default class ScriptProcessorPipeline extends BasePipeline {
 
   /**
    * Temizlik - Opus worker dahil
+   * DRY: Opus cleanup BasePipeline._cleanupOpusWorker() ile yapilir
    */
   async cleanup() {
     // Audio event handler'i temizle (race condition onlemi)
@@ -148,32 +119,10 @@ export default class ScriptProcessorPipeline extends BasePipeline {
       this.nodes.processor.onaudioprocess = null;
     }
 
-    // Opus worker temizligi
-    if (this.opusWorker) {
-      this.opusWorker.terminate();
-      this.opusWorker = null;
-    }
+    // DRY: Ortak Opus worker temizligi
+    this._cleanupOpusWorker();
 
     await super.cleanup();
     this.log('ScriptProcessor pipeline cleanup tamamlandi');
-  }
-
-  /**
-   * Opus worker'i dondur (Recorder.js stop() icin)
-   */
-  getOpusWorker() {
-    return this.opusWorker;
-  }
-
-  /**
-   * Opus encoding'i bitir ve blob dondur
-   */
-  async finishOpusEncoding() {
-    if (!this.opusWorker) {
-      throw new Error('Opus worker mevcut degil');
-    }
-
-    const result = await this.opusWorker.finish();
-    return result;
   }
 }

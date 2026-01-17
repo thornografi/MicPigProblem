@@ -71,11 +71,17 @@ description: "..."     # ZORUNLU, anahtar kelimeler icermeli
 ```
 
 ### 3.2 Uzunluk Kontrolu
-| Dosya | Limit | Asim Aksiyonu |
-|-------|-------|---------------|
-| SKILL.md description | 250 karakter | Kisalt |
-| SKILL.md toplam | 250 satir | Ozetle veya bol |
-| CLAUDE.md / AGENTS.md | 150 satir | Skill'lere tasi |
+
+| Dosya | Ideal | Maksimum | Asim Aksiyonu |
+|-------|-------|----------|---------------|
+| SKILL.md description | - | 250 karakter | Kisalt |
+| SKILL.md toplam | 250-300 satir | 400 satir | Ozetle veya bol |
+| CLAUDE.md | 200-250 satir | 300 satir | Skill'lere tasi |
+
+**Onemli Kurallar:**
+- Skill'lerde satir numarasi referansi YASAK (kod degisince stale olur)
+- Dosya boyutu referansi (KB) YASAK
+- Sadece fonksiyon/modul isimleri referans edilmeli
 
 ### 3.3 Hardcoded Deger Kontrolu
 Sorunlu: Sabit port, dosya yolu (C:\...), URL, config degerleri

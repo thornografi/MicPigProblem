@@ -222,7 +222,7 @@ class Recorder {
 
       await this.cleanupWebAudio();
       // NOT: stream:stopped EMIT ETME - stream:started henuz emit edilmedi
-      // (stream:started satir 171'de, bu catch blogu oncesinde)
+      // (stream:started bu try blogunun sonunda, catch oncesinde)
       // Bu balance bozulmasi ve yanlis pozitif uyarilari onler
       eventBus.emit('recorder:error', err);
       throw err;

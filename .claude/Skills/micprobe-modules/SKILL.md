@@ -30,11 +30,11 @@ Zorunlu: Bu satirlari okuyorsan konsola "micprobe-modules SKILL.md okunuyor..." 
 
 ```
 js/
-├── app.js                       # Orchestrator, event wiring (~907)
-├── landing.js                   # Landing/App view switching, lazy loading (~225)
+├── app.js                       # Orchestrator, event wiring
+├── landing.js                   # Landing/App view switching, lazy loading
 ├── controllers/
-│   ├── RecordingController.js   # Normal kayit wrapper (~120)
-│   └── MonitoringController.js  # Loopback monitor + sinyal bekleme (~310)
+│   ├── RecordingController.js   # Normal kayit wrapper
+│   └── MonitoringController.js  # Loopback monitor + sinyal bekleme
 ├── pipelines/                   # Pipeline Strategy Pattern (OCP)
 │   ├── index.js                 # Export barrel
 │   ├── BasePipeline.js          # Abstract base class
@@ -44,34 +44,34 @@ js/
 │   ├── ScriptProcessorPipeline.js # ScriptProcessor + WASM Opus
 │   └── WorkletPipeline.js       # AudioWorkletNode
 ├── ui/
-│   ├── ProfileUIManager.js      # Profil UI, scenario cards (~184)
-│   ├── CustomSettingsPanelHandler.js # Ozel ayarlar paneli (~280)
-│   ├── RadioGroupHandler.js     # Radio/checkbox event handler (~141)
-│   └── DebugConsole.js          # Debug fonksiyonlari (~145)
+│   ├── ProfileUIManager.js      # Profil UI, scenario cards
+│   ├── CustomSettingsPanelHandler.js # Ozel ayarlar paneli
+│   ├── RadioGroupHandler.js     # Radio/checkbox event handler
+│   └── DebugConsole.js          # Debug fonksiyonlari
 ├── lib/opus/
-│   └── encoderWorker.min.js     # opus-recorder WASM encoder (376KB)
+│   └── encoderWorker.min.js     # opus-recorder WASM encoder
 ├── worklets/
 │   └── passthrough-processor.js # AudioWorklet processor
 └── modules/
     ├── Config.js                # PROFILES, SETTINGS
-    ├── constants.js             # AUDIO, DELAY, BUFFER, VU_METER, BYTES, THROTTLE, LOG, SIGNAL, LOOPBACK sabitleri
+    ├── constants.js             # Sabitler ve helper fonksiyonlar
     ├── EventBus.js              # Pub/Sub singleton
     ├── ProfileController.js     # applyProfile, constraint logic
-    ├── UIStateManager.js        # Buton state yonetimi, updateButtonStates
-    ├── StatusManager.js         # Durum yonetimi (recording, monitoring states)
+    ├── UIStateManager.js        # Buton state yonetimi
+    ├── StatusManager.js         # Durum yonetimi
     ├── LoopbackManager.js       # WebRTC loopback setup
     ├── Recorder.js              # MediaRecorder + Pipeline Strategy
     ├── OpusWorkerHelper.js      # WASM Opus worker yonetimi
     ├── Monitor.js               # Modlar: direct, standard, worklet
     ├── Player.js                # Blob oynatma
     ├── VuMeter.js               # dB gostergesi
-    ├── AudioEngine.js           # Ses motoru, AudioContext yonetimi
+    ├── AudioEngine.js           # AudioContext yonetimi
     ├── DeviceInfo.js            # Mikrofon/cihaz bilgileri
-    ├── StreamHelper.js          # MediaStream yardimci islemleri
-    ├── WorkletHelper.js         # AudioWorklet yardimci islemleri
-    ├── Logger.js                # UI log paneli gosterimi
+    ├── StreamHelper.js          # MediaStream yardimci
+    ├── WorkletHelper.js         # AudioWorklet yardimci
+    ├── Logger.js                # UI log paneli
     ├── LogManager.js            # IndexedDB log yonetimi
-    ├── WaveAnimator.js          # Landing page ses dalgasi animasyonu
+    ├── WaveAnimator.js          # Landing page animasyon
     └── utils.js                 # Genel yardimci fonksiyonlar
 ```
 

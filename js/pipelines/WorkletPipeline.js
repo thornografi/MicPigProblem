@@ -1,6 +1,7 @@
 /**
  * WorkletPipeline - AudioWorkletNode ile modern audio isleme
  * OCP: Yeni pipeline eklemek icin BasePipeline'i extend et
+ * DRY: Opus worker islemleri BasePipeline'dan miras alinir
  *
  * Graph (WASM Opus):
  *   Source -> AudioWorklet -> MuteGain -> AudioContext.destination
@@ -16,7 +17,6 @@
  */
 import BasePipeline from './BasePipeline.js';
 import { createPassthroughWorkletNode, ensurePassthroughWorklet } from '../modules/WorkletHelper.js';
-import { createOpusWorker, isWasmOpusSupported } from '../modules/OpusWorkerHelper.js';
 import { usesWasmOpus } from '../modules/utils.js';
 import eventBus from '../modules/EventBus.js';
 
@@ -26,7 +26,7 @@ const OPUS_FRAME_SIZE = 960;
 export default class WorkletPipeline extends BasePipeline {
   constructor(audioContext, sourceNode, destinationNode) {
     super(audioContext, sourceNode, destinationNode);
-    this.opusWorker = null;
+    // Worklet-specific: 128 sample -> 960 sample biriktirme
     this.accumulator = null;
     this.accumulatorIndex = 0;
   }
@@ -59,31 +59,11 @@ export default class WorkletPipeline extends BasePipeline {
 
   /**
    * WASM Opus encoder kurulumu (accumulator pattern)
+   * DRY: Opus worker BasePipeline._initOpusWorker() ile olusturulur
    */
   async _setupWasmOpus(mediaBitrate) {
-    // WASM Opus destegi kontrolu
-    if (!isWasmOpusSupported()) {
-      throw new Error('WASM Opus desteklenmiyor');
-    }
-
-    // Opus worker olustur
-    const opusBitrate = mediaBitrate || 16000;
-    this.opusWorker = await createOpusWorker({
-      sampleRate: this.audioContext.sampleRate,
-      channels: 1,
-      bitrate: opusBitrate
-    });
-
-    this.opusWorker.onProgress = (progress) => {
-      eventBus.emit('opus:progress', progress);
-    };
-
-    this.opusWorker.onError = (error) => {
-      eventBus.emit('log:error', {
-        message: 'Opus encoder hatasi (Worklet)',
-        details: { error: error.message }
-      });
-    };
+    // DRY: Ortak Opus worker kurulumu
+    const opusBitrate = await this._initOpusWorker(mediaBitrate);
 
     // Accumulator buffer olustur (128 sample -> 960 sample biriktir)
     this.accumulator = new Float32Array(OPUS_FRAME_SIZE);
@@ -116,12 +96,8 @@ export default class WorkletPipeline extends BasePipeline {
     // Fan-out: Worklet cikisindan VU Meter'a
     this.nodes.worklet.connect(this.analyserNode);
 
-    // Worklet destination'a baglanmali - aksi halde process() tetiklenmez
-    // Ses cikisini engellemek icin mute GainNode kullan
-    this.nodes.mute = this.audioContext.createGain();
-    this.nodes.mute.gain.value = 0;
-    this.nodes.worklet.connect(this.nodes.mute);
-    this.nodes.mute.connect(this.audioContext.destination);
+    // DRY: Ortak MuteGain pattern
+    this._createMuteGain(this.nodes.worklet);
 
     this.log('AudioWorklet + WASM Opus grafigi baglandi (fan-out)', {
       graph: 'Source -> Worklet -> [AnalyserNode (VU) + MuteGain -> Destination]',
@@ -179,6 +155,7 @@ export default class WorkletPipeline extends BasePipeline {
 
   /**
    * Temizlik - Opus worker dahil
+   * DRY: Opus cleanup BasePipeline._cleanupOpusWorker() ile yapilir
    */
   async cleanup() {
     // Önce mesajı gönder, sonra handler'ı temizle (sıra önemli!)
@@ -187,11 +164,8 @@ export default class WorkletPipeline extends BasePipeline {
       this.nodes.worklet.port.onmessage = null;
     }
 
-    // Opus worker temizligi
-    if (this.opusWorker) {
-      this.opusWorker.terminate();
-      this.opusWorker = null;
-    }
+    // DRY: Ortak Opus worker temizligi
+    this._cleanupOpusWorker();
 
     // Accumulator temizle
     this.accumulator = null;
@@ -202,14 +176,8 @@ export default class WorkletPipeline extends BasePipeline {
   }
 
   /**
-   * Opus worker'i dondur (Recorder.js stop() icin)
-   */
-  getOpusWorker() {
-    return this.opusWorker;
-  }
-
-  /**
    * Opus encoding'i bitir ve blob dondur
+   * Override: Accumulator'daki kalan veriyi gonder
    */
   async finishOpusEncoding() {
     if (!this.opusWorker) {
@@ -230,7 +198,6 @@ export default class WorkletPipeline extends BasePipeline {
       this.opusWorker.encode(this.accumulator.slice(), false);
     }
 
-    const result = await this.opusWorker.finish();
-    return result;
+    return await this.opusWorker.finish();
   }
 }

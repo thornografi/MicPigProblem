@@ -383,32 +383,22 @@ class LogManager {
       }
 
       // UI aksiyon loglari - detayi kontrol et
+      // NOT: MonitoringController log format: { webAudioEnabled, loopbackEnabled, pipeline, pipelineDesc }
       if (category === 'stream' && message === 'Monitor Baslat butonuna basildi') {
-        const { webAudioEnabled, loopbackEnabled, monitorMode, pipeline, pipelineDesc } = details;
-        if (webAudioEnabled === false && monitorMode && monitorMode !== 'direct') {
-          addIssue('error', 'MONITOR_MODE_MISMATCH', 'WebAudio Pipeline PASIF iken monitorMode direct degil', {
+        const { webAudioEnabled, loopbackEnabled, pipeline, pipelineDesc } = details;
+        // WebAudio kapaliyken pipeline 'direct' olmali
+        if (webAudioEnabled === false && pipeline && pipeline !== 'direct') {
+          addIssue('error', 'MONITOR_MODE_MISMATCH', 'WebAudio Pipeline PASIF iken pipeline direct degil', {
             webAudioEnabled,
-            monitorMode,
             pipeline,
             loopbackEnabled
           });
         }
-        // NOT: pipeline degiskeni direct/standard/worklet gibi degerler alir
-        // pipelineDesc ise "WebRTC Loopback + ..." seklinde aciklama icerir
+        // Loopback aktifken pipelineDesc 'WebRTC Loopback' icermeli
         if (loopbackEnabled === true && typeof pipelineDesc === 'string' && !pipelineDesc.includes('WebRTC Loopback')) {
           addIssue('warn', 'PIPELINE_LABEL_MISMATCH', 'Loopback aktif ama pipelineDesc WebRTC Loopback icermiyor', {
             pipeline,
             pipelineDesc
-          });
-        }
-      }
-
-      if (category === 'recorder' && message === 'Kayit baslat butonuna basildi') {
-        const { webAudioEnabled, recordMode } = details;
-        if (webAudioEnabled === false && recordMode && recordMode !== 'direct') {
-          addIssue('error', 'RECORD_MODE_MISMATCH', 'WebAudio Pipeline PASIF iken recordMode direct degil', {
-            webAudioEnabled,
-            recordMode
           });
         }
       }
