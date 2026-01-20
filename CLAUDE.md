@@ -129,6 +129,7 @@ Bu tablo `AGENTS.md` ile birebir aynidir. Detayli dokumantasyon ilgili skill dos
 | `supportsWasmOpusEncoder(pipeline)` | WASM Opus destekler mi? |
 | `usesMediaRecorder(encoder)` | MediaRecorder kullaniyor mu? |
 | `usesWasmOpus(encoder)` | WASM Opus kullaniyor mu? |
+| `usesPcmWav(encoder)` | PCM/WAV kullaniyor mu? |
 | `shouldDisableTimeslice(loopback, encoder)` | Timeslice disabled olmali mi? |
 
 ### Anti-Pattern (YAPMA)

@@ -69,15 +69,17 @@ export const SETTINGS = {
   // Encoder (Kayit formati)
   // mediarecorder: Tarayici MediaRecorder API (varsayilan codec)
   // wasm-opus: WASM Opus encoder (WhatsApp Web pattern)
+  // pcm-wav: Raw PCM 16-bit WAV (sifir compression)
   encoder: {
     type: 'enum',
-    values: ['mediarecorder', 'wasm-opus'],
+    values: ['mediarecorder', 'wasm-opus', 'pcm-wav'],
     default: 'mediarecorder',
     label: 'Encoder',
     category: 'pipeline',
     labels: {
       mediarecorder: 'MediaRecorder',
-      'wasm-opus': 'WASM Opus'
+      'wasm-opus': 'WASM Opus',
+      'pcm-wav': 'PCM/WAV (Raw)'
     },
     ui: { type: 'radio', name: 'encoder' }
   },
@@ -144,10 +146,11 @@ const DEFAULT_VALUES = {
 };
 
 // Profil fabrika fonksiyonu - tekrari onler
-// settings objesi: { locked: [], editable: [], allowedValues: {} } veya 'all' string'i
+// settings objesi: { locked: [], editable: [], allowedValues: [], detection: {} } veya 'all' string'i
 // locked: Deger sabit, UI'da disabled (kullanici degistiremez)
 // editable: Kullanici degistirebilir
 // allowedValues: Her ayar icin izin verilen degerler (profil bazli kisitlama)
+// detection: Teknoloji tespit bilgisi { method, source, details }
 // 'all': Tum ayarlar editable, tum degerler izinli (test modlari icin)
 function createProfile(id, label, desc, icon, category, overrides = {}, settings = {}) {
   // Geriye uyumluluk: Eski array format veya 'all' string destegi
@@ -178,12 +181,16 @@ function createProfile(id, label, desc, icon, category, overrides = {}, settings
   const isCallCategory = category === 'call';
   const loopbackEditable = settings === 'all' || editableSettings.includes('loopback');
 
+  // Detection bilgisi (opsiyonel)
+  const detection = settings.detection || null;
+
   return {
     id, label, desc, icon, category,
     values: overrides === null ? null : { ...DEFAULT_VALUES, ...overrides },
     lockedSettings,
     editableSettings,
     allowedValues, // Profil bazli deger kisitlamalari
+    detection, // Teknoloji tespit detaylari
     // OCP: Yetenekler profilde tanimli
     canMonitor: isCallCategory || loopbackEditable,
     canRecord: !isCallCategory,
@@ -203,25 +210,29 @@ export const PROFILES = {
     'gamepad', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 64000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'pipeline', 'encoder', 'sampleRate', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
-      allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] } }),
+      allowedValues: { bitrate: [64000, 96000, 128000, 256000, 384000] },
+      detection: { method: 'AudioWorklet', source: 'krisp-worker.js', details: 'Krisp AI noise suppression via AudioWorkletNode' } }),
 
   'zoom': createProfile('zoom', 'Zoom / Meet / Teams', 'Zoom, Teams, Meet - AudioWorklet pipeline',
     'video', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 48000, sampleRate: 48000, channelCount: 1 },
     { locked: ['loopback', 'pipeline', 'encoder', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate', 'sampleRate'],
-      allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 24000, 48000] } }),
+      allowedValues: { bitrate: [32000, 48000, 64000], sampleRate: [16000, 24000, 48000] },
+      detection: { method: 'AudioWorklet', source: 'audio-worklet-processor.js', details: 'Platform-specific audio processing via AudioWorkletNode' } }),
 
   'whatsapp-call': createProfile('whatsapp-call', 'WhatsApp Web Call', 'WhatsApp Web voice/video call',
     'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'pipeline', 'encoder', 'ec', 'ns', 'agc'],
+    { locked: ['loopback', 'pipeline', 'encoder', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
-      allowedValues: { bitrate: [16000, 24000, 32000] } }),
+      allowedValues: { bitrate: [16000, 24000, 32000] },
+      detection: { method: 'WebRTC', source: 'peerconnection', details: 'WebRTC PeerConnection with Opus codec via RTCPeerConnection' } }),
 
   'telegram-call': createProfile('telegram-call', 'Telegram Web Call', 'Telegram Web voice call',
     'phone', 'call', { ec: true, ns: true, agc: true, loopback: true, pipeline: 'worklet', encoder: 'mediarecorder', bitrate: 24000, sampleRate: 48000, channelCount: 1 },
-    { locked: ['loopback', 'pipeline', 'encoder', 'ec', 'ns', 'agc'],
+    { locked: ['loopback', 'pipeline', 'encoder', 'channelCount', 'ec', 'ns', 'agc'],
       editable: ['bitrate'],
-      allowedValues: { bitrate: [24000, 32000, 48000, 64000] } }),
+      allowedValues: { bitrate: [24000, 32000, 48000, 64000] },
+      detection: { method: 'WebRTC', source: 'peerconnection', details: 'WebRTC PeerConnection with Opus codec via RTCPeerConnection' } }),
 
   // ═══════════════════════════════════════════════════════════════
   // 🎙️ KAYIT (record) - MediaRecorder, Recording Primary
@@ -231,24 +242,27 @@ export const PROFILES = {
     'message', 'record', { mediaBitrate: 16000, timeslice: 0, loopback: false, pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 4096 },
     { locked: ['pipeline', 'encoder', 'buffer', 'timeslice'],
       editable: ['ec', 'ns', 'agc', 'mediaBitrate'],
-      allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
+      allowedValues: { mediaBitrate: [16000, 24000, 32000] },
+      detection: { method: 'WASM Worker', source: 'ptt-audio-encoder.js', details: 'ScriptProcessorNode(4096,1,1) + WASM Opus encoder in Web Worker' } }),
 
   'telegram-voice': createProfile('telegram-voice', 'Telegram Voice Message',
-    'AudioWorklet + WASM Opus (16-32kbps) - Telegram Web simulation',
-    'send', 'record', { mediaBitrate: 32000, timeslice: 0, loopback: false, pipeline: 'worklet', encoder: 'wasm-opus' },
-    { locked: ['pipeline', 'encoder', 'timeslice'],
+    'AudioWorklet + WASM Opus VBR - Telegram Web simulation via encoderWorker.min.js',
+    'send', 'record', { mediaBitrate: 0, timeslice: 0, loopback: false, pipeline: 'worklet', encoder: 'wasm-opus', channelCount: 1 },
+    { locked: ['pipeline', 'encoder', 'timeslice', 'channelCount'],
       editable: ['ec', 'ns', 'agc', 'mediaBitrate'],
-      allowedValues: { mediaBitrate: [16000, 24000, 32000] } }),
+      allowedValues: { mediaBitrate: [0, 16000, 24000, 32000] },  // 0 = VBR (varsayılan)
+      detection: { method: 'WASM Worker', source: 'encoderWorker.min.js', details: 'AudioWorkletNode + WASM Opus VBR encoder (opus-recorder library), mediaBitrate:0 = VBR mode' } }),
 
   'legacy': createProfile('legacy', 'Legacy Web Recording', 'ScriptProcessor + WASM Opus - legacy web recording simulation',
     'history', 'record', { pipeline: 'scriptprocessor', encoder: 'wasm-opus', buffer: 1024, loopback: false },
-    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'mediaBitrate'] }),
+    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'buffer', 'mediaBitrate'],
+      detection: { method: 'ScriptProcessor', source: 'deprecated-api', details: 'ScriptProcessorNode (deprecated) for legacy browser compatibility' } }),
     // allowedValues yok = tum degerler izinli
 
-  'raw': createProfile('raw', 'Raw Recording', 'All filters off, all settings unlocked - for testing and comparison',
-    'mic', 'record', { ec: false, ns: false, agc: false, pipeline: 'direct', encoder: 'mediarecorder', loopback: false },
-    { locked: [], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount', 'pipeline', 'encoder', 'buffer', 'mediaBitrate', 'timeslice'] })
-    // allowedValues yok = tum degerler izinli (test profili)
+  'raw': createProfile('raw', 'Raw Recording', 'Worklet + PCM/WAV - uncompressed 16-bit WAV recording',
+    'mic', 'record', { ec: false, ns: false, agc: false, pipeline: 'worklet', encoder: 'pcm-wav', loopback: false },
+    { locked: ['pipeline', 'encoder'], editable: ['ec', 'ns', 'agc', 'sampleRate', 'channelCount'],
+      detection: { method: 'AudioWorklet', source: 'pcm-wav', details: 'AudioWorkletNode + PCM/WAV (16-bit uncompressed)' } })
 };
 
 // Kategori tanimlari (UI siralama icin)

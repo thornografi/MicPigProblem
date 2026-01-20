@@ -5,9 +5,10 @@
  */
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
-import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder, getStreamErrorMessage } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder, usesPcmWav, getStreamErrorMessage } from './utils.js';
 import { BUFFER, bytesToKB } from './constants.js';
 import { createPipeline, isPipelineSupported } from '../pipelines/PipelineFactory.js';
+import { SETTINGS } from './Config.js';
 
 class Recorder {
   constructor(config) {
@@ -43,6 +44,8 @@ class Recorder {
   /**
    * WebAudio modu icin AudioContext'i onceden olustur
    * Sayfa yuklenince cagrilabilir - Start aninda hiz kazandirir
+   * NOT: destinationNode artık warmup'ta oluşturulmuyor
+   * (WASM Opus modunda kullanılmıyor, MediaRecorder modunda start()'ta oluşturuluyor)
    */
   async warmup() {
     if (this.isWarmedUp || this.audioContext) {
@@ -52,9 +55,6 @@ class Recorder {
     try {
       // DRY: factory kullan
       this.audioContext = await createAudioContext();
-
-      // Destination node'u da onceden olustur
-      this.destinationNode = this.audioContext.createMediaStreamDestination();
 
       this.isWarmedUp = true;
 
@@ -77,9 +77,18 @@ class Recorder {
     if (this.isRecording) return;
 
     // Pipeline ve encoder validasyonu (OCP: PipelineFactory destekli kontrol)
-    const allowedEncoders = new Set(['mediarecorder', 'wasm-opus']);
+    const allowedEncoders = new Set(['mediarecorder', 'wasm-opus', 'pcm-wav']);
     this.pipelineType = isPipelineSupported(pipelineParam) ? pipelineParam : 'direct';
     this.encoder = allowedEncoders.has(encoderParam) ? encoderParam : 'mediarecorder';
+
+    // PCM/WAV encoder sadece worklet pipeline ile calisir
+    if (usesPcmWav(this.encoder) && this.pipelineType !== 'worklet') {
+      eventBus.emit('log:warning', {
+        message: 'PCM/WAV encoder worklet pipeline gerektiriyor, pipeline degistiriliyor',
+        details: { requestedPipeline: this.pipelineType, newPipeline: 'worklet' }
+      });
+      this.pipelineType = 'worklet';
+    }
     this.timeslice = timeslice;
     this.mediaBitrate = mediaBitrate; // Hedef bitrate (MediaRecorder veya WASM Opus icin)
 
@@ -117,8 +126,9 @@ class Recorder {
           }
         });
 
-        // Destination node - pre-warm yapilmamissa olustur
-        if (!this.destinationNode) {
+        // Destination node - SADECE MediaRecorder modu için gerekli
+        // WASM Opus modunda destinationNode kullanılmıyor (PCM doğrudan worker'a gidiyor)
+        if (needsMediaRecorder && !this.destinationNode) {
           this.destinationNode = this.audioContext.createMediaStreamDestination();
           eventBus.emit('log:webaudio', {
             message: 'MediaStreamAudioDestinationNode olusturuldu',
@@ -132,17 +142,21 @@ class Recorder {
         // ═══════════════════════════════════════════════════════════════
         // PIPELINE KURULUMU (OCP: Strategy Pattern)
         // ═══════════════════════════════════════════════════════════════
+        // NOT: WASM Opus pipeline'ları (scriptprocessor, worklet) destinationNode kullanmaz
+        const destinationForPipeline = needsMediaRecorder ? this.destinationNode : null;
+
         this.pipelineStrategy = createPipeline(
           this.pipelineType,
           this.audioContext,
           this.sourceNode,
-          this.destinationNode
+          destinationForPipeline
         );
 
         await this.pipelineStrategy.setup({
           bufferSize,
-          encoder: this.encoder,
-          mediaBitrate
+          mediaBitrate,
+          channels: constraints.channelCount || 1,
+          encoder: this.encoder
         });
 
         // VU Meter icin pipeline'dan analyser'i gonder (encode oncesi islenmiş sinyal)
@@ -171,10 +185,21 @@ class Recorder {
       eventBus.emit('stream:started', this.stream);
 
       // ═══════════════════════════════════════════════════════════════
-      // ENCODER KURULUMU (MediaRecorder veya WASM Opus)
+      // ENCODER KURULUMU (MediaRecorder, WASM Opus veya PCM/WAV)
       // ═══════════════════════════════════════════════════════════════
       if (needsMediaRecorder) {
         await this._setupMediaRecorder(recordStream);
+      } else if (usesPcmWav(this.encoder)) {
+        // PCM/WAV encoder modu - MediaRecorder yok, raw PCM biriktirme
+        this.startTime = Date.now();
+        eventBus.emit('log:recorder', {
+          message: 'PCM/WAV encoder aktif (raw recording)',
+          details: {
+            pipeline: this.pipelineType,
+            encoder: this.encoder,
+            sampleRate: this.audioContext?.sampleRate || 'N/A'
+          }
+        });
       } else {
         // WASM Opus encoder modu - MediaRecorder yok
         this.startTime = Date.now();
@@ -191,19 +216,9 @@ class Recorder {
 
       this.isRecording = true;
 
-      // Pipeline + Encoder kombinasyonuna gore label (DRY: Config.js labels kullanilabilir)
-      const pipelineLabels = {
-        direct: 'Direct',
-        standard: 'Direct (WebAudio)',
-        scriptprocessor: 'ScriptProcessor (WebAudio)',
-        worklet: 'Worklet (WebAudio)'
-      };
-      const encoderLabels = {
-        mediarecorder: 'MediaRecorder',
-        'wasm-opus': 'WASM Opus'
-      };
-      const pipelineLabel = pipelineLabels[this.pipelineType] || this.pipelineType;
-      const encoderLabel = encoderLabels[this.encoder] || this.encoder;
+      // Pipeline + Encoder kombinasyonuna gore label (DRY: Config.js labels kullaniliyor)
+      const pipelineLabel = SETTINGS.pipeline.labels[this.pipelineType] || this.pipelineType;
+      const encoderLabel = SETTINGS.encoder.labels[this.encoder] || this.encoder;
       const modeText = `${pipelineLabel} + ${encoderLabel}`;
       const timesliceText = this.timeslice > 0 ? `, Timeslice: ${this.timeslice}ms` : '';
       eventBus.emit('log', `KAYIT basladi (${modeText}${timesliceText})`);
@@ -450,8 +465,49 @@ class Recorder {
   async stop() {
     if (!this.isRecording) return;
 
+    // PCM/WAV encoder modu
+    if (usesPcmWav(this.encoder) && this.pipelineStrategy?.getEncoderMode?.() === 'pcm-wav') {
+      try {
+        eventBus.emit('log', 'PCM/WAV encoding tamamlaniyor...');
+
+        // Strategy'den final WAV blob'u al
+        const result = this.pipelineStrategy.finishPcmWavEncoding();
+
+        const durationMs = Date.now() - this.startTime;
+        const durationSec = durationMs / 1000;
+        // WAV icin bitrate = sampleRate * channels * bitsPerSample
+        const sampleRate = this.audioContext?.sampleRate || 48000;
+        const theoreticalBitrate = sampleRate * 1 * 16; // mono, 16-bit
+
+        eventBus.emit('log', `Kayit tamamlandi: ${bytesToKB(result.blob.size).toFixed(1)} KB (${result.sampleCount} sample, ${durationSec.toFixed(1)}s)`);
+        eventBus.emit('recording:completed', {
+          blob: result.blob,
+          mimeType: 'audio/wav',
+          filename: `kayit_raw_${Date.now()}.wav`,
+          pipeline: this.pipelineType,
+          encoder: this.encoder,
+          useWebAudio: true,
+          durationMs,
+          requestedBitrate: theoreticalBitrate,
+          actualBitrate: theoreticalBitrate,
+          sampleCount: result.sampleCount,
+          encoderType: result.encoderType
+        });
+
+        // WebAudio temizlik (strategy cleanup dahil)
+        await this.cleanupWebAudio();
+
+      } catch (error) {
+        eventBus.emit('log:error', {
+          message: 'PCM/WAV encoding hatasi',
+          details: { error: error.message }
+        });
+
+        await this.cleanupWebAudio();
+      }
+    }
     // WASM Opus encoder modu icin Opus Worker'i bitir (OCP: Strategy'den al)
-    if (usesWasmOpus(this.encoder) && this.pipelineStrategy?.getOpusWorker?.()) {
+    else if (usesWasmOpus(this.encoder) && this.pipelineStrategy?.getOpusWorker?.()) {
       try {
         eventBus.emit('log', 'Opus encoding tamamlaniyor...');
 

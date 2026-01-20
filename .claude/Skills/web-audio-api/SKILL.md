@@ -42,6 +42,11 @@ rec.onstop = () => {
 | AudioWorkletNode | Modern passthrough | `new AudioWorkletNode(ac, 'processor-name')` |
 | MediaStreamDestination | Web Audio → MediaRecorder | `ac.createMediaStreamDestination()` |
 
+**MediaStreamDestination Kullanimi:**
+- **SADECE** MediaRecorder encoder modu icin gerekli
+- WASM Opus modunda kullanilmaz (PCM dogrudan worker'a gider)
+- Recorder.js: `needsMediaRecorder` kontrolu ile olusturulur
+
 ## VU Meter Pattern
 
 ```javascript
@@ -71,13 +76,23 @@ Recorder modulu pipeline kurulumu icin Strategy Pattern kullanir:
 import { createPipeline } from '../pipelines/PipelineFactory.js';
 
 const strategy = createPipeline('worklet', audioContext, sourceNode, destNode);
-await strategy.setup({ bufferSize, encoder, mediaBitrate });
+await strategy.setup({ bufferSize, encoder, mediaBitrate, channels });
 ```
 
+**Setup options:**
+- `bufferSize`: ScriptProcessor buffer (4096 default)
+- `mediaBitrate`: 0 = VBR (Variable Bit Rate), >0 = CBR (kbps)
+- `channels`: 1 = Mono (default), 2 = Stereo
+
 **Dosyalar:** `js/pipelines/` klasoru
-- `BasePipeline.js` - Abstract base class
+- `BasePipeline.js` - Abstract base class (Opus worker, MuteGain, Analyser ortak metodlari)
 - `PipelineFactory.js` - Factory Method
-- `DirectPipeline.js`, `StandardPipeline.js`, `ScriptProcessorPipeline.js`, `WorkletPipeline.js`
+- `DirectPipeline.js` - Web Audio bypass, dogrudan MediaRecorder
+- `StandardPipeline.js` - AudioContext → MediaRecorder
+- `ScriptProcessorPipeline.js` - **SADECE WASM Opus** (MediaRecorder passthrough kaldirildi)
+- `WorkletPipeline.js` - **WASM Opus veya PCM/WAV** (Raw Recording icin 16-bit WAV destegi)
+
+**NOT:** ScriptProcessor pipeline sadece WASM Opus kullanir. WorkletPipeline hem WASM Opus hem PCM/WAV destekler (encoder parametresi ile).
 
 ## WASM Opus Encoding (WhatsApp Web Pattern)
 
@@ -95,6 +110,49 @@ processor.onaudioprocess = (e) => {
 - Detay: `js/modules/OpusWorkerHelper.js`, `js/lib/opus/encoderWorker.min.js` (opus-recorder WASM)
 - MediaRecorder kullanilmiyor - dogrudan Opus encoding
 - Output: `.ogg` (audio/ogg; codecs=opus)
+
+### VBR/CBR Bitrate Destegi
+
+```javascript
+import { createOpusWorker } from './OpusWorkerHelper.js';
+
+// VBR modu (Variable Bit Rate) - bitrate: 0 veya undefined
+const vbrWorker = await createOpusWorker({ sampleRate: 48000, channels: 1, bitrate: 0 });
+
+// CBR modu (Constant Bit Rate) - bitrate > 0
+const cbrWorker = await createOpusWorker({ sampleRate: 48000, channels: 1, bitrate: 24000 });
+```
+
+| Parametre | Deger | Anlam |
+|-----------|-------|-------|
+| `bitrate: 0` | VBR | Opus varsayilani, degisken bitrate |
+| `bitrate: undefined` | VBR | Ayni sekilde VBR |
+| `bitrate: 16000+` | CBR | Sabit bitrate (bps) |
+
+**NOT:** Eski kod `bitrate: 0` icin 16000 default uyguluyordu, bu duzeltildi.
+
+## PCM/WAV Recording (Raw Recording)
+
+WorkletPipeline ile 16-bit uncompressed WAV dosyasi olusturma:
+
+```javascript
+// WorkletPipeline setup (encoder: 'pcm-wav')
+await strategy.setup({ encoder: 'pcm-wav', channels: 1 });
+
+// Kayit bittiginde
+const result = pipeline.finishPcmWavEncoding();
+// result = { blob, sampleCount, encoderType: 'pcm-wav' }
+```
+
+**Helper fonksiyonlar (utils.js):**
+- `usesPcmWav(encoder)` → Encoder PCM/WAV mi?
+- `float32ToInt16(float32Array)` → Float32 → Int16 donusumu
+- `createWavHeader(dataLength, sampleRate, channels, bitsPerSample)` → 44-byte WAV header
+- `createWavBlob(pcmChunks, sampleRate, channels)` → WAV blob olustur
+
+**Dosya boyutu:** ~5.6 MB/dakika (48kHz mono 16-bit)
+
+**Detay:** `js/pipelines/WorkletPipeline.js` → `_setupPcmWav()`, `finishPcmWavEncoding()`
 
 ## MediaSource API
 

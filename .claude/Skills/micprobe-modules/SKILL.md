@@ -176,6 +176,7 @@ const recorder = new Recorder({ constraints });
 await recorder.start(constraints, pipeline, encoder, timeslice, bufferSize, mediaBitrate);
 recorder.stop();
 ```
+**Not:** `constraints.channelCount` pipeline'a `channels` olarak aktarilir (WASM Opus icin)
 
 **Pipeline Strategy Pattern (OCP):**
 Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline eklemek icin:
@@ -185,8 +186,11 @@ Recorder, pipeline kurulumu icin Strategy Pattern kullanir. Yeni pipeline ekleme
 **Mevcut Pipeline'lar:**
 - `direct` → Web Audio yok, dogrudan MediaRecorder
 - `standard` → AudioContext → MediaRecorder
-- `scriptprocessor` → ScriptProcessorNode → MediaRecorder/WASM Opus
-- `worklet` → AudioWorkletNode → MediaRecorder
+- `scriptprocessor` → ScriptProcessorNode → **SADECE WASM Opus** (MediaRecorder passthrough kaldirildi)
+- `worklet` → AudioWorkletNode → **WASM Opus veya PCM/WAV** (Raw Recording icin 16-bit WAV destegi)
+
+**NOT:** ScriptProcessor ve Worklet pipeline'lari artik sadece WASM Opus encoder ile calisir.
+MediaRecorder passthrough desteği ölü kod olarak tespit edilip kaldırıldı.
 
 **Pipeline Cleanup Pattern (Race Condition Prevention):**
 Cleanup sırasında audio thread'den hala event'ler gelebilir:
@@ -203,16 +207,26 @@ Cleanup'ta context kapatılmaz - Recorder yönetir.
 **Encoder (Kayit Formati):**
 - `mediarecorder` → Tarayici MediaRecorder API
 - `wasm-opus` → WASM Opus encoder (WhatsApp Web pattern)
+- `pcm-wav` → Raw PCM 16-bit WAV (sifir compression, Raw Recording profili)
+
+**NOT:** PCM/WAV encoder sadece Worklet pipeline ile calisir. Raw Recording profili varsayilan olarak `worklet + pcm-wav` kombinasyonunu kullanir (locked).
 
 **Emits:** `recording:started`, `recording:completed`, `opus:progress`
 
 ### OpusWorkerHelper (WASM Opus icin)
 ```javascript
 import { isWasmOpusSupported, createOpusWorker } from './OpusWorkerHelper.js';
-const worker = await createOpusWorker({ sampleRate, channels, bitrate });
+// VBR modu: bitrate = 0 veya undefined
+const worker = await createOpusWorker({ sampleRate, channels, bitrate: 0 });
+// CBR modu: bitrate > 0 (ör: 16000, 24000, 32000)
+const worker = await createOpusWorker({ sampleRate, channels, bitrate: 24000 });
 worker.encode(pcmData); const result = await worker.finish();
 ```
 **Pattern:** `ScriptProcessorNode(4096, 1, 1) + WASM Opus` (WhatsApp Web)
+
+**VBR/CBR Destegi:**
+- `bitrate: 0` veya `undefined` → VBR (Variable Bit Rate) - Opus varsayilani
+- `bitrate: 16000+` → CBR (Constant Bit Rate) - Sabit bitrate
 
 ### Monitor (MonitoringController uzerinden)
 Modlar:
@@ -294,6 +308,7 @@ Test (call - 7sn loopback test):
 | `usesWebAudio(pipeline)` | WebAudio kullaniyor mu? |
 | `usesWasmOpus(encoder)` | WASM Opus kullaniyor mu? |
 | `usesMediaRecorder(encoder)` | MediaRecorder kullaniyor mu? |
+| `usesPcmWav(encoder)` | PCM/WAV kullaniyor mu? |
 | `supportsWasmOpusEncoder(pipeline)` | WASM Opus destekler mi? |
 
 ### SettingTypeHandlers (utils.js - OCP)
@@ -312,6 +327,12 @@ SettingTypeHandlers.register('newType', {
 |--------|------|
 | `cleanup()` | Node disconnect loop (DRY) |
 | `log(msg, details)` | Merkezi log:webaudio emit |
+| `createAnalyser()` | VU Meter icin AnalyserNode olustur |
+| `_initOpusWorker(mediaBitrate, channels)` | WASM Opus worker kurulumu (VBR/CBR) |
+| `_cleanupOpusWorker()` | Opus worker temizligi |
+| `_createMuteGain(sourceNode)` | WASM Opus icin mute GainNode |
+| `getOpusWorker()` | Opus worker referansi |
+| `finishOpusEncoding()` | Encoding bitir, blob dondur |
 
 ### constants.js (js/modules/constants.js)
 

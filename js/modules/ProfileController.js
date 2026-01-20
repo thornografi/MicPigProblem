@@ -6,7 +6,7 @@
 
 import eventBus from './EventBus.js';
 import { PROFILES, SETTINGS, PROFILE_TIPS } from './Config.js';
-import { toggleDisplay, needsBufferSetting, usesWasmOpus, supportsWasmOpusEncoder, shouldDisableTimeslice } from './utils.js';
+import { toggleDisplay, needsBufferSetting, usesWasmOpus, shouldDisableTimeslice } from './utils.js';
 
 /**
  * Dinamik kilit politikasi - DRY: Tek noktadan kilit kurallari
@@ -269,34 +269,8 @@ class ProfileController {
       this.callbacks.setSettingDisabled(key, isLocked);
     });
 
-    // Kural 5: Encoder kilitleme - pipeline tipine gore
-    // Worklet/ScriptProcessor -> WASM Opus (PCM erisimi var)
-    // Direct/Standard -> MediaRecorder (PCM erisimi yok)
-    const supportsWasm = supportsWasmOpusEncoder(pipeline);
-    this.callbacks.setOptionDisabled('encoder', 'wasm-opus', !supportsWasm);
-    this.callbacks.setOptionDisabled('encoder', 'mediarecorder', supportsWasm);
-
-    // Pipeline degistiginde encoder'i otomatik ayarla
-    const currentEncoder = this.callbacks.getRadioValue('encoder', 'mediarecorder');
-    if (supportsWasm && currentEncoder === 'mediarecorder') {
-      // Worklet/ScriptProcessor secildi -> WASM Opus'a gec
-      const wasmOpusRadio = document.querySelector('input[name="encoder"][value="wasm-opus"]');
-      if (wasmOpusRadio) {
-        wasmOpusRadio.checked = true;
-        eventBus.emit('log:ui', {
-          message: 'Encoder otomatik olarak WASM Opus\'a degistirildi (PCM erisimi mevcut)'
-        });
-      }
-    } else if (!supportsWasm && currentEncoder === 'wasm-opus') {
-      // Direct/Standard secildi -> MediaRecorder'a gec
-      const mediaRecorderRadio = document.querySelector('input[name="encoder"][value="mediarecorder"]');
-      if (mediaRecorderRadio) {
-        mediaRecorderRadio.checked = true;
-        eventBus.emit('log:ui', {
-          message: 'Encoder otomatik olarak MediaRecorder\'a degistirildi (PCM erisimi yok)'
-        });
-      }
-    }
+    // NOT: Encoder artik profil tarafindan belirleniyor ve her zaman locked
+    // Dinamik encoder degistirme kaldirildi - profil encoder'i kullaniliyor
 
     // Ozel Ayarlar panelini de guncelle
     this.updateCustomSettingsPanelDynamicState();
@@ -327,23 +301,8 @@ class ProfileController {
       }
     });
 
-    // Encoder select icin pipeline tipine gore kilitle
-    const encoderSelect = customSettingsGrid.querySelector('[data-setting="encoder"]');
-    if (encoderSelect && encoderSelect.tagName === 'SELECT') {
-      const supportsWasm = supportsWasmOpusEncoder(pipeline);
-      const wasmOpusOption = encoderSelect.querySelector('option[value="wasm-opus"]');
-      const mediaRecorderOption = encoderSelect.querySelector('option[value="mediarecorder"]');
-
-      if (wasmOpusOption) wasmOpusOption.disabled = !supportsWasm;
-      if (mediaRecorderOption) mediaRecorderOption.disabled = supportsWasm;
-
-      // Pipeline degistiginde encoder'i otomatik ayarla
-      if (supportsWasm && encoderSelect.value === 'mediarecorder') {
-        encoderSelect.value = 'wasm-opus';
-      } else if (!supportsWasm && encoderSelect.value === 'wasm-opus') {
-        encoderSelect.value = 'mediarecorder';
-      }
-    }
+    // NOT: Encoder artik profil tarafindan belirleniyor
+    // Custom Settings panelinde encoder her zaman disabled (profil degerini gosterir)
   }
 
   /**
@@ -433,7 +392,11 @@ class ProfileController {
       techParts.push('WebRTC Loopback');
       techParts.push(`Opus ${profile.values.bitrate / 1000}kbps`);
     } else if (usesWasmOpus(profile.values.encoder)) {
-      techParts.push(`WASM Opus ${(profile.values.mediaBitrate || 16000) / 1000}kbps`);
+      // VBR (mediaBitrate: 0) veya sabit bitrate
+      const bitrateText = profile.values.mediaBitrate === 0
+        ? 'VBR'
+        : `${profile.values.mediaBitrate / 1000}kbps`;
+      techParts.push(`WASM Opus ${bitrateText}`);
     } else if (profile.values.mediaBitrate && profile.values.mediaBitrate > 0) {
       techParts.push(`MediaRecorder ${profile.values.mediaBitrate / 1000}kbps`);
     } else {
@@ -447,6 +410,11 @@ class ProfileController {
       techParts.push('AudioWorklet');
     } else if (profile.values.pipeline === 'standard') {
       techParts.push('Standard');
+    }
+
+    // Channel bilgisi (Stereo ise goster)
+    if (profile.values.channelCount === 2) {
+      techParts.push('Stereo');
     }
 
     return techParts;
@@ -479,6 +447,33 @@ class ProfileController {
     ).join('');
 
     container.innerHTML = html;
+  }
+
+  /**
+   * Profil detection bilgisini getir
+   * @param {string} profileId - Profil ID'si (opsiyonel, default: current)
+   * @returns {Object|null} - { method, source, details } veya null
+   */
+  getDetectionInfo(profileId = null) {
+    const profile = profileId ? PROFILES[profileId] : this.getCurrentProfile();
+    return profile?.detection || null;
+  }
+
+  /**
+   * Detection bilgisini tooltip icin formatla
+   * @param {string} profileId - Profil ID'si (opsiyonel, default: current)
+   * @returns {string} - Tooltip metni
+   */
+  getDetectionTooltip(profileId = null) {
+    const detection = this.getDetectionInfo(profileId);
+    if (!detection) return 'Direct config';
+
+    const lines = [
+      `Method: ${detection.method}`,
+      `Source: ${detection.source}`,
+      detection.details
+    ];
+    return lines.join('\n');
   }
 }
 

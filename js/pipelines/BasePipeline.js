@@ -116,18 +116,21 @@ export default class BasePipeline {
   /**
    * WASM Opus worker'i olustur ve event handler'lari bagla
    * DRY: ScriptProcessor ve Worklet ayni kodu kullanir
-   * @param {number} mediaBitrate - Hedef bitrate (0 ise default 16000)
-   * @returns {Promise<void>}
+   * @param {number} mediaBitrate - Hedef bitrate (0 ise VBR/default 16000)
+   * @param {number} channels - Kanal sayisi (1=Mono, 2=Stereo, default: 1)
+   * @returns {Promise<number>} - Kullanilan bitrate
    */
-  async _initOpusWorker(mediaBitrate = 0) {
+  async _initOpusWorker(mediaBitrate = 0, channels = 1) {
     if (!isWasmOpusSupported()) {
       throw new Error('WASM Opus desteklenmiyor');
     }
 
-    const opusBitrate = mediaBitrate || 16000;
+    // VBR destegi: mediaBitrate === 0 ise VBR (opus-recorder varsayilani kullanir)
+    // mediaBitrate > 0 ise CBR (sabit bitrate)
+    const opusBitrate = mediaBitrate === 0 ? undefined : (mediaBitrate || 16000);
     this.opusWorker = await createOpusWorker({
       sampleRate: this.audioContext.sampleRate,
-      channels: 1,
+      channels: channels,
       bitrate: opusBitrate
     });
 

@@ -338,3 +338,107 @@ export function cleanupActivatorAudio(audio) {
     audio.srcObject = null;
   } catch { /* ignore */ }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// PCM/WAV Helper Functions (Raw Recording)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Encoder'in PCM/WAV kullanip kullanmadigini dondurur
+ * @param {string} encoder - Encoder tipi
+ * @returns {boolean}
+ */
+export function usesPcmWav(encoder) {
+  return encoder === 'pcm-wav';
+}
+
+/**
+ * Float32 PCM data'yi Int16'ya donustur
+ * -1.0...1.0 araligini -32768...32767 araligina map eder
+ * @param {Float32Array} float32Array - Kaynak PCM data
+ * @returns {Int16Array} - 16-bit PCM data
+ */
+export function float32ToInt16(float32Array) {
+  const int16Array = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    // Clamp to -1.0...1.0 range
+    const sample = Math.max(-1, Math.min(1, float32Array[i]));
+    // Convert to 16-bit integer
+    int16Array[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+  }
+  return int16Array;
+}
+
+/**
+ * WAV dosya header'i olustur (44 byte)
+ * @param {number} dataLength - PCM data uzunlugu (byte cinsinden)
+ * @param {number} sampleRate - Ornekleme hizi (Hz)
+ * @param {number} channels - Kanal sayisi (1=mono, 2=stereo)
+ * @param {number} bitsPerSample - Bit derinligi (16)
+ * @returns {ArrayBuffer} - 44 byte WAV header
+ */
+export function createWavHeader(dataLength, sampleRate, channels = 1, bitsPerSample = 16) {
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+  const buffer = new ArrayBuffer(44);
+  const view = new DataView(buffer);
+
+  // RIFF chunk descriptor
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true); // File size - 8
+  writeString(view, 8, 'WAVE');
+
+  // fmt sub-chunk
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true);  // AudioFormat (1 = PCM)
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+
+  // data sub-chunk
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  return buffer;
+}
+
+/**
+ * DataView'a string yaz (WAV header icin)
+ * @private
+ */
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+
+/**
+ * Float32 PCM data'dan WAV blob olustur
+ * @param {Float32Array[]} pcmChunks - PCM data chunk'lari
+ * @param {number} sampleRate - Ornekleme hizi
+ * @param {number} channels - Kanal sayisi
+ * @returns {Blob} - WAV formatinda blob
+ */
+export function createWavBlob(pcmChunks, sampleRate, channels = 1) {
+  // Tum chunk'lari birlestir
+  const totalLength = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const mergedFloat32 = new Float32Array(totalLength);
+  let offset = 0;
+  for (const chunk of pcmChunks) {
+    mergedFloat32.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Float32 -> Int16 donusumu
+  const int16Data = float32ToInt16(mergedFloat32);
+
+  // WAV header olustur
+  const dataLength = int16Data.length * 2; // 2 bytes per sample (16-bit)
+  const header = createWavHeader(dataLength, sampleRate, channels, 16);
+
+  // Header + Data birlestir
+  return new Blob([header, int16Data.buffer], { type: 'audio/wav' });
+}

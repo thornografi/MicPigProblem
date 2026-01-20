@@ -47,24 +47,39 @@ export async function createOpusWorker(options = {}) {
   const {
     sampleRate = 48000,
     channels = 1,
-    bitRate = 16000,
     encoderApplication = 2048 // Voice
   } = options;
 
-  // Geriye uyumluluk: bitrate -> bitRate
-  const actualBitRate = options.bitrate || bitRate;
+  // VBR destegi:
+  // - options.bitrate === undefined veya null → VBR (encoderBitRate gonderme)
+  // - options.bitrate === 0 → VBR (encoderBitRate gonderme)
+  // - options.bitrate > 0 → CBR (sabit bitrate)
+  // NOT: Eski default 16000 kaldırıldı - VBR varsayılan olmalı
+  const actualBitRate = (options.bitrate === undefined || options.bitrate === null || options.bitrate === 0)
+    ? null  // VBR - encoderBitRate gönderilmeyecek
+    : options.bitrate;
 
-  const wrapper = new OpusRecorderWrapper();
-  await wrapper.init({
+  const initConfig = {
     originalSampleRate: sampleRate,
     numberOfChannels: channels,
-    encoderBitRate: actualBitRate,
     encoderSampleRate: 48000, // Opus her zaman 48kHz kullanir
     encoderApplication,
     encoderFrameSize: 20, // 20ms frames (standart)
     encoderComplexity: 5, // 0-10, varsayilan 5
-    streamPages: true // Page-by-page output
-  });
+    streamPages: true, // Page-by-page output
+    // AudioInspector detection icin encoder path bilgisi
+    encoderPath: OPUS_ENCODER_WORKER_URL
+  };
+
+  // VBR: encoderBitRate gonderilmezse opus-recorder VBR kullanir
+  // actualBitRate === null → VBR modu
+  // actualBitRate > 0 → CBR modu (sabit bitrate)
+  if (actualBitRate !== null && actualBitRate > 0) {
+    initConfig.encoderBitRate = actualBitRate;
+  }
+
+  const wrapper = new OpusRecorderWrapper();
+  await wrapper.init(initConfig);
 
   return wrapper;
 }
@@ -509,7 +524,6 @@ export class OpusRecorderWrapper {
           const fixedPages = this._fixOggStream(this.pages);
 
           const blob = new Blob(fixedPages, { type: 'audio/ogg; codecs=opus' });
-          const sampleRate = this.config?.encoderSampleRate || 48000;
           const duration = this.totalSamples / (this.config?.originalSampleRate || 48000);
 
           if (this._finishResolver) {

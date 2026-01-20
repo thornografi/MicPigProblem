@@ -142,6 +142,13 @@ class ProfileUIManager {
 
     // DRY: ProfileController'daki buildTechParts kullan
     scenarioTech.textContent = profileController.getTechString(profileId);
+
+    // Detection tooltip ekle
+    const detectionTooltip = profileController.getDetectionTooltip(profileId);
+    if (detectionTooltip) {
+      scenarioTech.title = detectionTooltip;
+      scenarioTech.style.cursor = 'help';
+    }
   }
 
   /**
@@ -186,6 +193,7 @@ class ProfileUIManager {
 
   /**
    * Page subtitle guncelle - DRY: ProfileController.getTechString() kullanir
+   * Detection bilgisi tooltip olarak eklenir
    * @param {string} profileId - Profil ID'si
    */
   updatePageSubtitle(profileId) {
@@ -193,6 +201,13 @@ class ProfileUIManager {
     if (!pageSubtitle) return;
 
     pageSubtitle.textContent = profileController.getTechString(profileId);
+
+    // Detection tooltip ekle
+    const detectionTooltip = profileController.getDetectionTooltip(profileId);
+    if (detectionTooltip) {
+      pageSubtitle.title = detectionTooltip;
+      pageSubtitle.style.cursor = 'help';
+    }
   }
 
   /**

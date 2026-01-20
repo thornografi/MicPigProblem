@@ -323,6 +323,16 @@ function getPipeline() {
   return getRadioValue('pipeline', 'standard');
 }
 
+function getEncoder() {
+  // Custom Settings panelindeki select'ten oku (pcm-wav dahil tum secenekler orada)
+  const encoderSelect = document.querySelector('[data-setting="encoder"]');
+  if (encoderSelect) {
+    return encoderSelect.value;
+  }
+  // Fallback: drawer radio'dan oku
+  return getRadioValue('encoder', 'mediarecorder');
+}
+
 // DRY: Drawer radio -> Custom Panel combo senkronizasyonu
 function syncToCustomPanel(settingKey, value) {
   const select = document.querySelector(`#customSettingsGrid [data-setting="${settingKey}"]`);
@@ -794,6 +804,7 @@ loopbackManager.workletSupported = WORKLET_SUPPORTED;
 const controllerDeps = {
   getConstraints,
   getPipeline,
+  getEncoder,
   isLoopbackEnabled,
   isWebAudioEnabled,
   getOpusBitrate,
