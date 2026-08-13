@@ -5,7 +5,7 @@
  */
 import eventBus from './EventBus.js';
 import { requestStream } from './StreamHelper.js';
-import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, usesWebAudio, usesWasmOpus, usesMediaRecorder, usesPcmWav, getStreamErrorMessage, formatTimestampYYMMDDHHMMSS, calculateActualBitrate, disconnectNodes, log, bytesToKB, emitStreamWithAnalyser } from './utils.js';
+import { createAudioContext, getAudioContextOptions, stopStreamTracks, createMediaRecorder, getExtensionForMimeType, usesWebAudio, usesWasmOpus, usesMediaRecorder, usesPcmWav, getStreamErrorMessage, formatTimestampYYMMDDHHMMSS, calculateActualBitrate, disconnectNodes, log, bytesToKB, emitStreamWithAnalyser } from './utils.js';
 import { BUFFER, ENCODER_TYPES, PIPELINE_TYPES, EVENTS } from './constants.js';
 import { createPipeline, isPipelineSupported } from '../pipelines/PipelineFactory.js';
 import { SETTINGS } from './Config.js';
@@ -309,7 +309,7 @@ class Recorder {
         const mimeType = this.mediaRecorder?.mimeType || 'audio/webm';
         const blob = new Blob(this.chunks, { type: mimeType });
         const suffix = this.pipelineType === PIPELINE_TYPES.DIRECT ? '' : `_${this.pipelineType}`;
-        const filename = `kayit${suffix}_${formatTimestampYYMMDDHHMMSS()}.webm`;
+        const filename = `kayit${suffix}_${formatTimestampYYMMDDHHMMSS()}.${getExtensionForMimeType(mimeType)}`;
 
         // Gercek bitrate hesapla (DRY: helper kullan)
         const durationMs = Date.now() - this.startTime;

@@ -9,7 +9,7 @@
  * dropout count, signal stability, LUFS ve frekans response
  */
 import eventBus from './EventBus.js';
-import { EVENTS, QUALITY, AUDIO } from './constants.js';
+import { EVENTS, QUALITY, AUDIO, VU_METER } from './constants.js';
 import { log } from './utils.js';
 import { LUFSCalculator } from './utils/lufs.js';
 
@@ -398,13 +398,14 @@ class AudioMetricsCollector {
     const dbVariance = n > 1 ? this._dbM2 / (n - 1) : 0;
     const dbStdDev = Math.sqrt(Math.max(0, dbVariance));
 
-    // Frekans dagitimi ortalamasi
+    // Frekans dagitimi ortalamasi — lineer domain ortalamasi dB'ye geri cevrilir
     const freqProfile = this._freqSnapshotCount > 0
       ? {
-          subBass: +(this._freqBandSums.subBass / this._freqSnapshotCount).toFixed(1),
-          lowMid: +(this._freqBandSums.lowMid / this._freqSnapshotCount).toFixed(1),
-          highMid: +(this._freqBandSums.highMid / this._freqSnapshotCount).toFixed(1),
-          presence: +(this._freqBandSums.presence / this._freqSnapshotCount).toFixed(1),
+          subBass: this._bandAvgToDb(this._freqBandSums.subBass),
+          lowMid: this._bandAvgToDb(this._freqBandSums.lowMid),
+          highMid: this._bandAvgToDb(this._freqBandSums.highMid),
+          presence: this._bandAvgToDb(this._freqBandSums.presence),
+          unit: 'dBFS(A)',
           snapshotCount: this._freqSnapshotCount
         }
       : null;
@@ -459,6 +460,18 @@ class AudioMetricsCollector {
         rate: +(this._weakSignalFrames / n).toFixed(4)
       }
     };
+  }
+
+  /**
+   * Band toplamini ortalama alip dB'ye cevir (A-agirlikli dBFS)
+   * Sessizlikte lineer ortalama 0'a duser; VU ile tutarli olmasi icin MIN_DB'ye clamp'lenir.
+   * @param {number} sum - Snapshot'lar boyunca biriken lineer magnitude toplami
+   * @returns {number} dB degeri (0.1 dB hassasiyet)
+   */
+  _bandAvgToDb(sum) {
+    const avg = sum / this._freqSnapshotCount;
+    if (avg <= 0) return VU_METER.MIN_DB;
+    return +Math.max(20 * Math.log10(avg), VU_METER.MIN_DB).toFixed(1);
   }
 
   _calculateNoiseFloor() {

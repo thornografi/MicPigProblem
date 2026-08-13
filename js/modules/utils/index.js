@@ -22,6 +22,7 @@ export {
   createAudioContext,
   getAudioContextOptions,
   createMediaRecorder,
+  getExtensionForMimeType,
   disconnectNodes,
   createAndPlayActivatorAudio,
   cleanupActivatorAudio,

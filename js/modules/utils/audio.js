@@ -60,6 +60,24 @@ export function createMediaRecorder(stream, options = {}) {
 }
 
 /**
+ * MimeType'tan indirme dosyasi uzantisi turet
+ * Safari <18.4 WebM/Ogg desteklemez ve MediaRecorder audio/mp4'e duser;
+ * uzanti gercek container ile eslesmezse dosya oynatici/OS tarafindan acilamayabilir.
+ * @param {string} mimeType - MediaRecorder.mimeType (bos olabilir)
+ * @param {string} fallback - Taninmayan tip icin varsayilan uzanti
+ * @returns {string} Dosya uzantisi (nokta olmadan)
+ */
+export function getExtensionForMimeType(mimeType, fallback = 'webm') {
+  const type = (mimeType || '').toLowerCase();
+  if (type.includes('webm')) return 'webm';
+  if (type.includes('ogg')) return 'ogg';
+  if (type.includes('mp4') || type.includes('aac')) return 'm4a';
+  if (type.includes('mpeg')) return 'mp3';
+  if (type.includes('wav')) return 'wav';
+  return fallback;
+}
+
+/**
  * AudioNode array'ini guvenli sekilde disconnect et
  * @param {Array} nodes - Disconnect edilecek node'lar (node veya {node, name} formatinda)
  * @param {boolean} logEach - Her disconnect icin log emit et (default: false)

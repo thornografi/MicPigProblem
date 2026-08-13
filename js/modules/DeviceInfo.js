@@ -137,11 +137,22 @@ class DeviceInfo {
     const defaultEntry = allMics.find(m => m.deviceId === 'default');
     let defaultRealDeviceId = null;
 
-    if (defaultEntry && defaultEntry.label) {
-      const defaultLabel = defaultEntry.label.replace(/^(Varsay[ıi]lan|Default)\s*-\s*/i, '').trim();
-      const matchingReal = realMics.find(m => m.label === defaultLabel);
-      if (matchingReal) {
-        defaultRealDeviceId = matchingReal.deviceId;
+    if (defaultEntry) {
+      // Locale-bagimsiz eslesme: ayni fiziksel cihazin girdileri ayni groupId'yi paylasir
+      if (defaultEntry.groupId) {
+        const matchingByGroup = realMics.find(m => m.groupId === defaultEntry.groupId);
+        if (matchingByGroup) {
+          defaultRealDeviceId = matchingByGroup.deviceId;
+        }
+      }
+
+      // Fallback: etiketten on eki soy (Chromium on eki tarayici UI diline gore degisir)
+      if (!defaultRealDeviceId && defaultEntry.label) {
+        const defaultLabel = defaultEntry.label.replace(/^(Varsay[ıi]lan|Default)\s*-\s*/i, '').trim();
+        const matchingReal = realMics.find(m => m.label === defaultLabel);
+        if (matchingReal) {
+          defaultRealDeviceId = matchingReal.deviceId;
+        }
       }
     }
 
