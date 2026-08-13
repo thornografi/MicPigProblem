@@ -2,6 +2,7 @@ const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { evaluatePremiumReport } = require('./server/premium-report-evaluator');
 
 const DEFAULT_PORT = 8080;
@@ -191,6 +192,145 @@ function safeJoin(baseDir, requestPathname) {
   }
 
   return resolvedJoined;
+}
+
+// ============================================
+// Statik dosya servisi: cache doğrulama + sıkıştırma
+// ============================================
+
+const COMPRESSION_MIN_BYTES = 1024;
+
+// 0 (default) => no-cache: her istek ETag ile doğrulanır, değişmemişse gövdesiz 304 döner.
+// >0 => max-age=N: dosya sürümleme olmadığı için kısa tutulmalı (dev'de taze içerik garantisi bozulur).
+const STATIC_MAX_AGE_SECONDS = (() => {
+  const fromEnv = Number.parseInt(process.env.MICPROBE_STATIC_MAX_AGE || '', 10);
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 0;
+})();
+
+function cacheControlForStatic(contentType) {
+  // HTML (SPA giriş noktası) daima revalidate edilir
+  if (STATIC_MAX_AGE_SECONDS === 0 || contentType.startsWith('text/html')) return 'no-cache';
+  return `public, max-age=${STATIC_MAX_AGE_SECONDS}, must-revalidate`;
+}
+
+function isCompressibleType(contentType) {
+  return contentType.startsWith('text/')
+    || contentType.startsWith('application/json')
+    || contentType.startsWith('image/svg+xml');
+}
+
+function pickContentEncoding(req) {
+  const acceptEncoding = String(req.headers['accept-encoding'] || '');
+  if (/\bbr\b/.test(acceptEncoding)) return 'br';
+  if (/\bgzip\b/.test(acceptEncoding)) return 'gzip';
+  return null;
+}
+
+function compressContent(content, encoding, callback) {
+  if (encoding === 'br') {
+    // Brotli default quality (11) istek başına çok yavaş; 5, hız/oran dengesi için yeterli
+    zlib.brotliCompress(content, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 5,
+        [zlib.constants.BROTLI_PARAM_SIZE_HINT]: content.length
+      }
+    }, callback);
+    return;
+  }
+  zlib.gzip(content, callback);
+}
+
+function isRequestFresh(req, etag, lastModified) {
+  const ifNoneMatch = req.headers['if-none-match'];
+  if (ifNoneMatch) {
+    return ifNoneMatch.split(',').some((value) => value.trim() === etag);
+  }
+  const ifModifiedSince = Date.parse(req.headers['if-modified-since'] || '');
+  return Number.isFinite(ifModifiedSince) && Date.parse(lastModified) <= ifModifiedSince;
+}
+
+function serveStaticFile(req, res, filePath, contentType, allowSpaFallback) {
+  fs.stat(filePath, (statErr, stats) => {
+    if (statErr && statErr.code !== 'ENOENT') {
+      res.writeHead(500, buildHeaders('text/plain; charset=utf-8'));
+      res.end(`500 Internal Server Error\n${statErr.code || 'Unknown error'}`);
+      return;
+    }
+
+    if (statErr || !stats.isFile()) {
+      // SPA fallback: extension yoksa index.html döndür
+      if (allowSpaFallback) {
+        serveStaticFile(req, res, path.join(__dirname, 'index.html'), mimeTypes['.html'], false);
+        return;
+      }
+      res.writeHead(404, buildHeaders('text/plain; charset=utf-8'));
+      res.end('404 Not Found');
+      return;
+    }
+
+    const etag = `W/"${stats.size.toString(16)}-${Math.round(stats.mtimeMs).toString(16)}"`;
+    const lastModified = stats.mtime.toUTCString();
+    const cacheControl = cacheControlForStatic(contentType);
+    const compressible = isCompressibleType(contentType);
+
+    if (isRequestFresh(req, etag, lastModified)) {
+      res.writeHead(304, {
+        ...SECURITY_HEADERS,
+        'Cache-Control': cacheControl,
+        'ETag': etag,
+        'Last-Modified': lastModified,
+        ...(compressible ? { 'Vary': 'Accept-Encoding' } : {})
+      });
+      res.end();
+      return;
+    }
+
+    const headers = buildHeaders(contentType);
+    headers['Cache-Control'] = cacheControl;
+    headers['ETag'] = etag;
+    headers['Last-Modified'] = lastModified;
+    if (compressible) headers['Vary'] = 'Accept-Encoding';
+
+    if (req.method === 'HEAD') {
+      headers['Content-Length'] = stats.size;
+      res.writeHead(200, headers);
+      res.end();
+      return;
+    }
+
+    fs.readFile(filePath, (readErr, content) => {
+      if (readErr) {
+        res.writeHead(500, buildHeaders('text/plain; charset=utf-8'));
+        res.end(`500 Internal Server Error\n${readErr.code || 'Unknown error'}`);
+        return;
+      }
+
+      const encoding = compressible && content.length >= COMPRESSION_MIN_BYTES
+        ? pickContentEncoding(req)
+        : null;
+
+      if (!encoding) {
+        headers['Content-Length'] = content.length;
+        res.writeHead(200, headers);
+        res.end(content);
+        return;
+      }
+
+      compressContent(content, encoding, (zlibErr, compressed) => {
+        // Sıkıştırma hata verir ya da kazanç sağlamazsa düz içerik gönderilir
+        if (zlibErr || compressed.length >= content.length) {
+          headers['Content-Length'] = content.length;
+          res.writeHead(200, headers);
+          res.end(content);
+          return;
+        }
+        headers['Content-Encoding'] = encoding;
+        headers['Content-Length'] = compressed.length;
+        res.writeHead(200, headers);
+        res.end(compressed);
+      });
+    });
+  });
 }
 
 function writeJson(res, statusCode, payload) {
@@ -470,43 +610,7 @@ const server = http.createServer((req, res) => {
   const extname = String(path.extname(filePath)).toLowerCase();
   const contentType = mimeTypes[extname] || 'application/octet-stream';
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // SPA fallback: extension yoksa index.html döndür
-        if (!extname) {
-          const indexPath = path.join(__dirname, 'index.html');
-          fs.readFile(indexPath, (indexErr, indexContent) => {
-            if (indexErr) {
-              res.writeHead(404, buildHeaders('text/plain; charset=utf-8'));
-              res.end('404 Not Found');
-              return;
-            }
-            res.writeHead(200, buildHeaders('text/html; charset=utf-8'));
-            if (req.method === 'HEAD') {
-              res.end();
-              return;
-            }
-            res.end(indexContent);
-          });
-          return;
-        }
-        res.writeHead(404, buildHeaders('text/plain; charset=utf-8'));
-        res.end('404 Not Found');
-        return;
-      }
-      res.writeHead(500, buildHeaders('text/plain; charset=utf-8'));
-      res.end(`500 Internal Server Error\n${err.code || 'Unknown error'}`);
-      return;
-    }
-
-    res.writeHead(200, buildHeaders(contentType));
-    if (req.method === 'HEAD') {
-      res.end();
-      return;
-    }
-    res.end(content);
-  });
+  serveStaticFile(req, res, filePath, contentType, !extname);
 });
 
 function listenWithFallback(startPort, maxAttempts = 20) {
